@@ -9,6 +9,7 @@ from app.config import Settings, get_settings
 from app.models.entities import (
     Audit,
     AuditFinding,
+    Company,
     OpportunityScore,
     Screenshot,
     Website,
@@ -31,13 +32,21 @@ class AuditServiceError(Exception):
         self.status_code = status_code
 
 
-def create_audit(session: Session, raw_url: str) -> Audit:
+def create_audit(session: Session, raw_url: str, company_id: UUID | None = None) -> Audit:
     try:
         normalized = normalize_url(raw_url)
     except UrlValidationError as exc:
         raise AuditServiceError(str(exc), status_code=422) from exc
 
+    company = None
+    if company_id is not None:
+        company = session.get(Company, company_id)
+        if company is None:
+            raise AuditServiceError("Azienda non trovata.", status_code=404)
+
     website = _get_or_create_website(session, normalized)
+    if company is not None and website.company_id is None:
+        website.company_id = company.id
     audit = Audit(
         website_id=website.id,
         status="queued",

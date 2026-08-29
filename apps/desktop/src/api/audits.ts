@@ -106,13 +106,13 @@ async function parseAudit(response: Response): Promise<Audit> {
   return payload as Audit;
 }
 
-export async function createAudit(url: string): Promise<Audit> {
+export async function createAudit(url: string, companyId?: string): Promise<Audit> {
   let response: Response;
   try {
     response = await fetch(`${getApiBaseUrl()}/audits`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url }),
+      body: JSON.stringify({ url, company_id: companyId ?? null }),
     });
   } catch {
     throw new ApiError("Impossibile raggiungere il backend.");

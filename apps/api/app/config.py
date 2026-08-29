@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     openai_base_url: str = "https://api.openai.com/v1"
     openai_model: str = "gpt-4o-mini"
     openai_timeout_seconds: float = 30.0
+    nominatim_url: str = "https://nominatim.openstreetmap.org"
+    overpass_url: str = "https://overpass-api.de/api/interpreter"
+    discovery_timeout_seconds: float = 60.0
 
     @property
     def cors_origin_list(self) -> list[str]:

@@ -15,6 +15,7 @@
 - client React/Vite/Tauri 2 collegato allo stato del backend;
 - Single Website Analyzer: audit HTTP/HTML/SEO, screenshot Playwright e finding tecnici.
 - Opportunity Scoring: Website Score, Business Score preliminare, Opportunity Score spiegabile e AI opzionale.
+- Company Discovery: ricerca per settore/località via OpenStreetMap, deduplica e anagrafica azienda.
 
 ### Changed
 - PageSpeed Insights è opzionale via `PAGESPEED_API_KEY`; Lighthouse nativo è rimandato (M1-014).

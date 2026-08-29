@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 
 class CreateAuditRequest(BaseModel):
     url: str = Field(min_length=1, max_length=2048)
+    company_id: UUID | None = None
 
 
 class FindingResponse(BaseModel):

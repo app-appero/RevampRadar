@@ -28,7 +28,7 @@ def post_audit(
     db: Session = Depends(get_db),
 ) -> AuditResponse:
     try:
-        audit = create_audit(db, payload.url)
+        audit = create_audit(db, payload.url, payload.company_id)
     except AuditServiceError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     background_tasks.add_task(execute_audit, audit.id)

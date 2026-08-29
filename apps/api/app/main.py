@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.audits import router as audits_router
+from app.api.discovery import router as discovery_router
 from app.api.health import router as health_router
 from app.config import get_settings
 from app.errors import register_error_handlers
@@ -28,6 +29,7 @@ def create_app() -> FastAPI:
     register_error_handlers(app)
     app.include_router(health_router)
     app.include_router(audits_router)
+    app.include_router(discovery_router)
     return app
 
 

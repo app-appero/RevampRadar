@@ -59,19 +59,19 @@
 
 ## M3 — Discovery
 
-- M3-001 Company model
-- M3-002 DiscoveryRun model
-- M3-003 Company CRUD
-- M3-004 DiscoveryRun CRUD
-- M3-005 DiscoveryProvider interface
-- M3-006 First provider
-- M3-007 Normalize company data
-- M3-008 Deduplication
-- M3-009 Discovery service
-- M3-010 Discovery job state
-- M3-011 Search screen
-- M3-012 Results list
-- M3-013 Company detail
+- [x] M3-001 Company model
+- [x] M3-002 DiscoveryRun model
+- [x] M3-003 Company CRUD
+- [x] M3-004 DiscoveryRun CRUD
+- [x] M3-005 DiscoveryProvider interface
+- [x] M3-006 First provider
+- [x] M3-007 Normalize company data
+- [x] M3-008 Deduplication
+- [x] M3-009 Discovery service
+- [x] M3-010 Discovery job state
+- [x] M3-011 Search screen
+- [x] M3-012 Results list
+- [x] M3-013 Company detail
 
 ## M4 — Bulk Scanner
 

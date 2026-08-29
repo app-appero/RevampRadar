@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text, func
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import JSON, Uuid
@@ -11,11 +11,41 @@ from app.models.base import Base
 JsonType = JSONB().with_variant(JSON, "sqlite")
 
 
+class Company(Base):
+    __tablename__ = "companies"
+    __table_args__ = (UniqueConstraint("source", "external_id", name="uq_companies_source_external_id"),)
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    category: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    city: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    region: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    country: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    website_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    phone: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    source: Mapped[str] = mapped_column(String(64), nullable=False)
+    external_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    status: Mapped[str] = mapped_column(String(32), default="discovered", nullable=False)
+    extra: Mapped[dict | None] = mapped_column(JsonType, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    websites: Mapped[list["Website"]] = relationship(back_populates="company")
+    discovery_results: Mapped[list["DiscoveryResult"]] = relationship(back_populates="company")
+
+
 class Website(Base):
     __tablename__ = "websites"
 
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    company_id: Mapped[UUID | None] = mapped_column(Uuid, nullable=True)
+    company_id: Mapped[UUID | None] = mapped_column(
+        Uuid, ForeignKey("companies.id"), nullable=True, index=True
+    )
     url: Mapped[str] = mapped_column(String(2048), nullable=False)
     normalized_url: Mapped[str] = mapped_column(String(2048), unique=True, index=True, nullable=False)
     domain: Mapped[str] = mapped_column(String(255), index=True, nullable=False)
@@ -27,6 +57,7 @@ class Website(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
 
+    company: Mapped[Company | None] = relationship(back_populates="websites")
     audits: Mapped[list["Audit"]] = relationship(back_populates="website")
 
 
@@ -149,3 +180,41 @@ class OpportunityScore(Base):
     )
 
     audit: Mapped[Audit] = relationship(back_populates="opportunity_score")
+
+
+class DiscoveryRun(Base):
+    __tablename__ = "discovery_runs"
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    industry: Mapped[str] = mapped_column(String(128), nullable=False)
+    location: Mapped[str] = mapped_column(String(255), nullable=False)
+    max_results: Mapped[int] = mapped_column(Integer, nullable=False)
+    provider: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="queued", nullable=False, index=True)
+    total_found: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    results: Mapped[list["DiscoveryResult"]] = relationship(
+        back_populates="discovery_run", cascade="all, delete-orphan"
+    )
+
+
+class DiscoveryResult(Base):
+    __tablename__ = "discovery_results"
+    __table_args__ = (
+        UniqueConstraint("discovery_run_id", "company_id", name="uq_discovery_results_run_company"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    discovery_run_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("discovery_runs.id"), nullable=False, index=True
+    )
+    company_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("companies.id"), nullable=False, index=True)
+
+    discovery_run: Mapped[DiscoveryRun] = relationship(back_populates="results")
+    company: Mapped[Company] = relationship(back_populates="discovery_results")
