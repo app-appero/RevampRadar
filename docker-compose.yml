@@ -1,0 +1,34 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: revampradar
+      POSTGRES_PASSWORD: revampradar
+      POSTGRES_DB: revampradar
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U revampradar -d revampradar"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ./apps/api
+    command: ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+    ports:
+      - "8000:8000"
+    environment:
+      APP_ENV: development
+      LOG_LEVEL: INFO
+      DATABASE_URL: postgresql+psycopg://revampradar:revampradar@db:5432/revampradar
+      CORS_ORIGINS: http://localhost:1420,http://localhost:5173,http://127.0.0.1:1420,tauri://localhost,http://tauri.localhost
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

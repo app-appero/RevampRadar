@@ -31,6 +31,8 @@ Backend e database devono poter girare in Docker durante lo sviluppo.
 
 Tauri può essere eseguito nativamente.
 
+Postgres in Compose è esposto su `localhost:5433` per evitare conflitti con un PostgreSQL locale sulla 5432.
+
 ## ADR-006 — Single Analyzer prima della Discovery
 
 Prima validare la qualità del motore di analisi.

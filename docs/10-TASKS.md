@@ -2,24 +2,24 @@
 
 ## M0 — Foundation
 
-- M0-001 Initialize Git repository
-- M0-002 Create monorepo structure
-- M0-003 Initialize React + TypeScript + Vite
-- M0-004 Integrate Tauri 2
-- M0-005 Create FastAPI application
-- M0-006 Configure PostgreSQL
-- M0-007 Configure SQLAlchemy
-- M0-008 Configure Alembic
-- M0-009 Create Docker Compose
-- M0-010 Add backend health endpoint
-- M0-011 Connect desktop to API
-- M0-012 Central configuration
-- M0-013 Logging
-- M0-014 Error handling
-- M0-015 Testing setup
-- M0-016 Lint and format setup
-- M0-017 Documentation structure
-- M0-018 Finalize AGENTS.md
+- [x] M0-001 Initialize Git repository
+- [x] M0-002 Create monorepo structure
+- [x] M0-003 Initialize React + TypeScript + Vite
+- [x] M0-004 Integrate Tauri 2
+- [x] M0-005 Create FastAPI application
+- [x] M0-006 Configure PostgreSQL
+- [x] M0-007 Configure SQLAlchemy
+- [x] M0-008 Configure Alembic
+- [x] M0-009 Create Docker Compose
+- [x] M0-010 Add backend health endpoint
+- [x] M0-011 Connect desktop to API
+- [x] M0-012 Central configuration
+- [x] M0-013 Logging
+- [x] M0-014 Error handling
+- [x] M0-015 Testing setup
+- [x] M0-016 Lint and format setup
+- [x] M0-017 Documentation structure
+- [x] M0-018 Finalize AGENTS.md
 
 ## M1 — Single Website Analyzer
 

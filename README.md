@@ -15,6 +15,76 @@ Il prodotto deve permettere di:
 7. gestire i lead in una pipeline CRM;
 8. generare successivamente proposte commerciali personalizzate.
 
+## Struttura del repository
+
+```text
+apps/
+  api/         FastAPI, SQLAlchemy, Alembic
+  desktop/     Tauri 2 + React + TypeScript
+docs/          Fonte di verità prodotto e architettura
+prompts/       Prompt operativi per gli agenti
+```
+
+## Avvio locale
+
+Prerequisiti: Docker, Python 3.12+, Node.js 22+, Rust (solo per la shell Tauri).
+
+1. Copiare `.env.example` in `.env`.
+2. Avviare database e API:
+
+```bash
+docker compose up --build
+```
+
+Postgres è esposto su `localhost:5433` per non collidere con un'installazione locale sulla 5432.
+
+3. Verificare il backend:
+
+```bash
+curl http://localhost:8000/health
+```
+
+4. Avviare il frontend (browser o Vite; Tauri richiede Rust):
+
+```bash
+cd apps/desktop
+cp .env.example .env
+npm install
+npm run dev
+```
+
+La UI è su `http://localhost:1420` e deve mostrare lo stato del backend.
+
+Per la finestra nativa, dopo aver installato Rust:
+
+```bash
+cd apps/desktop
+npm run tauri dev
+```
+
+API nativa (senza container `api`), con solo Postgres in Docker:
+
+```bash
+docker compose up db -d
+cd apps/api
+python -m venv .venv
+.venv\Scripts\activate
+pip install -e ".[dev]"
+alembic upgrade head
+uvicorn app.main:app --reload --port 8000
+```
+
+## Test e lint
+
+```bash
+cd apps/api
+pytest
+ruff check .
+
+cd ../desktop
+npm run lint
+```
+
 ## Stack
 
 ### Desktop
