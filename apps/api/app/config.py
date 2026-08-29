@@ -24,6 +24,11 @@ class Settings(BaseSettings):
         "http://localhost:1420,http://localhost:5173,http://127.0.0.1:1420,"
         "tauri://localhost,http://tauri.localhost"
     )
+    screenshot_dir: str = str(_REPO_ROOT / "data" / "screenshots")
+    request_timeout_seconds: float = 15.0
+    browser_timeout_ms: int = 20000
+    scanner_user_agent: str = "RevampRadar/1.0 (+https://revampradar.local)"
+    pagespeed_api_key: str = ""
 
     @property
     def cors_origin_list(self) -> list[str]:

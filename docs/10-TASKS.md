@@ -23,26 +23,26 @@
 
 ## M1 — Single Website Analyzer
 
-- M1-001 Audit model
-- M1-002 Website model
-- M1-003 AuditFinding model
-- M1-004 Screenshot model
-- M1-005 URL validation
-- M1-006 URL normalization
-- M1-007 HTTP scanner
-- M1-008 HTML scanner
-- M1-009 SEO basic checks
-- M1-010 Robots/sitemap checks
-- M1-011 Playwright integration
-- M1-012 Desktop screenshot
-- M1-013 Mobile screenshot
-- M1-014 Lighthouse integration
-- M1-015 PageSpeed integration
-- M1-016 Audit orchestration service
-- M1-017 Audit status management
-- M1-018 Single URL analysis UI
-- M1-019 Audit result UI
-- M1-020 Error states
+- [x] M1-001 Audit model
+- [x] M1-002 Website model
+- [x] M1-003 AuditFinding model
+- [x] M1-004 Screenshot model
+- [x] M1-005 URL validation
+- [x] M1-006 URL normalization
+- [x] M1-007 HTTP scanner
+- [x] M1-008 HTML scanner
+- [x] M1-009 SEO basic checks
+- [x] M1-010 Robots/sitemap checks
+- [x] M1-011 Playwright integration
+- [x] M1-012 Desktop screenshot
+- [x] M1-013 Mobile screenshot
+- [ ] M1-014 Lighthouse integration
+- [x] M1-015 PageSpeed integration
+- [x] M1-016 Audit orchestration service
+- [x] M1-017 Audit status management
+- [x] M1-018 Single URL analysis UI
+- [x] M1-019 Audit result UI
+- [x] M1-020 Error states
 
 ## M2 — Scoring
 

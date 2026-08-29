@@ -9,7 +9,7 @@ from sqlalchemy.pool import StaticPool
 from app.config import get_settings
 from app.db import get_db, reset_engine
 from app.main import create_app
-from app.models.base import Base
+from app.models import Base
 
 
 @pytest.fixture

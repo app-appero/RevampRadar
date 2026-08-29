@@ -12,7 +12,11 @@
 - monorepo `apps/api` + `apps/desktop`;
 - FastAPI con endpoint `/health`, logging, error handling e configurazione via env;
 - PostgreSQL, SQLAlchemy, Alembic e Docker Compose;
-- client React/Vite/Tauri 2 collegato allo stato del backend.
+- client React/Vite/Tauri 2 collegato allo stato del backend;
+- Single Website Analyzer: audit HTTP/HTML/SEO, screenshot Playwright e finding tecnici.
+
+### Changed
+- PageSpeed Insights è opzionale via `PAGESPEED_API_KEY`; Lighthouse nativo è rimandato (M1-014).
 
 ### Decisions
 - Tauri 2 + React + TypeScript;

@@ -26,6 +26,11 @@ services:
       LOG_LEVEL: INFO
       DATABASE_URL: postgresql+psycopg://revampradar:revampradar@db:5432/revampradar
       CORS_ORIGINS: http://localhost:1420,http://localhost:5173,http://127.0.0.1:1420,tauri://localhost,http://tauri.localhost
+      SCREENSHOT_DIR: /data/screenshots
+      PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
+    volumes:
+      - ./data/screenshots:/data/screenshots
+    shm_size: "1gb"
     depends_on:
       db:
         condition: service_healthy
