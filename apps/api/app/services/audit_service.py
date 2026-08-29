@@ -4,8 +4,16 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from app.ai.service import ai_findings, analyze_audit
 from app.config import Settings, get_settings
-from app.models.entities import Audit, AuditFinding, Screenshot, Website
+from app.models.entities import (
+    Audit,
+    AuditFinding,
+    OpportunityScore,
+    Screenshot,
+    Website,
+    WebsiteScore,
+)
 from app.scanner import SCANNER_VERSION
 from app.scanner.browser import capture_screenshots
 from app.scanner.findings import FindingDraft, build_findings
@@ -14,6 +22,7 @@ from app.scanner.http import scan_http
 from app.scanner.pagespeed import fetch_pagespeed
 from app.scanner.seo import scan_seo
 from app.scanner.url import NormalizedUrl, UrlValidationError, normalize_url
+from app.scoring import FORMULA_VERSION, compute_business_score, compute_opportunity_score, compute_website_score
 
 
 class AuditServiceError(Exception):
@@ -90,6 +99,7 @@ def _run_scan(session: Session, audit: Audit, website: Website, settings: Settin
 
     findings = build_findings(http_result, html_result, seo_result)
     target_url = http_result.final_url or website.normalized_url
+    screenshot_devices: list[str] = []
 
     if http_result.ok:
         screenshot_dir = Path(settings.screenshot_dir) / str(audit.id)
@@ -109,6 +119,7 @@ def _run_scan(session: Session, audit: Audit, website: Website, settings: Settin
                 )
             )
         for shot in browser_result.get("screenshots") or []:
+            screenshot_devices.append(shot["device"])
             session.add(
                 Screenshot(
                     audit_id=audit.id,
@@ -122,6 +133,19 @@ def _run_scan(session: Session, audit: Audit, website: Website, settings: Settin
         if pagespeed:
             performance["pagespeed"] = pagespeed
         audit.performance_data = performance
+
+    ai_result, ai_meta = analyze_audit(
+        settings=settings,
+        url=target_url,
+        http=audit.http_data,
+        html=audit.html_data,
+        seo=audit.seo_data,
+        findings=findings,
+        screenshot_devices=screenshot_devices,
+    )
+    audit.ai_data = ai_meta
+    if ai_result is not None:
+        findings.extend(ai_findings(ai_result))
 
     for draft in findings:
         session.add(
@@ -137,6 +161,8 @@ def _run_scan(session: Session, audit: Audit, website: Website, settings: Settin
                 source_type=draft.source_type,
             )
         )
+
+    _persist_scores(session, audit, findings, ai_result)
 
     if not http_result.ok:
         audit.status = "failed"
@@ -157,3 +183,67 @@ def _get_or_create_website(session: Session, normalized: NormalizedUrl) -> Websi
         session.add(website)
         session.flush()
     return website
+
+
+def _persist_scores(
+    session: Session,
+    audit: Audit,
+    findings: list[FindingDraft],
+    ai_result,
+) -> None:
+    website_draft = compute_website_score(
+        findings,
+        audit.http_data,
+        audit.html_data,
+        audit.seo_data,
+        audit.performance_data,
+        ai_result,
+    )
+    business_draft = compute_business_score(
+        findings,
+        audit.http_data,
+        audit.html_data,
+        audit.seo_data,
+    )
+    opportunity_draft = compute_opportunity_score(
+        website_draft,
+        business_draft,
+        findings,
+        audit.html_data,
+        audit.seo_data,
+    )
+    session.add(
+        WebsiteScore(
+            audit_id=audit.id,
+            technical_score=website_draft.technical_score,
+            performance_score=website_draft.performance_score,
+            ui_score=website_draft.ui_score,
+            ux_score=website_draft.ux_score,
+            mobile_score=website_draft.mobile_score,
+            conversion_score=website_draft.conversion_score,
+            seo_score=website_draft.seo_score,
+            trust_score=website_draft.trust_score,
+            overall_score=website_draft.overall_score,
+            explanation=website_draft.explanation,
+            components=website_draft.components,
+            formula_version=FORMULA_VERSION,
+        )
+    )
+    session.add(
+        OpportunityScore(
+            company_id=None,
+            audit_id=audit.id,
+            website_score=opportunity_draft.website_score,
+            business_score=opportunity_draft.business_score,
+            opportunity_score=opportunity_draft.opportunity_score,
+            confidence=opportunity_draft.confidence,
+            priority=opportunity_draft.priority,
+            explanation=opportunity_draft.explanation,
+            top_reasons=opportunity_draft.top_reasons,
+            positive_factors=opportunity_draft.positive_factors,
+            negative_factors=opportunity_draft.negative_factors,
+            recommended_service=opportunity_draft.recommended_service,
+            components=opportunity_draft.components,
+            formula_version=FORMULA_VERSION,
+        )
+    )

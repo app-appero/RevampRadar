@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text, func
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import JSON, Uuid
@@ -45,6 +45,7 @@ class Audit(Base):
     html_data: Mapped[dict | None] = mapped_column(JsonType, nullable=True)
     seo_data: Mapped[dict | None] = mapped_column(JsonType, nullable=True)
     performance_data: Mapped[dict | None] = mapped_column(JsonType, nullable=True)
+    ai_data: Mapped[dict | None] = mapped_column(JsonType, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -55,6 +56,12 @@ class Audit(Base):
     )
     screenshots: Mapped[list["Screenshot"]] = relationship(
         back_populates="audit", cascade="all, delete-orphan"
+    )
+    website_score: Mapped["WebsiteScore | None"] = relationship(
+        back_populates="audit", cascade="all, delete-orphan", uselist=False
+    )
+    opportunity_score: Mapped["OpportunityScore | None"] = relationship(
+        back_populates="audit", cascade="all, delete-orphan", uselist=False
     )
 
 
@@ -89,3 +96,56 @@ class Screenshot(Base):
     )
 
     audit: Mapped[Audit] = relationship(back_populates="screenshots")
+
+
+class WebsiteScore(Base):
+    __tablename__ = "website_scores"
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    audit_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("audits.id"), unique=True, nullable=False, index=True
+    )
+    technical_score: Mapped[int] = mapped_column(Integer, nullable=False)
+    performance_score: Mapped[int] = mapped_column(Integer, nullable=False)
+    ui_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    ux_score: Mapped[int] = mapped_column(Integer, nullable=False)
+    mobile_score: Mapped[int] = mapped_column(Integer, nullable=False)
+    conversion_score: Mapped[int] = mapped_column(Integer, nullable=False)
+    seo_score: Mapped[int] = mapped_column(Integer, nullable=False)
+    trust_score: Mapped[int] = mapped_column(Integer, nullable=False)
+    overall_score: Mapped[int] = mapped_column(Integer, nullable=False)
+    explanation: Mapped[str] = mapped_column(Text, nullable=False)
+    components: Mapped[dict | None] = mapped_column(JsonType, nullable=True)
+    formula_version: Mapped[str] = mapped_column(String(32), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    audit: Mapped[Audit] = relationship(back_populates="website_score")
+
+
+class OpportunityScore(Base):
+    __tablename__ = "opportunity_scores"
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    company_id: Mapped[UUID | None] = mapped_column(Uuid, nullable=True)
+    audit_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("audits.id"), unique=True, nullable=False, index=True
+    )
+    website_score: Mapped[int] = mapped_column(Integer, nullable=False)
+    business_score: Mapped[int] = mapped_column(Integer, nullable=False)
+    opportunity_score: Mapped[int] = mapped_column(Integer, nullable=False)
+    confidence: Mapped[float] = mapped_column(Float, nullable=False)
+    priority: Mapped[str] = mapped_column(String(16), nullable=False)
+    explanation: Mapped[str] = mapped_column(Text, nullable=False)
+    top_reasons: Mapped[list] = mapped_column(JsonType, nullable=False)
+    positive_factors: Mapped[list] = mapped_column(JsonType, nullable=False)
+    negative_factors: Mapped[list] = mapped_column(JsonType, nullable=False)
+    recommended_service: Mapped[str] = mapped_column(Text, nullable=False)
+    components: Mapped[dict | None] = mapped_column(JsonType, nullable=True)
+    formula_version: Mapped[str] = mapped_column(String(32), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    audit: Mapped[Audit] = relationship(back_populates="opportunity_score")

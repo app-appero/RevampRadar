@@ -14,9 +14,11 @@
 - PostgreSQL, SQLAlchemy, Alembic e Docker Compose;
 - client React/Vite/Tauri 2 collegato allo stato del backend;
 - Single Website Analyzer: audit HTTP/HTML/SEO, screenshot Playwright e finding tecnici.
+- Opportunity Scoring: Website Score, Business Score preliminare, Opportunity Score spiegabile e AI opzionale.
 
 ### Changed
 - PageSpeed Insights è opzionale via `PAGESPEED_API_KEY`; Lighthouse nativo è rimandato (M1-014).
+- L'analisi AI è un arricchimento: senza `OPENAI_API_KEY` l'audit tecnico e gli score deterministici restano validi.
 
 ### Decisions
 - Tauri 2 + React + TypeScript;

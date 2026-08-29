@@ -22,6 +22,52 @@ export type AuditScreenshot = {
   url: string;
 };
 
+export type WebsiteScore = {
+  overall_score: number;
+  technical_score: number;
+  performance_score: number;
+  ui_score: number | null;
+  ux_score: number;
+  mobile_score: number;
+  conversion_score: number;
+  seo_score: number;
+  trust_score: number;
+  explanation: string;
+  components: Record<string, unknown> | null;
+  formula_version: string;
+};
+
+export type OpportunityScore = {
+  website_score: number;
+  business_score: number;
+  opportunity_score: number;
+  confidence: number;
+  priority: "LOW" | "MEDIUM" | "HIGH" | "VERY_HIGH" | string;
+  explanation: string;
+  top_reasons: string[];
+  positive_factors: string[];
+  negative_factors: string[];
+  recommended_service: string;
+  components: Record<string, unknown> | null;
+  formula_version: string;
+};
+
+export type AIAnalysis = {
+  status: "skipped" | "completed" | "failed" | string;
+  prompt_version: string | null;
+  provider: string | null;
+  model: string | null;
+  reason: string | null;
+  error: string | null;
+  ui_score: number | null;
+  ux_score: number | null;
+  confidence: number | null;
+  strengths: string[];
+  weaknesses: string[];
+  recommendations: string[];
+  notes: string | null;
+};
+
 export type Audit = {
   id: string;
   status: AuditStatus;
@@ -38,6 +84,9 @@ export type Audit = {
   performance: Record<string, unknown> | null;
   findings: AuditFinding[];
   screenshots: AuditScreenshot[];
+  website_score: WebsiteScore | null;
+  opportunity_score: OpportunityScore | null;
+  ai_analysis: AIAnalysis | null;
 };
 
 async function parseAudit(response: Response): Promise<Audit> {

@@ -26,7 +26,7 @@ def fetch_pagespeed(url: str, settings: Settings) -> dict | None:
 
     def score(name: str) -> int | None:
         raw = categories.get(name, {}).get("score")
-        return int(raw * 100) if isinstance(raw, (int, float)) else None
+        return int(raw * 100) if isinstance(raw, int | float) else None
 
     vitals = {}
     for key in ("largest-contentful-paint", "cumulative-layout-shift", "interaction-to-next-paint"):

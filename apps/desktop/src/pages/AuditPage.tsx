@@ -1,7 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 
-import { fetchAudit, screenshotSrc, type AuditFinding } from "../api/audits";
+import {
+  fetchAudit,
+  screenshotSrc,
+  type AIAnalysis,
+  type AuditFinding,
+  type OpportunityScore,
+  type WebsiteScore,
+} from "../api/audits";
 import { AppShell } from "../components/AppShell";
 
 export function AuditPage() {
@@ -81,6 +88,14 @@ export function AuditPage() {
               </p>
             ) : null}
 
+            {audit.opportunity_score || audit.website_score ? (
+              <ScoresSection
+                website={audit.website_score}
+                opportunity={audit.opportunity_score}
+                ai={audit.ai_analysis}
+              />
+            ) : null}
+
             <section className="grid gap-4 sm:grid-cols-3">
               <Metric
                 label="HTTPS"
@@ -138,6 +153,193 @@ function Metric({ label, value }: { label: string; value: string }) {
     <div className="rounded-2xl border border-stone-200 bg-white px-4 py-3">
       <p className="text-xs tracking-wide text-stone-500 uppercase">{label}</p>
       <p className="mt-1 text-lg font-medium">{value}</p>
+    </div>
+  );
+}
+
+function ScoresSection({
+  website,
+  opportunity,
+  ai,
+}: {
+  website: WebsiteScore | null;
+  opportunity: OpportunityScore | null;
+  ai: AIAnalysis | null;
+}) {
+  return (
+    <section className="space-y-4">
+      <div className="grid gap-4 md:grid-cols-3">
+        {website ? (
+          <ScoreCard
+            label="Website Score"
+            hint="Alto = sito già buono"
+            value={website.overall_score}
+            tone="site"
+          />
+        ) : null}
+        {opportunity ? (
+          <ScoreCard
+            label="Business Score"
+            hint="Preliminare, solo dal sito"
+            value={opportunity.business_score}
+            tone="neutral"
+          />
+        ) : null}
+        {opportunity ? (
+          <ScoreCard
+            label="Opportunity Score"
+            hint="Alto = vale la pena contattare"
+            value={opportunity.opportunity_score}
+            tone="opportunity"
+            badge={opportunity.priority}
+          />
+        ) : null}
+      </div>
+
+      {opportunity ? (
+        <div className="rounded-2xl border border-stone-200 bg-white p-5">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="text-lg font-medium">Perché è un’opportunità</h2>
+            <p className="text-xs text-stone-500">
+              Confidence {Math.round(opportunity.confidence * 100)}%
+            </p>
+          </div>
+          <p className="mt-2 text-sm text-stone-600">{opportunity.explanation}</p>
+          <p className="mt-3 text-sm font-medium text-stone-900">
+            Servizio consigliato: {opportunity.recommended_service}
+          </p>
+          <div className="mt-4 grid gap-4 md:grid-cols-3">
+            <FactorList title="Motivi principali" items={opportunity.top_reasons} />
+            <FactorList title="Fattori positivi" items={opportunity.positive_factors} />
+            <FactorList title="Fattori negativi" items={opportunity.negative_factors} />
+          </div>
+        </div>
+      ) : null}
+
+      {website ? (
+        <div className="grid gap-3 sm:grid-cols-4">
+          <Metric label="Tecnica" value={String(website.technical_score)} />
+          <Metric label="SEO" value={String(website.seo_score)} />
+          <Metric label="Mobile" value={String(website.mobile_score)} />
+          <Metric label="Conversione" value={String(website.conversion_score)} />
+          <Metric label="UX" value={String(website.ux_score)} />
+          <Metric
+            label="UI"
+            value={website.ui_score != null ? String(website.ui_score) : "n/d"}
+          />
+          <Metric label="Performance" value={String(website.performance_score)} />
+          <Metric label="Trust" value={String(website.trust_score)} />
+        </div>
+      ) : null}
+
+      {ai ? <AIBlock ai={ai} /> : null}
+    </section>
+  );
+}
+
+function ScoreCard({
+  label,
+  hint,
+  value,
+  tone,
+  badge,
+}: {
+  label: string;
+  hint: string;
+  value: number;
+  tone: "site" | "opportunity" | "neutral";
+  badge?: string;
+}) {
+  const colors = {
+    site: value >= 70 ? "text-emerald-800" : value >= 45 ? "text-amber-800" : "text-red-800",
+    opportunity: value >= 60 ? "text-indigo-800" : value >= 45 ? "text-amber-800" : "text-stone-700",
+    neutral: "text-stone-900",
+  };
+  return (
+    <div className="rounded-2xl border border-stone-200 bg-white px-4 py-4">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs tracking-wide text-stone-500 uppercase">{label}</p>
+        {badge ? <PriorityPill priority={badge} /> : null}
+      </div>
+      <p className={`mt-1 text-3xl font-semibold ${colors[tone]}`}>{value}</p>
+      <p className="mt-1 text-xs text-stone-500">{hint}</p>
+    </div>
+  );
+}
+
+function PriorityPill({ priority }: { priority: string }) {
+  const styles: Record<string, string> = {
+    LOW: "bg-stone-100 text-stone-700",
+    MEDIUM: "bg-amber-100 text-amber-900",
+    HIGH: "bg-orange-100 text-orange-800",
+    VERY_HIGH: "bg-red-100 text-red-800",
+  };
+  const labels: Record<string, string> = {
+    LOW: "Bassa",
+    MEDIUM: "Media",
+    HIGH: "Alta",
+    VERY_HIGH: "Molto alta",
+  };
+  return (
+    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${styles[priority] ?? styles.LOW}`}>
+      {labels[priority] ?? priority}
+    </span>
+  );
+}
+
+function FactorList({ title, items }: { title: string; items: string[] }) {
+  if (items.length === 0) {
+    return (
+      <div>
+        <h3 className="text-xs tracking-wide text-stone-500 uppercase">{title}</h3>
+        <p className="mt-2 text-sm text-stone-500">Nessun elemento.</p>
+      </div>
+    );
+  }
+  return (
+    <div>
+      <h3 className="text-xs tracking-wide text-stone-500 uppercase">{title}</h3>
+      <ul className="mt-2 list-disc space-y-1 pl-4 text-sm text-stone-700">
+        {items.map((item) => (
+          <li key={item}>{item}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function AIBlock({ ai }: { ai: AIAnalysis }) {
+  if (ai.status === "skipped") {
+    return (
+      <p className="text-sm text-stone-500">
+        Analisi AI non eseguita
+        {ai.reason === "missing_api_key" ? ": manca OPENAI_API_KEY." : "."} I punteggi tecnici restano validi.
+      </p>
+    );
+  }
+  if (ai.status === "failed") {
+    return (
+      <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
+        Analisi AI non disponibile{ai.error ? `: ${ai.error}` : "."} L’audit tecnico è comunque valido.
+      </p>
+    );
+  }
+  return (
+    <div className="rounded-2xl border border-stone-200 bg-white p-5">
+      <h2 className="text-lg font-medium">Lettura qualitativa (AI)</h2>
+      <p className="mt-1 text-xs text-stone-500">
+        Prompt {ai.prompt_version ?? "—"}
+        {ai.confidence != null ? ` · confidence ${Math.round(ai.confidence * 100)}%` : ""}
+      </p>
+      <div className="mt-4 grid gap-4 md:grid-cols-2">
+        <FactorList title="Punti di forza" items={ai.strengths} />
+        <FactorList title="Debolezze" items={ai.weaknesses} />
+      </div>
+      {ai.recommendations.length > 0 ? (
+        <div className="mt-4">
+          <FactorList title="Raccomandazioni" items={ai.recommendations} />
+        </div>
+      ) : null}
     </div>
   );
 }

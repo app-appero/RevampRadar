@@ -55,6 +55,8 @@ Nessun login nell'uso personale iniziale.
 
 Discovery e AI devono poter cambiare provider senza riscrivere la business logic.
 
+In M2 l'AI usa un client HTTP OpenAI-compatible (`OPENAI_BASE_URL` + `OPENAI_API_KEY`). Lo scoring deterministico non dipende dal provider.
+
 ## ADR-011 — No over-engineering
 
 Code, Redis, microservizi e infrastrutture complesse vengono introdotti solo quando servono.

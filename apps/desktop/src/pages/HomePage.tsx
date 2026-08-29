@@ -34,8 +34,8 @@ export function HomePage() {
           </p>
           <h1 className="text-4xl font-semibold tracking-tight">Analizza un sito</h1>
           <p className="max-w-xl text-stone-600">
-            Inserisci un URL. RevampRadar produce un audit tecnico con finding,
-            screenshot e controlli SEO di base.
+            Inserisci un URL. RevampRadar produce un audit tecnico, screenshot,
+            Website Score e un Opportunity Score spiegabile.
           </p>
         </header>
 

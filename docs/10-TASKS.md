@@ -46,16 +46,16 @@
 
 ## M2 — Scoring
 
-- M2-001 Define AI analysis schema
-- M2-002 AI provider abstraction
-- M2-003 AI prompt v1
-- M2-004 Parse structured AI output
-- M2-005 Website Score v1
-- M2-006 Business Score v1
-- M2-007 Opportunity Score v1
-- M2-008 Explainability
-- M2-009 Recommended service
-- M2-010 Score UI
+- [x] M2-001 Define AI analysis schema
+- [x] M2-002 AI provider abstraction
+- [x] M2-003 AI prompt v1
+- [x] M2-004 Parse structured AI output
+- [x] M2-005 Website Score v1
+- [x] M2-006 Business Score v1
+- [x] M2-007 Opportunity Score v1
+- [x] M2-008 Explainability
+- [x] M2-009 Recommended service
+- [x] M2-010 Score UI
 
 ## M3 — Discovery
 

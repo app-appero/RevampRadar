@@ -8,10 +8,13 @@ from sqlalchemy.orm import Session, selectinload
 from app.db import get_db
 from app.models.entities import Audit
 from app.schemas.audit import (
+    AIAnalysisResponse,
     AuditResponse,
     CreateAuditRequest,
     FindingResponse,
+    OpportunityScoreResponse,
     ScreenshotResponse,
+    WebsiteScoreResponse,
 )
 from app.services.audit_service import AuditServiceError, create_audit, execute_audit
 
@@ -56,7 +59,13 @@ def get_screenshot(audit_id: UUID, device: str, db: Session = Depends(get_db)) -
 def _load_audit(db: Session, audit_id: UUID) -> Audit | None:
     return (
         db.query(Audit)
-        .options(selectinload(Audit.findings), selectinload(Audit.screenshots), selectinload(Audit.website))
+        .options(
+            selectinload(Audit.findings),
+            selectinload(Audit.screenshots),
+            selectinload(Audit.website),
+            selectinload(Audit.website_score),
+            selectinload(Audit.opportunity_score),
+        )
         .filter(Audit.id == audit_id)
         .one_or_none()
     )
@@ -101,6 +110,71 @@ def _to_response(audit: Audit) -> AuditResponse:
             )
             for item in audit.screenshots
         ],
+        website_score=_website_score_response(audit),
+        opportunity_score=_opportunity_score_response(audit),
+        ai_analysis=_ai_analysis_response(audit),
+    )
+
+
+def _website_score_response(audit: Audit) -> WebsiteScoreResponse | None:
+    score = audit.website_score
+    if score is None:
+        return None
+    return WebsiteScoreResponse(
+        overall_score=score.overall_score,
+        technical_score=score.technical_score,
+        performance_score=score.performance_score,
+        ui_score=score.ui_score,
+        ux_score=score.ux_score,
+        mobile_score=score.mobile_score,
+        conversion_score=score.conversion_score,
+        seo_score=score.seo_score,
+        trust_score=score.trust_score,
+        explanation=score.explanation,
+        components=score.components,
+        formula_version=score.formula_version,
+    )
+
+
+def _opportunity_score_response(audit: Audit) -> OpportunityScoreResponse | None:
+    score = audit.opportunity_score
+    if score is None:
+        return None
+    return OpportunityScoreResponse(
+        website_score=score.website_score,
+        business_score=score.business_score,
+        opportunity_score=score.opportunity_score,
+        confidence=score.confidence,
+        priority=score.priority,
+        explanation=score.explanation,
+        top_reasons=score.top_reasons or [],
+        positive_factors=score.positive_factors or [],
+        negative_factors=score.negative_factors or [],
+        recommended_service=score.recommended_service,
+        components=score.components,
+        formula_version=score.formula_version,
+    )
+
+
+def _ai_analysis_response(audit: Audit) -> AIAnalysisResponse | None:
+    data = audit.ai_data
+    if not data:
+        return None
+    result = data.get("result") or {}
+    return AIAnalysisResponse(
+        status=data.get("status") or "skipped",
+        prompt_version=data.get("prompt_version"),
+        provider=data.get("provider"),
+        model=data.get("model"),
+        reason=data.get("reason"),
+        error=data.get("error"),
+        ui_score=result.get("ui_score"),
+        ux_score=result.get("ux_score"),
+        confidence=result.get("confidence"),
+        strengths=result.get("strengths") or [],
+        weaknesses=result.get("weaknesses") or [],
+        recommendations=result.get("recommendations") or [],
+        notes=result.get("notes"),
     )
 
 

@@ -28,6 +28,52 @@ class ScreenshotResponse(BaseModel):
     url: str
 
 
+class WebsiteScoreResponse(BaseModel):
+    overall_score: int
+    technical_score: int
+    performance_score: int
+    ui_score: int | None
+    ux_score: int
+    mobile_score: int
+    conversion_score: int
+    seo_score: int
+    trust_score: int
+    explanation: str
+    components: dict | None
+    formula_version: str
+
+
+class OpportunityScoreResponse(BaseModel):
+    website_score: int
+    business_score: int
+    opportunity_score: int
+    confidence: float
+    priority: str
+    explanation: str
+    top_reasons: list[str]
+    positive_factors: list[str]
+    negative_factors: list[str]
+    recommended_service: str
+    components: dict | None
+    formula_version: str
+
+
+class AIAnalysisResponse(BaseModel):
+    status: str
+    prompt_version: str | None = None
+    provider: str | None = None
+    model: str | None = None
+    reason: str | None = None
+    error: str | None = None
+    ui_score: int | None = None
+    ux_score: int | None = None
+    confidence: float | None = None
+    strengths: list[str] = Field(default_factory=list)
+    weaknesses: list[str] = Field(default_factory=list)
+    recommendations: list[str] = Field(default_factory=list)
+    notes: str | None = None
+
+
 class AuditResponse(BaseModel):
     id: UUID
     status: str
@@ -44,3 +90,6 @@ class AuditResponse(BaseModel):
     performance: dict | None
     findings: list[FindingResponse]
     screenshots: list[ScreenshotResponse]
+    website_score: WebsiteScoreResponse | None = None
+    opportunity_score: OpportunityScoreResponse | None = None
+    ai_analysis: AIAnalysisResponse | None = None
