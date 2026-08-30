@@ -36,6 +36,8 @@ class Settings(BaseSettings):
     nominatim_url: str = "https://nominatim.openstreetmap.org"
     overpass_url: str = "https://overpass-api.de/api/interpreter"
     discovery_timeout_seconds: float = 60.0
+    bulk_scan_concurrency: int = 2
+    bulk_scan_max_attempts: int = 2
 
     @property
     def cors_origin_list(self) -> list[str]:

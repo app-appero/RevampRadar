@@ -159,7 +159,9 @@ class OpportunityScore(Base):
     __tablename__ = "opportunity_scores"
 
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    company_id: Mapped[UUID | None] = mapped_column(Uuid, nullable=True)
+    company_id: Mapped[UUID | None] = mapped_column(
+        Uuid, ForeignKey("companies.id"), nullable=True, index=True
+    )
     audit_id: Mapped[UUID] = mapped_column(
         Uuid, ForeignKey("audits.id"), unique=True, nullable=False, index=True
     )
@@ -202,6 +204,9 @@ class DiscoveryRun(Base):
     results: Mapped[list["DiscoveryResult"]] = relationship(
         back_populates="discovery_run", cascade="all, delete-orphan"
     )
+    bulk_scans: Mapped[list["BulkScan"]] = relationship(
+        back_populates="discovery_run"
+    )
 
 
 class DiscoveryResult(Base):
@@ -218,3 +223,44 @@ class DiscoveryResult(Base):
 
     discovery_run: Mapped[DiscoveryRun] = relationship(back_populates="results")
     company: Mapped[Company] = relationship(back_populates="discovery_results")
+
+
+class BulkScan(Base):
+    __tablename__ = "bulk_scans"
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    discovery_run_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("discovery_runs.id"), nullable=False, index=True
+    )
+    status: Mapped[str] = mapped_column(String(32), default="queued", nullable=False, index=True)
+    max_attempts: Mapped[int] = mapped_column(Integer, nullable=False)
+    concurrency: Mapped[int] = mapped_column(Integer, nullable=False)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    discovery_run: Mapped[DiscoveryRun] = relationship(back_populates="bulk_scans")
+    items: Mapped[list["BulkScanItem"]] = relationship(
+        back_populates="bulk_scan", cascade="all, delete-orphan"
+    )
+
+
+class BulkScanItem(Base):
+    __tablename__ = "bulk_scan_items"
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    bulk_scan_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("bulk_scans.id"), nullable=False, index=True
+    )
+    company_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("companies.id"), nullable=False, index=True)
+    audit_id: Mapped[UUID | None] = mapped_column(Uuid, ForeignKey("audits.id"), nullable=True)
+    status: Mapped[str] = mapped_column(String(32), default="pending", nullable=False, index=True)
+    attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    bulk_scan: Mapped[BulkScan] = relationship(back_populates="items")
+    company: Mapped[Company] = relationship()
+    audit: Mapped[Audit | None] = relationship()

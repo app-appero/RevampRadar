@@ -12,7 +12,8 @@ from app.discovery.service import (
     list_companies,
     load_discovery_run,
 )
-from app.models.entities import Company
+from app.jobs.bulk_scan import latest_bulk_scan
+from app.models.entities import Company, DiscoveryRun
 from app.schemas.discovery import (
     CompanyDetail,
     CompanySummary,
@@ -41,7 +42,7 @@ def post_discovery(
     background_tasks.add_task(execute_discovery, run.id)
     loaded = load_discovery_run(db, run.id)
     assert loaded is not None
-    return _run_response(loaded)
+    return _run_response(db, loaded)
 
 
 @router.get("/discoveries/{run_id}", response_model=DiscoveryRunResponse)
@@ -49,7 +50,7 @@ def get_discovery(run_id: UUID, db: Session = Depends(get_db)) -> DiscoveryRunRe
     run = load_discovery_run(db, run_id)
     if run is None:
         raise HTTPException(status_code=404, detail="Discovery non trovata.")
-    return _run_response(run)
+    return _run_response(db, run)
 
 
 @router.get("/companies", response_model=list[CompanySummary])
@@ -65,8 +66,9 @@ def get_company_detail(company_id: UUID, db: Session = Depends(get_db)) -> Compa
     return _company_detail(company)
 
 
-def _run_response(run) -> DiscoveryRunResponse:
+def _run_response(db: Session, run: DiscoveryRun) -> DiscoveryRunResponse:
     companies = [_company_summary(item.company) for item in run.results if item.company is not None]
+    latest = latest_bulk_scan(db, run.id)
     return DiscoveryRunResponse(
         id=run.id,
         industry=run.industry,
@@ -79,6 +81,7 @@ def _run_response(run) -> DiscoveryRunResponse:
         started_at=run.started_at,
         completed_at=run.completed_at,
         companies=companies,
+        latest_scan_id=latest.id if latest else None,
     )
 
 

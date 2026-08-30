@@ -75,14 +75,14 @@
 
 ## M4 — Bulk Scanner
 
-- M4-001 Background job abstraction
-- M4-002 Bulk audit orchestration
-- M4-003 Retry policy
-- M4-004 Progress tracking
-- M4-005 Concurrency limits
-- M4-006 Batch results
-- M4-007 Ranking
-- M4-008 Failure recovery
+- [x] M4-001 Background job abstraction
+- [x] M4-002 Bulk audit orchestration
+- [x] M4-003 Retry policy
+- [x] M4-004 Progress tracking
+- [x] M4-005 Concurrency limits
+- [x] M4-006 Batch results
+- [x] M4-007 Ranking
+- [x] M4-008 Failure recovery
 
 ## M5 — CRM
 

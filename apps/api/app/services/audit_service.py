@@ -221,6 +221,7 @@ def _persist_scores(
         audit.html_data,
         audit.seo_data,
     )
+    website = session.get(Website, audit.website_id)
     session.add(
         WebsiteScore(
             audit_id=audit.id,
@@ -240,7 +241,7 @@ def _persist_scores(
     )
     session.add(
         OpportunityScore(
-            company_id=None,
+            company_id=website.company_id if website else None,
             audit_id=audit.id,
             website_score=opportunity_draft.website_score,
             business_score=opportunity_draft.business_score,

@@ -43,3 +43,4 @@ class DiscoveryRunResponse(BaseModel):
     started_at: datetime | None
     completed_at: datetime | None
     companies: list[CompanySummary]
+    latest_scan_id: UUID | None = None

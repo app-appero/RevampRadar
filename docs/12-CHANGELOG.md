@@ -16,6 +16,7 @@
 - Single Website Analyzer: audit HTTP/HTML/SEO, screenshot Playwright e finding tecnici.
 - Opportunity Scoring: Website Score, Business Score preliminare, Opportunity Score spiegabile e AI opzionale.
 - Company Discovery: ricerca per settore/località via OpenStreetMap, deduplica e anagrafica azienda.
+- Bulk Scanner: analisi in batch dei siti di una discovery, retry, progress e ranking per Opportunity Score.
 
 ### Changed
 - PageSpeed Insights è opzionale via `PAGESPEED_API_KEY`; Lighthouse nativo è rimandato (M1-014).

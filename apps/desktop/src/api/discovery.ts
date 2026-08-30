@@ -23,6 +23,78 @@ export type CompanyDetail = CompanySummary & {
   website_id: string | null;
 };
 
+export type BulkScanProgress = {
+  total: number;
+  pending: number;
+  running: number;
+  completed: number;
+  failed: number;
+  skipped: number;
+};
+
+export type BulkScanItem = {
+  id: string;
+  company_id: string;
+  company_name: string;
+  city: string | null;
+  domain: string | null;
+  status: string;
+  attempts: number;
+  last_error: string | null;
+  audit_id: string | null;
+  website_score: number | null;
+  opportunity_score: number | null;
+  priority: string | null;
+  recommended_service: string | null;
+};
+
+export type BulkScan = {
+  id: string;
+  discovery_run_id: string;
+  status: string;
+  max_attempts: number;
+  concurrency: number;
+  error_message: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  progress: BulkScanProgress;
+  items: BulkScanItem[];
+};
+
+export async function startBulkScan(discoveryId: string): Promise<BulkScan> {
+  let response: Response;
+  try {
+    response = await fetch(`${getApiBaseUrl()}/discoveries/${discoveryId}/scans`, {
+      method: "POST",
+    });
+  } catch {
+    throw new ApiError("Impossibile raggiungere il backend.");
+  }
+  return parseJson<BulkScan>(response);
+}
+
+export async function fetchBulkScan(id: string): Promise<BulkScan> {
+  let response: Response;
+  try {
+    response = await fetch(`${getApiBaseUrl()}/bulk-scans/${id}`);
+  } catch {
+    throw new ApiError("Impossibile raggiungere il backend.");
+  }
+  return parseJson<BulkScan>(response);
+}
+
+export async function retryFailedScan(id: string): Promise<BulkScan> {
+  let response: Response;
+  try {
+    response = await fetch(`${getApiBaseUrl()}/bulk-scans/${id}/retry-failed`, {
+      method: "POST",
+    });
+  } catch {
+    throw new ApiError("Impossibile raggiungere il backend.");
+  }
+  return parseJson<BulkScan>(response);
+}
+
 export type DiscoveryRun = {
   id: string;
   industry: string;
@@ -35,6 +107,7 @@ export type DiscoveryRun = {
   started_at: string | null;
   completed_at: string | null;
   companies: CompanySummary[];
+  latest_scan_id: string | null;
 };
 
 async function parseJson<T>(response: Response): Promise<T> {

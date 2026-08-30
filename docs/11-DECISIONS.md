@@ -62,3 +62,5 @@ Il primo provider di discovery è OpenStreetMap (Nominatim + Overpass): è strut
 ## ADR-011 — No over-engineering
 
 Code, Redis, microservizi e infrastrutture complesse vengono introdotti solo quando servono.
+
+M4 usa un thread pool in-process (`bulk_scan_concurrency`) per analizzare i siti di una discovery, con retry e ranking per Opportunity Score.

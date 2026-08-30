@@ -53,7 +53,7 @@ npm install
 npm run dev
 ```
 
-La UI è su `http://localhost:1420`. Dalla home puoi inserire un URL e aprire l'audit, con Website Score e Opportunity Score a scansione completata. Da **Discovery** puoi cercare aziende per settore e località (es. Hotel / Sicilia).
+La UI è su `http://localhost:1420`. Dalla home puoi inserire un URL e aprire l'audit, con Website Score e Opportunity Score a scansione completata. Da **Discovery** puoi cercare aziende per settore e località (es. Hotel / Sicilia) e lanciare l’analisi in batch dei siti trovati, ordinata per Opportunity Score.
 
 L'analisi qualitativa AI è opzionale: imposta `OPENAI_API_KEY` in `.env` (e nel container) per UX/UI/copy. Senza chiave, gli score deterministici vengono calcolati lo stesso.
 
