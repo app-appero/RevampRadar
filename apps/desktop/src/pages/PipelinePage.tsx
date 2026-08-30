@@ -9,7 +9,6 @@ import {
   fetchOpportunities,
   type OpportunityFilters,
 } from "../api/crm";
-import { AppShell } from "../components/AppShell";
 
 const PRIORITIES = ["VERY_HIGH", "HIGH", "MEDIUM", "LOW"] as const;
 
@@ -50,7 +49,6 @@ export function PipelinePage() {
   const dash = dashboardQuery.data;
 
   return (
-    <AppShell>
       <main className="mx-auto flex max-w-6xl flex-col gap-8 px-6 py-10">
         <header className="space-y-2">
           <p className="text-sm font-medium tracking-wide text-stone-500 uppercase">CRM</p>
@@ -233,7 +231,6 @@ export function PipelinePage() {
           ) : null}
         </div>
       </main>
-    </AppShell>
   );
 }
 

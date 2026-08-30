@@ -1,10 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
-import type { ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { Link, Outlet } from "react-router-dom";
 
 import { fetchHealth, getApiBaseUrl } from "../api/health";
+import { HistoryNav } from "./HistoryNav";
 
-export function AppShell({ children }: { children: ReactNode }) {
+export function AppShell() {
   const healthQuery = useQuery({
     queryKey: ["health"],
     queryFn: fetchHealth,
@@ -16,9 +16,12 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="min-h-screen">
       <header className="border-b border-stone-200 bg-white">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
-          <Link to="/" className="text-lg font-semibold tracking-tight">
-            RevampRadar
-          </Link>
+          <div className="flex items-center gap-3">
+            <HistoryNav />
+            <Link to="/" className="text-lg font-semibold tracking-tight">
+              RevampRadar
+            </Link>
+          </div>
           <div className="flex items-center gap-4">
             <nav className="flex items-center gap-3 text-sm">
               <Link to="/" className="text-stone-600 hover:text-stone-900">
@@ -46,7 +49,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </div>
       </header>
-      {children}
+      <Outlet />
     </div>
   );
 }

@@ -16,11 +16,13 @@ import {
   updateOpportunity,
   type OpportunityDetail,
 } from "../api/crm";
+import { fetchCompanyIntelligence } from "../api/intelligence";
 import { generateProposal, fetchCompanyProposal } from "../api/proposals";
+import { IntelligencePanel } from "../components/IntelligencePanel";
 import { fetchCompany } from "../api/discovery";
 import { ProposalCard } from "../components/ProposalCard";
 import { ApiError } from "../api/health";
-import { AppShell } from "../components/AppShell";
+import { PageBackLink } from "../components/HistoryNav";
 
 export function CompanyPage() {
   const { companyId } = useParams();
@@ -36,6 +38,12 @@ export function CompanyPage() {
     queryKey: ["company-opportunity", companyId],
     queryFn: () => fetchCompanyOpportunity(companyId!),
     enabled: Boolean(companyId),
+  });
+  const intelligenceQuery = useQuery({
+    queryKey: ["company-intelligence", companyId],
+    queryFn: () => fetchCompanyIntelligence(companyId!),
+    enabled: Boolean(companyId),
+    retry: false,
   });
   const proposalQuery = useQuery({
     queryKey: ["company-proposal", companyId],
@@ -81,11 +89,8 @@ export function CompanyPage() {
   }
 
   return (
-    <AppShell>
       <main className="mx-auto flex max-w-3xl flex-col gap-8 px-6 py-10">
-        <Link to="/pipeline" className="text-sm text-stone-500 hover:text-stone-900">
-          ← Pipeline
-        </Link>
+        <PageBackLink fallback="/pipeline" label="Indietro" />
 
         {query.isError || crmQuery.isError ? (
           <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">
@@ -171,6 +176,8 @@ export function CompanyPage() {
               <p className="text-sm text-stone-500">Nessun sito collegato: non è possibile avviare l’audit.</p>
             ) : null}
 
+            {intelligenceQuery.data ? <IntelligencePanel data={intelligenceQuery.data} /> : null}
+
             {proposalQuery.data ? (
               <section className="space-y-3">
                 <h2 className="text-lg font-medium">Proposta commerciale</h2>
@@ -182,7 +189,6 @@ export function CompanyPage() {
           </>
         ) : null}
       </main>
-    </AppShell>
   );
 }
 

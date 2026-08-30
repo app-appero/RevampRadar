@@ -3,7 +3,6 @@ import { Link, useNavigate } from "react-router-dom";
 
 import { createDiscovery } from "../api/discovery";
 import { ApiError } from "../api/health";
-import { AppShell } from "../components/AppShell";
 
 export function DiscoveryPage() {
   const navigate = useNavigate();
@@ -32,7 +31,6 @@ export function DiscoveryPage() {
   }
 
   return (
-    <AppShell>
       <main className="mx-auto flex max-w-3xl flex-col gap-8 px-6 py-12">
         <header className="space-y-2">
           <p className="text-sm font-medium tracking-wide text-stone-500 uppercase">Discovery</p>
@@ -106,6 +104,5 @@ export function DiscoveryPage() {
           </Link>
         </p>
       </main>
-    </AppShell>
   );
 }

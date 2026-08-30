@@ -10,7 +10,7 @@ import {
   type BulkScan,
   type CompanySummary,
 } from "../api/discovery";
-import { AppShell } from "../components/AppShell";
+import { PageBackLink } from "../components/HistoryNav";
 
 export function DiscoveryRunPage() {
   const { runId } = useParams();
@@ -55,11 +55,8 @@ export function DiscoveryRunPage() {
   });
 
   return (
-    <AppShell>
       <main className="mx-auto flex max-w-5xl flex-col gap-8 px-6 py-10">
-        <Link to="/discovery" className="text-sm text-stone-500 hover:text-stone-900">
-          ← Nuova ricerca
-        </Link>
+        <PageBackLink fallback="/discovery" label="Indietro" />
 
         {query.isError ? (
           <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">
@@ -130,7 +127,6 @@ export function DiscoveryRunPage() {
           </>
         ) : null}
       </main>
-    </AppShell>
   );
 }
 
@@ -203,11 +199,8 @@ export function CompaniesPage() {
   });
 
   return (
-    <AppShell>
       <main className="mx-auto flex max-w-5xl flex-col gap-8 px-6 py-10">
-        <Link to="/discovery" className="text-sm text-stone-500 hover:text-stone-900">
-          ← Discovery
-        </Link>
+        <PageBackLink fallback="/discovery" label="Indietro" />
         <header>
           <h1 className="text-3xl font-semibold tracking-tight">Aziende</h1>
           <p className="mt-1 text-sm text-stone-500">Tutte le aziende persistite dalle ricerche.</p>
@@ -219,7 +212,6 @@ export function CompaniesPage() {
         ) : null}
         <CompanyTable companies={query.data ?? []} empty={query.isSuccess} />
       </main>
-    </AppShell>
   );
 }
 

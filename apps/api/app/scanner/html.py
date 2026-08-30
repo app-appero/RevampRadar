@@ -28,6 +28,8 @@ class HtmlScanResult:
     technologies: list[str] = field(default_factory=list)
     internal_links: list[str] = field(default_factory=list)
     cta_texts: list[str] = field(default_factory=list)
+    social_links: list[dict] = field(default_factory=list)
+    generator: str | None = None
 
     def to_dict(self) -> dict:
         return {
@@ -44,6 +46,8 @@ class HtmlScanResult:
             "technologies": self.technologies,
             "internal_links": self.internal_links[:30],
             "cta_texts": self.cta_texts[:20],
+            "social_links": self.social_links,
+            "generator": self.generator,
         }
 
 
@@ -95,6 +99,10 @@ def scan_html(html: str, page_url: str) -> HtmlScanResult:
     if "data-v-" in html_lower or "vue.js" in html_lower:
         technologies.append("vue")
 
+    generator_tag = soup.find("meta", attrs={"name": re.compile("^generator$", re.I)})
+    generator = generator_tag.get("content", "").strip() if generator_tag else None
+
+    social_links = _social_links(soup, page_url)
     page_host = urlparse(page_url).netloc
     internal_links: list[str] = []
     for anchor in soup.find_all("a", href=True):
@@ -128,4 +136,36 @@ def scan_html(html: str, page_url: str) -> HtmlScanResult:
         technologies=technologies,
         internal_links=internal_links,
         cta_texts=cta_texts,
+        social_links=social_links,
+        generator=generator or None,
     )
+
+
+_SOCIAL_HOSTS = (
+    ("facebook.com", "facebook"),
+    ("fb.com", "facebook"),
+    ("instagram.com", "instagram"),
+    ("linkedin.com", "linkedin"),
+    ("wa.me", "whatsapp"),
+    ("api.whatsapp.com", "whatsapp"),
+    ("twitter.com", "x"),
+    ("x.com", "x"),
+    ("youtube.com", "youtube"),
+    ("tiktok.com", "tiktok"),
+)
+
+
+def _social_links(soup: BeautifulSoup, page_url: str) -> list[dict]:
+    found: list[dict] = []
+    seen: set[str] = set()
+    for anchor in soup.find_all("a", href=True):
+        href = urljoin(page_url, anchor["href"])
+        host = urlparse(href).netloc.lower().removeprefix("www.")
+        network = next((name for suffix, name in _SOCIAL_HOSTS if host == suffix or host.endswith("." + suffix)), None)
+        if network is None or href in seen:
+            continue
+        seen.add(href)
+        found.append({"network": network, "url": href})
+        if len(found) >= 12:
+            break
+    return found

@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 
 import {
   fetchAudit,
@@ -9,8 +9,10 @@ import {
   type OpportunityScore,
   type WebsiteScore,
 } from "../api/audits";
+import { fetchAuditIntelligence } from "../api/intelligence";
 import { fetchAuditProposal, generateProposal, type Proposal } from "../api/proposals";
-import { AppShell } from "../components/AppShell";
+import { IntelligencePanel } from "../components/IntelligencePanel";
+import { PageBackLink } from "../components/HistoryNav";
 import { ProposalCard } from "../components/ProposalCard";
 
 export function AuditPage() {
@@ -33,6 +35,12 @@ export function AuditPage() {
     enabled: Boolean(auditId) && audit?.status === "completed",
     retry: false,
   });
+  const intelligenceQuery = useQuery({
+    queryKey: ["intelligence", auditId],
+    queryFn: () => fetchAuditIntelligence(auditId!),
+    enabled: Boolean(auditId) && audit?.status === "completed",
+    retry: false,
+  });
   const generate = useMutation({
     mutationFn: () => generateProposal(auditId!),
     onSuccess: () => {
@@ -41,11 +49,8 @@ export function AuditPage() {
   });
 
   return (
-    <AppShell>
       <main className="mx-auto flex max-w-5xl flex-col gap-8 px-6 py-10">
-        <Link to="/" className="text-sm text-stone-500 hover:text-stone-900">
-          ← Nuova analisi
-        </Link>
+        <PageBackLink fallback="/" label="Indietro" />
 
         {auditQuery.isError ? (
           <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">
@@ -110,6 +115,8 @@ export function AuditPage() {
               />
             ) : null}
 
+            {intelligenceQuery.data ? <IntelligencePanel data={intelligenceQuery.data} /> : null}
+
             {audit.status === "completed" ? (
               <ProposalSection
                 proposal={proposalQuery.data}
@@ -153,7 +160,6 @@ export function AuditPage() {
           </>
         ) : null}
       </main>
-    </AppShell>
   );
 }
 

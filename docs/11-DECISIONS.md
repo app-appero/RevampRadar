@@ -72,3 +72,7 @@ Lo stato commerciale vive su `opportunities` (1:1 con company). `companies.statu
 ## ADR-013 — Proposal deterministica prima dell'AI
 
 La proposta commerciale si genera da audit/finding/score già persistiti. L'AI può solo riscrivere i testi. Range, servizio consigliato e problemi prioritari restano deterministici. Non si inviano email.
+
+## ADR-014 — Intelligence senza nuove API esterne
+
+M7 usa solo dati già misurati (HTML, audit precedenti, tag OSM). Niente competitor crawl, ads o recensioni inventate. Il confronto storico è tra audit persistiti dello stesso website.

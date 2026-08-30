@@ -104,3 +104,12 @@
 - [x] M6-005 Personalized email
 - [x] M6-006 Project range estimate
 - [x] M6-007 Proposal UI
+
+## M7 — Advanced Intelligence
+
+- [x] M7-001 Social and generator signals from HTML
+- [x] M7-002 Historical audit diff
+- [x] M7-003 OSM stars from discovery extra
+- [x] M7-004 Monitoring freshness
+- [x] M7-005 Intelligence API
+- [x] M7-006 Intelligence UI
