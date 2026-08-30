@@ -86,14 +86,14 @@
 
 ## M5 — CRM
 
-- M5-001 Opportunity model
-- M5-002 CRM statuses
-- M5-003 Notes
-- M5-004 Tags
-- M5-005 Favorites
-- M5-006 Activities
-- M5-007 Pipeline UI
-- M5-008 Filters
+- [x] M5-001 Opportunity model
+- [x] M5-002 CRM statuses
+- [x] M5-003 Notes
+- [x] M5-004 Tags
+- [x] M5-005 Favorites
+- [x] M5-006 Activities
+- [x] M5-007 Pipeline UI
+- [x] M5-008 Filters
 
 ## M6 — Proposal Engine
 

@@ -257,3 +257,7 @@ def _persist_scores(
             formula_version=FORMULA_VERSION,
         )
     )
+    if website is not None and website.company_id is not None:
+        from app.services.crm_service import mark_analyzed_if_discovered
+
+        mark_analyzed_if_discovered(session, website.company_id)

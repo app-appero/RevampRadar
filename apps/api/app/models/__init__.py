@@ -1,5 +1,6 @@
 from app.models.base import Base
 from app.models.entities import (
+    Activity,
     Audit,
     AuditFinding,
     BulkScan,
@@ -7,13 +8,18 @@ from app.models.entities import (
     Company,
     DiscoveryResult,
     DiscoveryRun,
+    Opportunity,
+    OpportunityNote,
     OpportunityScore,
+    OpportunityTag,
     Screenshot,
+    Tag,
     Website,
     WebsiteScore,
 )
 
 __all__ = [
+    "Activity",
     "Audit",
     "AuditFinding",
     "Base",
@@ -22,8 +28,12 @@ __all__ = [
     "Company",
     "DiscoveryResult",
     "DiscoveryRun",
+    "Opportunity",
+    "OpportunityNote",
     "OpportunityScore",
+    "OpportunityTag",
     "Screenshot",
+    "Tag",
     "Website",
     "WebsiteScore",
 ]

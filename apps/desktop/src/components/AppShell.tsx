@@ -27,6 +27,9 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Link to="/discovery" className="text-stone-600 hover:text-stone-900">
                 Discovery
               </Link>
+              <Link to="/pipeline" className="text-stone-600 hover:text-stone-900">
+                Pipeline
+              </Link>
             </nav>
             <div className="flex items-center gap-3 text-sm text-stone-500">
               <span className="hidden sm:inline">{getApiBaseUrl()}</span>

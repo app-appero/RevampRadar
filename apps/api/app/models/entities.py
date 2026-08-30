@@ -37,6 +37,9 @@ class Company(Base):
 
     websites: Mapped[list["Website"]] = relationship(back_populates="company")
     discovery_results: Mapped[list["DiscoveryResult"]] = relationship(back_populates="company")
+    opportunity: Mapped["Opportunity | None"] = relationship(
+        back_populates="company", uselist=False, cascade="all, delete-orphan"
+    )
 
 
 class Website(Base):
@@ -264,3 +267,87 @@ class BulkScanItem(Base):
     bulk_scan: Mapped[BulkScan] = relationship(back_populates="items")
     company: Mapped[Company] = relationship()
     audit: Mapped[Audit | None] = relationship()
+
+
+class Opportunity(Base):
+    __tablename__ = "opportunities"
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    company_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("companies.id"), unique=True, nullable=False, index=True
+    )
+    status: Mapped[str] = mapped_column(String(32), default="discovered", nullable=False, index=True)
+    is_favorite: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    company: Mapped[Company] = relationship(back_populates="opportunity")
+    notes: Mapped[list["OpportunityNote"]] = relationship(
+        back_populates="opportunity", cascade="all, delete-orphan"
+    )
+    activities: Mapped[list["Activity"]] = relationship(
+        back_populates="opportunity", cascade="all, delete-orphan"
+    )
+    tag_links: Mapped[list["OpportunityTag"]] = relationship(
+        back_populates="opportunity", cascade="all, delete-orphan"
+    )
+
+
+class OpportunityNote(Base):
+    __tablename__ = "opportunity_notes"
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    opportunity_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("opportunities.id"), nullable=False, index=True
+    )
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    opportunity: Mapped[Opportunity] = relationship(back_populates="notes")
+
+
+class Tag(Base):
+    __tablename__ = "tags"
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    name: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+
+    links: Mapped[list["OpportunityTag"]] = relationship(
+        back_populates="tag", cascade="all, delete-orphan"
+    )
+
+
+class OpportunityTag(Base):
+    __tablename__ = "opportunity_tags"
+    __table_args__ = (UniqueConstraint("opportunity_id", "tag_id", name="uq_opportunity_tags"),)
+
+    opportunity_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("opportunities.id"), primary_key=True
+    )
+    tag_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("tags.id"), primary_key=True)
+
+    opportunity: Mapped[Opportunity] = relationship(back_populates="tag_links")
+    tag: Mapped[Tag] = relationship(back_populates="links")
+
+
+class Activity(Base):
+    __tablename__ = "activities"
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    opportunity_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("opportunities.id"), nullable=False, index=True
+    )
+    type: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    opportunity: Mapped[Opportunity] = relationship(back_populates="activities")

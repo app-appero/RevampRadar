@@ -157,6 +157,9 @@ def _upsert_company(session: Session, candidate: DiscoveryCandidate) -> Company:
         )
         session.add(company)
         session.flush()
+        from app.services.crm_service import ensure_opportunity
+
+        ensure_opportunity(session, company)
     else:
         _fill_missing(company, candidate)
     if candidate.website_url:
