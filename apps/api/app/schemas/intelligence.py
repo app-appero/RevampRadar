@@ -9,10 +9,16 @@ class SocialLink(BaseModel):
     url: str
 
 
+class StoreLink(BaseModel):
+    store: str
+    url: str
+
+
 class IntelligenceSignals(BaseModel):
     technologies: list[str] = Field(default_factory=list)
     analytics: list[str] = Field(default_factory=list)
     social: list[SocialLink] = Field(default_factory=list)
+    app_links: list[StoreLink] = Field(default_factory=list)
     generator: str | None = None
     aging: list[str] = Field(default_factory=list)
     osm_stars: str | None = None

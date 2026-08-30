@@ -114,3 +114,12 @@
 - [x] M7-004 Monitoring freshness
 - [x] M7-005 Intelligence API
 - [x] M7-006 Intelligence UI
+
+## M8 — App / SaaS Analysis
+
+- [x] M8-001 App Store / Play links from HTML
+- [ ] M8-002 App Store listing (solo dopo validazione flusso siti)
+- [ ] M8-003 Play Store listing
+- [ ] M8-004 Review sentiment
+- [ ] M8-005 Feature request mining
+- [ ] M8-006 Public SaaS / demo analysis

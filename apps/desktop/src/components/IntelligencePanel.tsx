@@ -4,6 +4,7 @@ import type { Intelligence } from "../api/intelligence";
 
 export function IntelligencePanel({ data }: { data: Intelligence }) {
   const s = data.signals;
+  const appLinks = s.app_links ?? [];
   const delta = (value: number | null) => {
     if (value == null) return "—";
     if (value > 0) return `+${value}`;
@@ -15,7 +16,7 @@ export function IntelligencePanel({ data }: { data: Intelligence }) {
       <div>
         <h2 className="text-lg font-medium">Intelligence</h2>
         <p className="text-sm text-stone-500">
-          Segnali già misurati: tech, social, stelle OSM, confronto con l’audit precedente. Niente dati inventati.
+          Segnali già misurati: tech, social, app linkate dal sito, stelle OSM, confronto con l’audit precedente. Niente dati inventati.
         </p>
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
@@ -55,6 +56,25 @@ export function IntelligencePanel({ data }: { data: Intelligence }) {
           </ul>
         )}
       </div>
+      <div>
+        <h3 className="text-xs tracking-wide text-stone-500 uppercase">App Store / Play</h3>
+        {appLinks.length === 0 ? (
+          <p className="mt-2 text-sm text-stone-500">
+            Nessun link App Store o Play sulla homepage. Niente recensioni store: non le inventiamo.
+          </p>
+        ) : (
+          <ul className="mt-2 space-y-1 text-sm">
+            {appLinks.map((item) => (
+              <li key={item.url}>
+                <span className="font-medium">{storeLabel(item.store)}</span>{" "}
+                <a href={item.url} className="break-all underline" target="_blank" rel="noreferrer">
+                  {item.url}
+                </a>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
       {data.history ? (
         <div className="rounded-2xl border border-stone-200 bg-white p-4">
           <h3 className="text-sm font-medium">Confronto con l’audit precedente</h3>
@@ -79,6 +99,12 @@ export function IntelligencePanel({ data }: { data: Intelligence }) {
       )}
     </section>
   );
+}
+
+function storeLabel(store: string): string {
+  if (store === "app_store") return "App Store";
+  if (store === "play_store") return "Play Store";
+  return store;
 }
 
 function Box({ label, value }: { label: string; value: string }) {

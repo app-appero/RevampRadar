@@ -80,3 +80,7 @@ M7 usa solo dati già misurati (HTML, audit precedenti, tag OSM). Niente competi
 ## ADR-015 — Anteprima visiva indicativa, non mockup di restyling
 
 Gli screenshot extra sono catture reali (viewport desktop/mobile a quote diverse). L'anteprima "dopo" applica solo overlay deterministici (testo più leggibile, CTA, nascondere cookie banner) e va etichettata come indicativa. Non si generano immagini di restyling con AI: sarebbero inventate e fuorvianti in sede commerciale.
+
+## ADR-016 — M8 parte dai link store già sul sito
+
+Il primo passo App/SaaS è rilevare link App Store e Play sulla homepage già scaricata. Niente scraping store, recensioni o rating inventati. Listing e sentiment restano dopo la validazione del flusso siti.

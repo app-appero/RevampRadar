@@ -95,12 +95,14 @@ def _page_signals(html: dict) -> dict:
     technologies = list(html.get("technologies") or [])
     analytics = list(html.get("analytics") or [])
     social = list(html.get("social_links") or [])
+    app_links = list(html.get("app_links") or [])
     generator = html.get("generator")
     aging = _aging_notes(technologies, generator)
     return {
         "technologies": technologies,
         "analytics": analytics,
         "social": social,
+        "app_links": app_links,
         "generator": generator,
         "aging": aging,
     }

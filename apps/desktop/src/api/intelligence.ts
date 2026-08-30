@@ -7,6 +7,7 @@ export type Intelligence = {
     technologies: string[];
     analytics: string[];
     social: { network: string; url: string }[];
+    app_links?: { store: string; url: string }[];
     generator: string | null;
     aging: string[];
     osm_stars: string | null;

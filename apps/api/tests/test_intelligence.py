@@ -19,6 +19,20 @@ def test_html_extracts_social_and_generator() -> None:
     assert networks == {"facebook", "instagram"}
 
 
+def test_html_extracts_app_store_links() -> None:
+    html = """
+    <html><body>
+      <a href="https://apps.apple.com/it/app/hotelsole/id123">iOS</a>
+      <a href="https://play.google.com/store/apps/details?id=it.hotelsole">Android</a>
+      <a href="https://play.google.com/store/books">not an app</a>
+    </body></html>
+    """
+    result = scan_html(html, "https://hotelsole.test/")
+    stores = {item["store"] for item in result.app_links}
+    assert stores == {"app_store", "play_store"}
+    assert all("/store/books" not in item["url"] for item in result.app_links)
+
+
 def test_intelligence_history_and_osm_stars(db_session, monkeypatch) -> None:
     monkeypatch.setattr("app.api.audits.execute_audit", lambda audit_id: None)
     company = Company(
@@ -60,6 +74,7 @@ def test_intelligence_history_and_osm_stars(db_session, monkeypatch) -> None:
             "technologies": ["wordpress"],
             "analytics": ["google_analytics"],
             "social_links": [{"network": "facebook", "url": "https://facebook.com/sole"}],
+            "app_links": [{"store": "app_store", "url": "https://apps.apple.com/app/sole"}],
             "generator": "WordPress 4.9",
         },
     )
@@ -70,6 +85,7 @@ def test_intelligence_history_and_osm_stars(db_session, monkeypatch) -> None:
     assert payload["signals"]["osm_stars"] == "4"
     assert payload["signals"]["analytics"] == ["google_analytics"]
     assert payload["signals"]["social"][0]["network"] == "facebook"
+    assert payload["signals"]["app_links"][0]["store"] == "app_store"
     assert any("WordPress" in note for note in payload["signals"]["aging"])
     assert payload["history"]["previous_audit_id"] == str(old.id)
     assert payload["history"]["website_score_delta"] == -8

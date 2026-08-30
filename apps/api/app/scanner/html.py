@@ -29,6 +29,7 @@ class HtmlScanResult:
     internal_links: list[str] = field(default_factory=list)
     cta_texts: list[str] = field(default_factory=list)
     social_links: list[dict] = field(default_factory=list)
+    app_links: list[dict] = field(default_factory=list)
     generator: str | None = None
 
     def to_dict(self) -> dict:
@@ -47,6 +48,7 @@ class HtmlScanResult:
             "internal_links": self.internal_links[:30],
             "cta_texts": self.cta_texts[:20],
             "social_links": self.social_links,
+            "app_links": self.app_links,
             "generator": self.generator,
         }
 
@@ -103,6 +105,7 @@ def scan_html(html: str, page_url: str) -> HtmlScanResult:
     generator = generator_tag.get("content", "").strip() if generator_tag else None
 
     social_links = _social_links(soup, page_url)
+    app_links = _app_links(soup, page_url)
     page_host = urlparse(page_url).netloc
     internal_links: list[str] = []
     for anchor in soup.find_all("a", href=True):
@@ -137,6 +140,7 @@ def scan_html(html: str, page_url: str) -> HtmlScanResult:
         internal_links=internal_links,
         cta_texts=cta_texts,
         social_links=social_links,
+        app_links=app_links,
         generator=generator or None,
     )
 
@@ -153,6 +157,31 @@ _SOCIAL_HOSTS = (
     ("youtube.com", "youtube"),
     ("tiktok.com", "tiktok"),
 )
+
+
+_APP_HOSTS = (
+    ("apps.apple.com", "app_store"),
+    ("itunes.apple.com", "app_store"),
+    ("play.google.com", "play_store"),
+)
+
+
+def _app_links(soup: BeautifulSoup, page_url: str) -> list[dict]:
+    found: list[dict] = []
+    seen: set[str] = set()
+    for anchor in soup.find_all("a", href=True):
+        href = urljoin(page_url, anchor["href"])
+        host = urlparse(href).netloc.lower().removeprefix("www.")
+        store = next((name for suffix, name in _APP_HOSTS if host == suffix or host.endswith("." + suffix)), None)
+        if store is None or href in seen:
+            continue
+        if store == "play_store" and "/store/apps" not in urlparse(href).path.lower():
+            continue
+        seen.add(href)
+        found.append({"store": store, "url": href})
+        if len(found) >= 8:
+            break
+    return found
 
 
 def _social_links(soup: BeautifulSoup, page_url: str) -> list[dict]:
