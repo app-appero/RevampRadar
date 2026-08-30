@@ -145,6 +145,26 @@ export async function createDiscovery(input: {
   return parseJson<DiscoveryRun>(response);
 }
 
+export type DiscoveryRunSummary = {
+  id: string;
+  industry: string;
+  location: string;
+  status: DiscoveryStatus;
+  total_found: number;
+  created_at: string;
+  completed_at: string | null;
+};
+
+export async function fetchRecentDiscoveries(limit = 8): Promise<DiscoveryRunSummary[]> {
+  let response: Response;
+  try {
+    response = await fetch(`${getApiBaseUrl()}/discoveries?limit=${limit}`);
+  } catch {
+    throw new ApiError("Impossibile raggiungere il backend.");
+  }
+  return parseJson<DiscoveryRunSummary[]>(response);
+}
+
 export async function fetchDiscovery(id: string): Promise<DiscoveryRun> {
   let response: Response;
   try {

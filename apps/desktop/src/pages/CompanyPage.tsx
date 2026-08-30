@@ -1,4 +1,4 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
@@ -82,7 +82,10 @@ export function CompanyPage() {
   const company = query.data;
   const opportunity = crmQuery.data;
 
-  function invalidateCrm() {
+  function invalidateCrm(data?: OpportunityDetail) {
+    if (data) {
+      queryClient.setQueryData(["company-opportunity", companyId], data);
+    }
     void queryClient.invalidateQueries({ queryKey: ["company-opportunity", companyId] });
     void queryClient.invalidateQueries({ queryKey: ["opportunities"] });
     void queryClient.invalidateQueries({ queryKey: ["crm-dashboard"] });
@@ -197,21 +200,27 @@ function CrmPanel({
   onChanged,
 }: {
   opportunity: OpportunityDetail;
-  onChanged: () => void;
+  onChanged: (data?: OpportunityDetail) => void;
 }) {
   const [note, setNote] = useState("");
   const [tag, setTag] = useState("");
   const [activityType, setActivityType] = useState("call");
   const [activityNote, setActivityNote] = useState("");
   const [crmError, setCrmError] = useState<string | null>(null);
+  const [status, setStatus] = useState(opportunity.status);
+
+  useEffect(() => {
+    setStatus(opportunity.status);
+  }, [opportunity.status]);
 
   const mutate = useMutation({
     mutationFn: async (action: () => Promise<OpportunityDetail>) => action(),
-    onSuccess: () => {
+    onSuccess: (data) => {
       setCrmError(null);
-      onChanged();
+      onChanged(data);
     },
     onError: (err) => {
+      setStatus(opportunity.status);
       setCrmError(err instanceof ApiError ? err.message : "Operazione CRM non riuscita.");
     },
   });
@@ -254,11 +263,13 @@ function CrmPanel({
         <label className="flex flex-col gap-1 text-sm">
           <span className="text-xs tracking-wide text-stone-500 uppercase">Stato CRM</span>
           <select
-            value={opportunity.status}
+            value={status}
             disabled={mutate.isPending}
-            onChange={(event) =>
-              mutate.mutate(() => updateOpportunity(opportunity.id, { status: event.target.value }))
-            }
+            onChange={(event) => {
+              const next = event.target.value;
+              setStatus(next);
+              mutate.mutate(() => updateOpportunity(opportunity.id, { status: next }));
+            }}
             className="rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-stone-900"
           >
             {CRM_STATUSES.map((status) => (

@@ -101,6 +101,17 @@ def test_create_discovery_api_queues_job(client, monkeypatch) -> None:
     assert fetched.json()["companies"] == []
 
 
+def test_list_recent_discoveries(client, monkeypatch) -> None:
+    monkeypatch.setattr("app.api.discovery.execute_discovery", lambda run_id: None)
+    client.post("/discoveries", json={"industry": "Hotel", "location": "Palermo", "max_results": 5})
+    client.post("/discoveries", json={"industry": "Ristorante", "location": "Catania", "max_results": 5})
+    listed = client.get("/discoveries")
+    assert listed.status_code == 200
+    rows = listed.json()
+    assert len(rows) >= 2
+    assert {item["industry"] for item in rows} >= {"Hotel", "Ristorante"}
+
+
 def test_companies_empty_and_missing(client) -> None:
     assert client.get("/companies").json() == []
     response = client.get("/companies/11111111-1111-1111-1111-111111111111")

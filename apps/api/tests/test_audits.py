@@ -77,6 +77,18 @@ def test_get_audit_includes_persisted_scores(client, db_session, monkeypatch) ->
     assert body["opportunity_score"]["recommended_service"].startswith("Redesign")
 
 
+def test_list_recent_audits(client, monkeypatch) -> None:
+    monkeypatch.setattr("app.api.audits.execute_audit", lambda audit_id: None)
+    first = client.post("/audits", json={"url": "https://alpha.example"})
+    second = client.post("/audits", json={"url": "https://beta.example"})
+    listed = client.get("/audits")
+    assert listed.status_code == 200
+    rows = listed.json()
+    ids = {item["id"] for item in rows}
+    assert first.json()["id"] in ids
+    assert second.json()["id"] in ids
+
+
 def test_missing_audit_returns_404(client) -> None:
     response = client.get("/audits/11111111-1111-1111-1111-111111111111")
     assert response.status_code == 404

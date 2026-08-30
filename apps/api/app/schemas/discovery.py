@@ -31,6 +31,16 @@ class CompanyDetail(CompanySummary):
     website_id: UUID | None = None
 
 
+class DiscoveryRunSummary(BaseModel):
+    id: UUID
+    industry: str
+    location: str
+    status: str
+    total_found: int
+    created_at: datetime
+    completed_at: datetime | None = None
+
+
 class DiscoveryRunResponse(BaseModel):
     id: UUID
     industry: str

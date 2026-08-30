@@ -44,6 +44,7 @@
 - [x] M1-018 Single URL analysis UI
 - [x] M1-019 Audit result UI
 - [x] M1-020 Error states
+- [x] M1-021 Home recent audits and discoveries
 
 ## M2 — Scoring
 

@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.db import get_db
@@ -19,6 +19,7 @@ from app.schemas.discovery import (
     CompanySummary,
     CreateDiscoveryRequest,
     DiscoveryRunResponse,
+    DiscoveryRunSummary,
 )
 
 router = APIRouter(tags=["discovery"])
@@ -43,6 +44,26 @@ def post_discovery(
     loaded = load_discovery_run(db, run.id)
     assert loaded is not None
     return _run_response(db, loaded)
+
+
+@router.get("/discoveries", response_model=list[DiscoveryRunSummary])
+def list_discoveries(
+    limit: int = Query(8, ge=1, le=50),
+    db: Session = Depends(get_db),
+) -> list[DiscoveryRunSummary]:
+    rows = db.query(DiscoveryRun).order_by(DiscoveryRun.created_at.desc()).limit(limit).all()
+    return [
+        DiscoveryRunSummary(
+            id=item.id,
+            industry=item.industry,
+            location=item.location,
+            status=item.status,
+            total_found=item.total_found,
+            created_at=item.created_at,
+            completed_at=item.completed_at,
+        )
+        for item in rows
+    ]
 
 
 @router.get("/discoveries/{run_id}", response_model=DiscoveryRunResponse)

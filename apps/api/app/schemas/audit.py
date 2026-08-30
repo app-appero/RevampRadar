@@ -9,6 +9,18 @@ class CreateAuditRequest(BaseModel):
     company_id: UUID | None = None
 
 
+class AuditSummaryResponse(BaseModel):
+    id: UUID
+    status: str
+    domain: str
+    normalized_url: str
+    created_at: datetime
+    completed_at: datetime | None
+    website_score: int | None = None
+    opportunity_score: int | None = None
+    priority: str | None = None
+
+
 class FindingResponse(BaseModel):
     id: UUID
     category: str

@@ -22,6 +22,7 @@
 - Intelligence: tech/social/OSM, confronto con audit precedente e freshness; senza nuove API esterne.
 - Galleria screenshot: più viewport (inizio/contenuto/footer) e anteprima visiva indicativa, non un mockup di restyling.
 - App signals: link App Store / Play trovati sulla homepage; niente recensioni store.
+- Home: audit e discovery recenti più snapshot pipeline, per riprendere il lavoro senza perdere il filo.
 
 ### Changed
 - PageSpeed Insights è opzionale via `PAGESPEED_API_KEY`; Lighthouse nativo è rimandato (M1-014).

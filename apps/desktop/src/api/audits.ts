@@ -108,6 +108,31 @@ async function parseAudit(response: Response): Promise<Audit> {
   return payload as Audit;
 }
 
+export type AuditSummary = {
+  id: string;
+  status: AuditStatus;
+  domain: string;
+  normalized_url: string;
+  created_at: string;
+  completed_at: string | null;
+  website_score: number | null;
+  opportunity_score: number | null;
+  priority: string | null;
+};
+
+export async function fetchRecentAudits(limit = 12): Promise<AuditSummary[]> {
+  let response: Response;
+  try {
+    response = await fetch(`${getApiBaseUrl()}/audits?limit=${limit}`);
+  } catch {
+    throw new ApiError("Impossibile raggiungere il backend.");
+  }
+  if (!response.ok) {
+    throw new ApiError(`Errore ${response.status}`, response.status);
+  }
+  return (await response.json()) as AuditSummary[];
+}
+
 export async function createAudit(url: string, companyId?: string): Promise<Audit> {
   let response: Response;
   try {

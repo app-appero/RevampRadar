@@ -1,7 +1,7 @@
 from pathlib import Path
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session, selectinload
 
@@ -10,6 +10,7 @@ from app.models.entities import Audit
 from app.schemas.audit import (
     AIAnalysisResponse,
     AuditResponse,
+    AuditSummaryResponse,
     CreateAuditRequest,
     FindingResponse,
     OpportunityScoreResponse,
@@ -36,6 +37,22 @@ def post_audit(
     audit = _load_audit(db, audit.id)
     assert audit is not None
     return _to_response(audit)
+
+
+@router.get("", response_model=list[AuditSummaryResponse])
+def list_audits(limit: int = Query(12, ge=1, le=50), db: Session = Depends(get_db)) -> list[AuditSummaryResponse]:
+    rows = (
+        db.query(Audit)
+        .options(
+            selectinload(Audit.website),
+            selectinload(Audit.website_score),
+            selectinload(Audit.opportunity_score),
+        )
+        .order_by(Audit.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+    return [_to_summary(item) for item in rows]
 
 
 @router.get("/{audit_id}", response_model=AuditResponse)
@@ -116,6 +133,22 @@ def _to_response(audit: Audit) -> AuditResponse:
         website_score=_website_score_response(audit),
         opportunity_score=_opportunity_score_response(audit),
         ai_analysis=_ai_analysis_response(audit),
+    )
+
+
+def _to_summary(audit: Audit) -> AuditSummaryResponse:
+    opportunity = audit.opportunity_score
+    website = audit.website_score
+    return AuditSummaryResponse(
+        id=audit.id,
+        status=audit.status,
+        domain=audit.website.domain,
+        normalized_url=audit.website.normalized_url,
+        created_at=audit.created_at,
+        completed_at=audit.completed_at,
+        website_score=website.overall_score if website else None,
+        opportunity_score=opportunity.opportunity_score if opportunity else None,
+        priority=opportunity.priority if opportunity else None,
     )
 
 

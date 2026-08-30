@@ -53,7 +53,7 @@ npm install
 npm run dev
 ```
 
-La UI è su `http://localhost:1420`. Dalla home puoi inserire un URL e aprire l'audit, con Website Score e Opportunity Score a scansione completata. Da **Discovery** puoi cercare aziende e lanciare l’analisi in batch. Da **Pipeline** gestisci stati CRM, shortlist, note e attività. Da un audit completato puoi **generare una proposta** (email, brief, range indicativo) e vedere i segnali **Intelligence** (tech, social, app store linkate dal sito, storico).
+La UI è su `http://localhost:1420`. In home analizzi un URL e riprendi audit e discovery recenti. A scansione completata vedi Website Score, Opportunity Score, screenshot e Intelligence. Da **Discovery** cerchi aziende e lanci l’analisi in batch. Da **Pipeline** gestisci stati CRM, shortlist, note e attività. Da un audit completato puoi **generare una proposta**.
 
 L'analisi qualitativa AI è opzionale: imposta `OPENAI_API_KEY` in `.env` (e nel container) per UX/UI/copy. Senza chiave, gli score deterministici vengono calcolati lo stesso.
 
