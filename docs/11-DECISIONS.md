@@ -68,3 +68,7 @@ M4 usa un thread pool in-process (`bulk_scan_concurrency`) per analizzare i siti
 ## ADR-012 — CRM su Opportunity, non su Company.status
 
 Lo stato commerciale vive su `opportunities` (1:1 con company). `companies.status` resta il dato di discovery. Pipeline fissa da docs/08-CRM.md, senza automazioni marketing.
+
+## ADR-013 — Proposal deterministica prima dell'AI
+
+La proposta commerciale si genera da audit/finding/score già persistiti. L'AI può solo riscrivere i testi. Range, servizio consigliato e problemi prioritari restano deterministici. Non si inviano email.

@@ -97,10 +97,10 @@
 
 ## M6 — Proposal Engine
 
-- M6-001 Proposal data model
-- M6-002 Proposal prompt
-- M6-003 Commercial summary
-- M6-004 Recommended services
-- M6-005 Personalized email
-- M6-006 Project range estimate
-- M6-007 Proposal UI
+- [x] M6-001 Proposal data model
+- [x] M6-002 Proposal prompt
+- [x] M6-003 Commercial summary
+- [x] M6-004 Recommended services
+- [x] M6-005 Personalized email
+- [x] M6-006 Project range estimate
+- [x] M6-007 Proposal UI

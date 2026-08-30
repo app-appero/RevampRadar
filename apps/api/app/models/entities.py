@@ -97,6 +97,9 @@ class Audit(Base):
     opportunity_score: Mapped["OpportunityScore | None"] = relationship(
         back_populates="audit", cascade="all, delete-orphan", uselist=False
     )
+    proposal: Mapped["Proposal | None"] = relationship(
+        back_populates="audit", cascade="all, delete-orphan", uselist=False
+    )
 
 
 class AuditFinding(Base):
@@ -351,3 +354,37 @@ class Activity(Base):
     )
 
     opportunity: Mapped[Opportunity] = relationship(back_populates="activities")
+
+
+class Proposal(Base):
+    __tablename__ = "proposals"
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    audit_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("audits.id"), unique=True, nullable=False, index=True
+    )
+    company_id: Mapped[UUID | None] = mapped_column(
+        Uuid, ForeignKey("companies.id"), nullable=True, index=True
+    )
+    source: Mapped[str] = mapped_column(String(32), nullable=False)
+    prompt_version: Mapped[str] = mapped_column(String(32), nullable=False)
+    summary: Mapped[str] = mapped_column(Text, nullable=False)
+    priority_problems: Mapped[list] = mapped_column(JsonType, nullable=False)
+    recommended_service: Mapped[str] = mapped_column(Text, nullable=False)
+    strategy: Mapped[str] = mapped_column(Text, nullable=False)
+    email_subject: Mapped[str] = mapped_column(String(255), nullable=False)
+    email_body: Mapped[str] = mapped_column(Text, nullable=False)
+    brief: Mapped[str] = mapped_column(Text, nullable=False)
+    range_min: Mapped[int] = mapped_column(Integer, nullable=False)
+    range_max: Mapped[int] = mapped_column(Integer, nullable=False)
+    currency: Mapped[str] = mapped_column(String(8), default="EUR", nullable=False)
+    range_note: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    audit: Mapped[Audit] = relationship(back_populates="proposal")
+    company: Mapped[Company | None] = relationship()

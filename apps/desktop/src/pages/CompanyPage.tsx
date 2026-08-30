@@ -16,7 +16,9 @@ import {
   updateOpportunity,
   type OpportunityDetail,
 } from "../api/crm";
+import { generateProposal, fetchCompanyProposal } from "../api/proposals";
 import { fetchCompany } from "../api/discovery";
+import { ProposalCard } from "../components/ProposalCard";
 import { ApiError } from "../api/health";
 import { AppShell } from "../components/AppShell";
 
@@ -35,6 +37,12 @@ export function CompanyPage() {
     queryFn: () => fetchCompanyOpportunity(companyId!),
     enabled: Boolean(companyId),
   });
+  const proposalQuery = useQuery({
+    queryKey: ["company-proposal", companyId],
+    queryFn: () => fetchCompanyProposal(companyId!),
+    enabled: Boolean(companyId),
+    retry: false,
+  });
   const analyze = useMutation({
     mutationFn: async () => {
       const company = query.data;
@@ -46,6 +54,21 @@ export function CompanyPage() {
     onSuccess: (audit) => navigate(`/audits/${audit.id}`),
     onError: (err) => {
       setError(err instanceof ApiError ? err.message : "Analisi non avviata.");
+    },
+  });
+  const generateProposalMut = useMutation({
+    mutationFn: async () => {
+      const auditId = crmQuery.data?.latest_audit_id;
+      if (!auditId) {
+        throw new ApiError("Serve un audit completato per generare la proposta.");
+      }
+      return generateProposal(auditId);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["company-proposal", companyId] });
+    },
+    onError: (err) => {
+      setError(err instanceof ApiError ? err.message : "Proposta non generata.");
     },
   });
   const company = query.data;
@@ -130,9 +153,29 @@ export function CompanyPage() {
                   Apri ultimo audit
                 </Link>
               ) : null}
+              {opportunity?.latest_audit_id ? (
+                <button
+                  type="button"
+                  disabled={generateProposalMut.isPending}
+                  onClick={() => {
+                    setError(null);
+                    generateProposalMut.mutate();
+                  }}
+                  className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-800 hover:bg-stone-50 disabled:opacity-50"
+                >
+                  {generateProposalMut.isPending ? "Generazione…" : "Genera proposta"}
+                </button>
+              ) : null}
             </div>
             {!company.website_url ? (
               <p className="text-sm text-stone-500">Nessun sito collegato: non è possibile avviare l’audit.</p>
+            ) : null}
+
+            {proposalQuery.data ? (
+              <section className="space-y-3">
+                <h2 className="text-lg font-medium">Proposta commerciale</h2>
+                <ProposalCard proposal={proposalQuery.data} />
+              </section>
             ) : null}
 
             {opportunity ? <CrmPanel opportunity={opportunity} onChanged={invalidateCrm} /> : null}

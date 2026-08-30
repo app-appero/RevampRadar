@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 
 import {
@@ -9,7 +9,9 @@ import {
   type OpportunityScore,
   type WebsiteScore,
 } from "../api/audits";
+import { fetchAuditProposal, generateProposal, type Proposal } from "../api/proposals";
 import { AppShell } from "../components/AppShell";
+import { ProposalCard } from "../components/ProposalCard";
 
 export function AuditPage() {
   const { auditId } = useParams();
@@ -25,6 +27,18 @@ export function AuditPage() {
 
   const audit = auditQuery.data;
   const inProgress = audit?.status === "queued" || audit?.status === "running";
+  const proposalQuery = useQuery({
+    queryKey: ["proposal", auditId],
+    queryFn: () => fetchAuditProposal(auditId!),
+    enabled: Boolean(auditId) && audit?.status === "completed",
+    retry: false,
+  });
+  const generate = useMutation({
+    mutationFn: () => generateProposal(auditId!),
+    onSuccess: () => {
+      void proposalQuery.refetch();
+    },
+  });
 
   return (
     <AppShell>
@@ -93,6 +107,15 @@ export function AuditPage() {
                 website={audit.website_score}
                 opportunity={audit.opportunity_score}
                 ai={audit.ai_analysis}
+              />
+            ) : null}
+
+            {audit.status === "completed" ? (
+              <ProposalSection
+                proposal={proposalQuery.data}
+                pending={generate.isPending}
+                error={generate.isError}
+                onGenerate={() => generate.mutate()}
               />
             ) : null}
 
@@ -341,6 +364,43 @@ function AIBlock({ ai }: { ai: AIAnalysis }) {
         </div>
       ) : null}
     </div>
+  );
+}
+
+function ProposalSection({
+  proposal,
+  pending,
+  error,
+  onGenerate,
+}: {
+  proposal: Proposal | null | undefined;
+  pending: boolean;
+  error: boolean;
+  onGenerate: () => void;
+}) {
+  return (
+    <section className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-medium">Proposta commerciale</h2>
+          <p className="text-sm text-stone-500">
+            Summary, problemi prioritari, email e range indicativo. L’AI è opzionale: senza chiave resta il testo deterministico.
+          </p>
+        </div>
+        <button
+          type="button"
+          disabled={pending}
+          onClick={onGenerate}
+          className="rounded-lg bg-stone-900 px-4 py-2 text-sm font-medium text-white hover:bg-stone-800 disabled:opacity-50"
+        >
+          {pending ? "Generazione…" : proposal ? "Rigenera proposta" : "Genera proposta"}
+        </button>
+      </div>
+      {error ? (
+        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">Proposta non generata.</p>
+      ) : null}
+      {proposal ? <ProposalCard proposal={proposal} /> : null}
+    </section>
   );
 }
 
