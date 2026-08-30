@@ -3,7 +3,6 @@ import { useParams } from "react-router-dom";
 
 import {
   fetchAudit,
-  screenshotSrc,
   type AIAnalysis,
   type AuditFinding,
   type OpportunityScore,
@@ -14,6 +13,7 @@ import { fetchAuditProposal, generateProposal, type Proposal } from "../api/prop
 import { IntelligencePanel } from "../components/IntelligencePanel";
 import { PageBackLink } from "../components/HistoryNav";
 import { ProposalCard } from "../components/ProposalCard";
+import { ScreenshotGallery } from "../components/ScreenshotGallery";
 
 export function AuditPage() {
   const { auditId } = useParams();
@@ -83,23 +83,7 @@ export function AuditPage() {
             ) : null}
 
             {audit.screenshots.length > 0 ? (
-              <section className="grid gap-4 md:grid-cols-2">
-                {audit.screenshots.map((shot) => (
-                  <figure
-                    key={shot.id}
-                    className="overflow-hidden rounded-2xl border border-stone-200 bg-white"
-                  >
-                    <img
-                      src={screenshotSrc(shot.url)}
-                      alt={`Screenshot ${shot.device}`}
-                      className="h-64 w-full object-cover object-top"
-                    />
-                    <figcaption className="px-4 py-2 text-sm text-stone-500">
-                      {shot.device} · {shot.viewport_width}×{shot.viewport_height}
-                    </figcaption>
-                  </figure>
-                ))}
-              </section>
+              <ScreenshotGallery shots={audit.screenshots} />
             ) : !inProgress ? (
               <p className="rounded-lg bg-stone-100 px-3 py-2 text-sm text-stone-600">
                 Nessuno screenshot. Se tra i finding c’è “Screenshot non disponibile”,

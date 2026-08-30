@@ -36,6 +36,7 @@
 - [x] M1-011 Playwright integration
 - [x] M1-012 Desktop screenshot
 - [x] M1-013 Mobile screenshot
+- [x] M1-013b Screenshot gallery (hero/mid/footer + preview indicativa)
 - [ ] M1-014 Lighthouse integration
 - [x] M1-015 PageSpeed integration
 - [x] M1-016 Audit orchestration service

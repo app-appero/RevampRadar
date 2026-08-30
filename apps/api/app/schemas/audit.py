@@ -27,6 +27,8 @@ class ScreenshotResponse(BaseModel):
     viewport_width: int
     viewport_height: int
     url: str
+    label: str
+    preview: bool = False
 
 
 class WebsiteScoreResponse(BaseModel):

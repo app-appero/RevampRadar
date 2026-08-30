@@ -76,3 +76,7 @@ La proposta commerciale si genera da audit/finding/score già persistiti. L'AI p
 ## ADR-014 — Intelligence senza nuove API esterne
 
 M7 usa solo dati già misurati (HTML, audit precedenti, tag OSM). Niente competitor crawl, ads o recensioni inventate. Il confronto storico è tra audit persistiti dello stesso website.
+
+## ADR-015 — Anteprima visiva indicativa, non mockup di restyling
+
+Gli screenshot extra sono catture reali (viewport desktop/mobile a quote diverse). L'anteprima "dopo" applica solo overlay deterministici (testo più leggibile, CTA, nascondere cookie banner) e va etichettata come indicativa. Non si generano immagini di restyling con AI: sarebbero inventate e fuorvianti in sede commerciale.

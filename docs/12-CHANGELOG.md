@@ -20,6 +20,7 @@
 - CRM: opportunità 1:1 con azienda, pipeline, note, tag, preferiti, attività e filtri score/settore/località.
 - Proposal Engine: proposta commerciale da audit (summary, problemi, email, brief, range indicativo); AI opzionale solo sui testi.
 - Intelligence: tech/social/OSM, confronto con audit precedente e freshness; senza nuove API esterne.
+- Galleria screenshot: più viewport (inizio/contenuto/footer) e anteprima visiva indicativa, non un mockup di restyling.
 
 ### Changed
 - PageSpeed Insights è opzionale via `PAGESPEED_API_KEY`; Lighthouse nativo è rimandato (M1-014).

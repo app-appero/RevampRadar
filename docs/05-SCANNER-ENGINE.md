@@ -68,10 +68,13 @@ Produrre un audit riproducibile e strutturato di un sito.
 Playwright deve produrre:
 
 ### Desktop
-Viewport standard desktop.
+Viewport standard desktop: inizio pagina, contenuto (se la pagina è lunga) e footer.
 
 ### Mobile
-Viewport smartphone standard.
+Viewport smartphone: inizio pagina e contenuto.
+
+### Anteprima visiva
+Uno screenshot desktop aggiuntivo, etichettato come indicativo: testo più leggibile, CTA visibile, banner cookie nascosti. Non è un mockup di restyling né una promessa pixel-perfect.
 
 ## Performance
 

@@ -16,6 +16,7 @@ from app.schemas.audit import (
     ScreenshotResponse,
     WebsiteScoreResponse,
 )
+from app.scanner.browser import is_preview_shot, shot_label
 from app.services.audit_service import AuditServiceError, create_audit, execute_audit
 
 router = APIRouter(prefix="/audits", tags=["audits"])
@@ -107,8 +108,10 @@ def _to_response(audit: Audit) -> AuditResponse:
                 viewport_width=item.viewport_width,
                 viewport_height=item.viewport_height,
                 url=f"/audits/{audit.id}/screenshots/{item.device}",
+                label=shot_label(item.device),
+                preview=is_preview_shot(item.device),
             )
-            for item in audit.screenshots
+            for item in sorted(audit.screenshots, key=_screenshot_rank)
         ],
         website_score=_website_score_response(audit),
         opportunity_score=_opportunity_score_response(audit),
@@ -181,3 +184,22 @@ def _ai_analysis_response(audit: Audit) -> AIAnalysisResponse | None:
 def _severity_rank(finding) -> tuple[int, str]:
     order = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
     return (order.get(finding.severity, 9), finding.code)
+
+
+_SHOT_ORDER = (
+    "desktop_hero",
+    "desktop",
+    "desktop_mid",
+    "desktop_footer",
+    "mobile_hero",
+    "mobile",
+    "mobile_mid",
+    "preview_desktop",
+)
+
+
+def _screenshot_rank(item) -> tuple[int, str]:
+    try:
+        return (_SHOT_ORDER.index(item.device), item.device)
+    except ValueError:
+        return (len(_SHOT_ORDER), item.device)
