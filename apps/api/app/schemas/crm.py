@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 CRM_STATUSES = (
@@ -20,6 +20,8 @@ CRM_STATUSES = (
 
 ACTIVITY_TYPES = ("note", "status_change", "call", "email", "meeting", "other")
 
+SCHEDULED_ACTIVITY_TYPES = ("call", "email", "meeting", "other")
+
 
 class TagResponse(BaseModel):
     id: UUID
@@ -36,8 +38,22 @@ class ActivityResponse(BaseModel):
     id: UUID
     type: str
     note: str | None
-    occurred_at: datetime
+    occurred_at: datetime | None
+    due_at: datetime | None
+    completed_at: datetime | None
     created_at: datetime
+
+
+class AgendaItemResponse(BaseModel):
+    id: UUID
+    opportunity_id: UUID
+    company_id: UUID
+    company_name: str
+    type: str
+    note: str | None
+    due_at: datetime
+    created_at: datetime
+    is_overdue: bool
 
 
 class OpportunitySummary(BaseModel):
@@ -104,3 +120,10 @@ class CreateActivityRequest(BaseModel):
     type: str
     note: str | None = Field(default=None, max_length=2000)
     occurred_at: datetime | None = None
+    due_at: datetime | None = None
+
+    @model_validator(mode="after")
+    def validate_timing(self):
+        if self.due_at is not None and self.occurred_at is not None:
+            raise ValueError("Specificare solo occurred_at o due_at, non entrambi.")
+        return self

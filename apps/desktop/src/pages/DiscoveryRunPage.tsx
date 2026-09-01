@@ -1,16 +1,21 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import {
   fetchBulkScan,
   fetchCompanies,
   fetchDiscovery,
+  formatOsmTags,
   retryFailedScan,
   startBulkScan,
   type BulkScan,
   type CompanySummary,
 } from "../api/discovery";
 import { PageBackLink } from "../components/HistoryNav";
+import { ProgressBar } from "../components/ProgressBar";
+
+const PAGE_SIZE = 20;
 
 export function DiscoveryRunPage() {
   const { runId } = useParams();
@@ -20,7 +25,7 @@ export function DiscoveryRunPage() {
     enabled: Boolean(runId),
     refetchInterval: (current) => {
       const status = current.state.data?.status;
-      return status === "queued" || status === "running" ? 2000 : false;
+      return status === "queued" || status === "running" ? 1000 : false;
     },
   });
   const run = query.data;
@@ -50,7 +55,7 @@ export function DiscoveryRunPage() {
     enabled: Boolean(scanId),
     refetchInterval: (current) => {
       const status = current.state.data?.status;
-      return status === "queued" || status === "running" ? 2000 : false;
+      return status === "queued" || status === "running" ? 1000 : false;
     },
   });
 
@@ -74,16 +79,30 @@ export function DiscoveryRunPage() {
                 <span className="rounded-full bg-stone-100 px-3 py-1 text-xs font-medium text-stone-700">
                   {run.status}
                 </span>
+                {run.extended ? (
+                  <span className="rounded-full bg-sky-100 px-3 py-1 text-xs font-medium text-sky-800">
+                    ricerca estesa
+                  </span>
+                ) : null}
               </div>
               <p className="text-sm text-stone-500">
                 Provider {run.provider} · {run.total_found} aziende · max {run.max_results}
+                {run.osm_tags?.length ? ` · tag OSM ${formatOsmTags(run.osm_tags)}` : ""}
               </p>
             </header>
 
-            {inProgress ? (
-              <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
-                Ricerca in corso su OpenStreetMap. Può richiedere fino a un minuto per un’area ampia.
+            {run.status !== "failed" && run.error_message ? (
+              <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                {run.error_message}
               </p>
+            ) : null}
+
+            {inProgress ? (
+              <ProgressBar
+                percent={run.progress_percent ?? 0}
+                label={run.progress_label ?? "Ricerca in corso"}
+                hint="OpenStreetMap può richiedere fino a un minuto per un’area ampia."
+              />
             ) : null}
 
             {run.status === "failed" ? (
@@ -92,7 +111,7 @@ export function DiscoveryRunPage() {
               </p>
             ) : null}
 
-            {run.status === "completed" ? (
+            {run.status === "completed" && run.total_found > 0 ? (
               <div className="flex flex-wrap items-center gap-3">
                 <button
                   type="button"
@@ -144,9 +163,11 @@ function BulkScanPanel({ scan }: { scan: BulkScan }) {
         </p>
       </div>
       {scanning ? (
-        <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
-          Analisi in batch in corso. I siti senza URL vengono saltati; i falliti si possono ritentare.
-        </p>
+        <ProgressBar
+          percent={p.percent ?? 0}
+          label={p.label || `Analisi siti · ${p.completed}/${p.total}`}
+          hint="I siti senza URL vengono saltati; i falliti si possono ritentare."
+        />
       ) : null}
       {scan.status === "failed" && scan.error_message ? (
         <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{scan.error_message}</p>
@@ -216,36 +237,87 @@ export function CompaniesPage() {
 }
 
 function CompanyTable({ companies, empty }: { companies: CompanySummary[]; empty: boolean }) {
+  const [page, setPage] = useState(1);
+  const totalPages = Math.max(1, Math.ceil(companies.length / PAGE_SIZE));
+  const current = Math.min(page, totalPages);
+  const slice = useMemo(() => {
+    const start = (current - 1) * PAGE_SIZE;
+    return companies.slice(start, start + PAGE_SIZE);
+  }, [companies, current]);
+  const withoutSite = companies.filter((item) => !item.website_url && !item.domain).length;
+
   if (companies.length === 0 && empty) {
-    return <p className="text-sm text-stone-500">Nessuna azienda trovata.</p>;
+    return <p className="text-sm text-stone-500">Nessuna azienda trovata per questo settore.</p>;
   }
   return (
-    <div className="overflow-hidden rounded-2xl border border-stone-200 bg-white">
-      <table className="w-full text-left text-sm">
-        <thead className="bg-stone-50 text-xs tracking-wide text-stone-500 uppercase">
-          <tr>
-            <th className="px-4 py-3">Azienda</th>
-            <th className="px-4 py-3">Città</th>
-            <th className="px-4 py-3">Sito</th>
-          </tr>
-        </thead>
-        <tbody>
-          {companies.map((company) => (
-            <tr key={company.id} className="border-t border-stone-100">
-              <td className="px-4 py-3">
-                <Link to={`/companies/${company.id}`} className="font-medium hover:underline">
-                  {company.name}
-                </Link>
-                {company.category ? (
-                  <p className="text-xs text-stone-500">{company.category}</p>
-                ) : null}
-              </td>
-              <td className="px-4 py-3 text-stone-600">{company.city ?? "—"}</td>
-              <td className="px-4 py-3 text-stone-600">{company.domain ?? company.website_url ?? "—"}</td>
+    <div className="space-y-3">
+      {companies.length > 0 ? (
+        <p className="text-xs text-stone-500">
+          {companies.length} aziend{companies.length === 1 ? "a" : "e"}
+          {withoutSite ? ` · ${withoutSite} senza sito` : ""}
+          {companies.length > PAGE_SIZE ? ` · pagina ${current}/${totalPages}` : ""}
+        </p>
+      ) : null}
+      <div className="overflow-hidden rounded-2xl border border-stone-200 bg-white">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-stone-50 text-xs tracking-wide text-stone-500 uppercase">
+            <tr>
+              <th className="px-4 py-3">Azienda</th>
+              <th className="px-4 py-3">Città</th>
+              <th className="px-4 py-3">Sito</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {slice.map((company) => (
+              <tr key={company.id} className="border-t border-stone-100">
+                <td className="px-4 py-3">
+                  <Link to={`/companies/${company.id}`} className="font-medium hover:underline">
+                    {company.name}
+                  </Link>
+                  {company.category ? (
+                    <p className="text-xs text-stone-500">{company.category}</p>
+                  ) : null}
+                  {company.osm_tags ? (
+                    <p className="text-xs text-stone-400">{formatOsmTags(company.osm_tags)}</p>
+                  ) : null}
+                  {company.osm_start_date ? (
+                    <p className="text-xs text-stone-400">Apertura {company.osm_start_date}</p>
+                  ) : null}
+                </td>
+                <td className="px-4 py-3 text-stone-600">{company.city ?? "—"}</td>
+                <td className="px-4 py-3 text-stone-600">
+                  {company.domain ?? company.website_url ?? (
+                    <span className="text-sky-800">Senza sito</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {totalPages > 1 ? (
+        <div className="flex items-center justify-between text-sm">
+          <button
+            type="button"
+            disabled={current <= 1}
+            onClick={() => setPage(current - 1)}
+            className="rounded-lg border border-stone-300 px-3 py-1.5 disabled:opacity-40"
+          >
+            Precedente
+          </button>
+          <span className="text-stone-500">
+            {current} / {totalPages}
+          </span>
+          <button
+            type="button"
+            disabled={current >= totalPages}
+            onClick={() => setPage(current + 1)}
+            className="rounded-lg border border-stone-300 px-3 py-1.5 disabled:opacity-40"
+          >
+            Successiva
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

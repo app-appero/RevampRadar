@@ -9,6 +9,7 @@ from app.models.entities import Audit, Company, Proposal, Website
 from app.proposals.ai import polish_proposal
 from app.proposals.builder import ProposalDraft, build_proposal_draft
 from app.proposals.prompt_v1 import PROMPT_VERSION
+from app.services.sender_profile import get_or_create_sender_profile, profile_view
 
 
 class ProposalServiceError(Exception):
@@ -55,6 +56,7 @@ def create_or_replace_proposal(
 
     website = audit.website
     company: Company | None = website.company if website else None
+    sender = profile_view(get_or_create_sender_profile(session))
     draft = build_proposal_draft(
         domain=website.domain if website else audit.request_url,
         url=website.normalized_url if website else audit.request_url,
@@ -63,9 +65,10 @@ def create_or_replace_proposal(
         findings=audit.findings,
         website_score=audit.website_score,
         opportunity_score=audit.opportunity_score,
+        sender=sender,
     )
     source = "deterministic"
-    polished = polish_proposal(resolved, draft, _facts(audit, company, draft))
+    polished = polish_proposal(resolved, draft, _facts(audit, company, draft, sender), sender)
     if polished is not None:
         draft = polished
         source = "ai"
@@ -117,7 +120,7 @@ def _apply(proposal: Proposal, draft: ProposalDraft, source: str, company_id: UU
     proposal.range_note = draft.range_note
 
 
-def _facts(audit: Audit, company: Company | None, draft: ProposalDraft) -> dict:
+def _facts(audit: Audit, company: Company | None, draft: ProposalDraft, sender) -> dict:
     return {
         "domain": audit.website.domain if audit.website else None,
         "url": audit.website.normalized_url if audit.website else audit.request_url,
@@ -130,5 +133,13 @@ def _facts(audit: Audit, company: Company | None, draft: ProposalDraft) -> dict:
         "priority_problems": draft.priority_problems,
         "range_min": draft.range_min,
         "range_max": draft.range_max,
+        "range_is_internal_only": True,
+        "sender_profile": {
+            "display_name": sender.display_name,
+            "intro": sender.intro,
+            "website_url": sender.website_url,
+            "freelancer_links": [{"label": item.label, "url": item.url} for item in sender.freelancer_links],
+            "social_links": [{"label": item.label, "url": item.url} for item in sender.social_links],
+        },
         "known_fields_only": True,
     }

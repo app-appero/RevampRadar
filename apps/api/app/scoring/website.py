@@ -96,10 +96,10 @@ def _performance_score(findings: Sequence[ScoreFinding], http: dict, performance
         score -= 8 if ttfb < 3000 else 16
     pagespeed = performance.get("pagespeed") if isinstance(performance.get("pagespeed"), dict) else None
     lighthouse = None
-    if pagespeed:
+    if pagespeed and pagespeed.get("ok") is not False:
         lighthouse = pagespeed.get("lighthouseResult", {}).get("categories", {}).get("performance", {}).get("score")
         if lighthouse is None:
-            lighthouse = pagespeed.get("performance_score")
+            lighthouse = pagespeed.get("performance_score", pagespeed.get("performance"))
     if isinstance(lighthouse, float) and 0 <= lighthouse <= 1:
         score = clamp_score(0.6 * score + 0.4 * (lighthouse * 100))
     elif isinstance(lighthouse, int) and 0 <= lighthouse <= 100:

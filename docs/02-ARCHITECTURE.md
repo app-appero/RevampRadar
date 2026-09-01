@@ -76,7 +76,8 @@ Entità principali:
 - opportunities;
 - contacts;
 - activities;
-- jobs.
+- jobs;
+- sender_profiles.
 
 ## Scanner Engine
 
@@ -171,6 +172,8 @@ Output normalizzato:
 - location;
 - contact metadata;
 - business metadata.
+
+Le coordinate OSM (`lat`/`lon` o `center`) si persistono su `companies` e alimentano `GET /map`: pin e clustering geografico descrittivo, non predittivo.
 
 ## Worker Architecture
 

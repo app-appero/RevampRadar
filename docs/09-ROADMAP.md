@@ -137,9 +137,9 @@ Deliverable:
 - problemi prioritari;
 - servizio consigliato;
 - strategia;
-- email personalizzata;
-- brief;
-- range progetto indicativo.
+- email personalizzata (presentazione + firma, senza prezzo);
+- brief interno;
+- range progetto indicativo, visibile solo all'operatore.
 
 ---
 

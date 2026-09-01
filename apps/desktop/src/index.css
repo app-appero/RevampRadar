@@ -11,3 +11,17 @@ body {
     system-ui,
     sans-serif;
 }
+
+.rr-map.leaflet-container {
+  background: #e7e5e4;
+  font-family: inherit;
+}
+
+.rr-map .leaflet-tile-pane img {
+  max-width: none;
+}
+
+.rr-map a {
+  color: #1c1915;
+  text-decoration: underline;
+}

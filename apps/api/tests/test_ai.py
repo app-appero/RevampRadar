@@ -50,9 +50,51 @@ def test_parse_ai_output_rejects_invalid_json() -> None:
         raise AssertionError("expected ValueError")
 
 
-def test_provider_is_none_without_api_key() -> None:
-    settings = Settings(openai_api_key="")
-    assert get_ai_provider(settings) is None
+def test_provider_is_none_without_selected_key() -> None:
+    assert get_ai_provider(Settings(ai_provider="claude", anthropic_api_key="")) is None
+    assert get_ai_provider(Settings(ai_provider="openai", openai_api_key="")) is None
+
+
+def test_provider_selects_claude_by_default() -> None:
+    provider = get_ai_provider(Settings(anthropic_api_key="sk-ant-test", openai_api_key="sk-openai"))
+    assert provider is not None
+    assert provider.name == "claude"
+
+
+def test_provider_selects_openai_when_asked() -> None:
+    provider = get_ai_provider(
+        Settings(ai_provider="openai", openai_api_key="sk-test", anthropic_api_key="sk-ant-test")
+    )
+    assert provider is not None
+    assert provider.name == "openai"
+
+
+def test_claude_reads_text_blocks(monkeypatch) -> None:
+    class FakeResponse:
+        status_code = 200
+
+        def json(self) -> dict:
+            return {"content": [{"type": "text", "text": '{"ux_score": 40, "confidence": 0.2}'}]}
+
+    class FakeClient:
+        def __init__(self, *args, **kwargs) -> None:
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args) -> None:
+            return None
+
+        def post(self, *args, **kwargs) -> FakeResponse:
+            return FakeResponse()
+
+    monkeypatch.setattr("app.ai.claude_provider.httpx.Client", FakeClient)
+    from app.ai.claude_provider import ClaudeProvider
+
+    provider = ClaudeProvider(Settings(anthropic_api_key="sk-ant-test"))
+    result = provider.analyze({"url": "https://example.com"})
+    assert result.ux_score == 40
 
 
 def test_analyze_audit_skips_when_site_unreachable() -> None:
@@ -74,6 +116,7 @@ def test_analyze_audit_skips_when_site_unreachable() -> None:
 def test_analyze_audit_failure_does_not_raise(monkeypatch) -> None:
     class Boom:
         name = "boom"
+        model = "boom-1"
 
         def analyze(self, user_payload: dict) -> AIAnalysisResult:
             raise RuntimeError("provider down")

@@ -10,7 +10,7 @@ from app.ai.schema import AIAnalysisResult
 _FENCE = re.compile(r"^```(?:json)?\s*|\s*```$", re.IGNORECASE)
 
 
-def parse_ai_output(raw: str) -> AIAnalysisResult:
+def parse_json_object(raw: str) -> dict:
     cleaned = _FENCE.sub("", raw.strip()).strip()
     try:
         data = json.loads(cleaned)
@@ -18,6 +18,11 @@ def parse_ai_output(raw: str) -> AIAnalysisResult:
         raise ValueError(f"AI output is not valid JSON: {exc}") from exc
     if not isinstance(data, dict):
         raise ValueError("AI output must be a JSON object.")
+    return data
+
+
+def parse_ai_output(raw: str) -> AIAnalysisResult:
+    data = parse_json_object(raw)
     try:
         return AIAnalysisResult.model_validate(data)
     except ValidationError as exc:

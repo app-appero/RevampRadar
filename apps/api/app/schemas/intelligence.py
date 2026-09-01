@@ -9,9 +9,44 @@ class SocialLink(BaseModel):
     url: str
 
 
+class ReviewTheme(BaseModel):
+    code: str
+    label: str
+    count: int
+
+
+class ReviewSample(BaseModel):
+    rating: int | None = None
+    title: str | None = None
+    text: str
+
+
+class AppleReviews(BaseModel):
+    source: str
+    country: str
+    fetched: int
+    average_rating: float | None = None
+    sentiment: str
+    positive_count: int
+    negative_count: int
+    themes: list[ReviewTheme] = Field(default_factory=list)
+    samples: list[ReviewSample] = Field(default_factory=list)
+
+
+class StoreListing(BaseModel):
+    name: str | None = None
+    version: str | None = None
+    average_rating: float | None = None
+    rating_count: int | None = None
+    package_id: str | None = None
+    source: str
+    reviews: AppleReviews | None = None
+
+
 class StoreLink(BaseModel):
     store: str
     url: str
+    listing: StoreListing | None = None
 
 
 class IntelligenceSignals(BaseModel):
@@ -21,7 +56,11 @@ class IntelligenceSignals(BaseModel):
     app_links: list[StoreLink] = Field(default_factory=list)
     generator: str | None = None
     aging: list[str] = Field(default_factory=list)
+    saas: list[str] = Field(default_factory=list)
     osm_stars: str | None = None
+    osm_tags: dict[str, str] = Field(default_factory=dict)
+    osm_start_date: str | None = None
+    osm_opening_hours: str | None = None
     has_phone: bool = False
     has_email: bool = False
     has_website: bool = False

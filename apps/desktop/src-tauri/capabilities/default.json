@@ -2,5 +2,5 @@
   "identifier": "default",
   "description": "Default capabilities for the RevampRadar desktop client",
   "windows": ["main"],
-  "permissions": ["core:default"]
+  "permissions": ["core:default", "allow-open-external"]
 }

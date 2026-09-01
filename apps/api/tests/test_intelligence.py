@@ -19,6 +19,22 @@ def test_html_extracts_social_and_generator() -> None:
     assert networks == {"facebook", "instagram"}
 
 
+def test_html_extracts_saas_signals() -> None:
+    html = """
+    <html><body>
+      <form><input type="password" name="p"></form>
+      <a href="/pricing">Prezzi</a>
+      <a href="/demo">Richiedi demo</a>
+      <script src="https://js.stripe.com/v3/"></script>
+    </body></html>
+    """
+    result = scan_html(html, "https://app.hotelsole.test/")
+    assert "login_form" in result.saas_signals
+    assert any(item.startswith("product_paths:") and "/pricing" in item for item in result.saas_signals)
+    assert any("stripe" in item for item in result.saas_signals)
+    assert "demo_or_trial_cta" in result.saas_signals
+
+
 def test_html_extracts_app_store_links() -> None:
     html = """
     <html><body>
@@ -76,6 +92,7 @@ def test_intelligence_history_and_osm_stars(db_session, monkeypatch) -> None:
             "social_links": [{"network": "facebook", "url": "https://facebook.com/sole"}],
             "app_links": [{"store": "app_store", "url": "https://apps.apple.com/app/sole"}],
             "generator": "WordPress 4.9",
+            "saas_signals": ["login_form", "widgets:stripe"],
         },
     )
     db_session.commit()
@@ -83,9 +100,11 @@ def test_intelligence_history_and_osm_stars(db_session, monkeypatch) -> None:
     payload = intelligence_for_audit(db_session, new.id)
     assert payload is not None
     assert payload["signals"]["osm_stars"] == "4"
+    assert payload["signals"]["osm_tags"]["tourism"] == "hotel"
     assert payload["signals"]["analytics"] == ["google_analytics"]
     assert payload["signals"]["social"][0]["network"] == "facebook"
     assert payload["signals"]["app_links"][0]["store"] == "app_store"
+    assert payload["signals"]["saas"] == ["login_form", "widgets:stripe"]
     assert any("WordPress" in note for note in payload["signals"]["aging"])
     assert payload["history"]["previous_audit_id"] == str(old.id)
     assert payload["history"]["website_score_delta"] == -8
@@ -106,7 +125,9 @@ def test_intelligence_api_requires_completed(client, monkeypatch) -> None:
     assert response.status_code == 404
 
 
-def _completed_audit(session, website_id, *, completed_at, website_score, opportunity_score, finding_code, html) -> Audit:
+def _completed_audit(
+    session, website_id, *, completed_at, website_score, opportunity_score, finding_code, html
+) -> Audit:
     audit = Audit(
         website_id=website_id,
         status="completed",

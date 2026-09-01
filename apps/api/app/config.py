@@ -29,12 +29,22 @@ class Settings(BaseSettings):
     browser_timeout_ms: int = 20000
     scanner_user_agent: str = "RevampRadar/1.0 (+https://revampradar.local)"
     pagespeed_api_key: str = ""
+    ai_provider: str = "claude"
     openai_api_key: str = ""
     openai_base_url: str = "https://api.openai.com/v1"
     openai_model: str = "gpt-4o-mini"
-    openai_timeout_seconds: float = 30.0
+    openai_timeout_seconds: float = 90.0
+    anthropic_api_key: str = ""
+    anthropic_base_url: str = "https://api.anthropic.com"
+    anthropic_model: str = "claude-sonnet-4-5"
+    anthropic_version: str = "2023-06-01"
     nominatim_url: str = "https://nominatim.openstreetmap.org"
     overpass_url: str = "https://overpass-api.de/api/interpreter"
+    overpass_urls: str = (
+        "https://overpass-api.de/api/interpreter,"
+        "https://lz4.overpass-api.de/api/interpreter,"
+        "https://overpass.private.coffee/api/interpreter"
+    )
     discovery_timeout_seconds: float = 60.0
     bulk_scan_concurrency: int = 2
     bulk_scan_max_attempts: int = 2

@@ -74,17 +74,35 @@ def _to_response(scan: BulkScan) -> BulkScanResponse:
         error_message=scan.error_message,
         started_at=scan.started_at,
         completed_at=scan.completed_at,
-        progress=_progress(scan.items),
+        progress=_progress(scan),
         items=[_item_response(item) for item in items],
     )
 
 
-def _progress(items: list[BulkScanItem]) -> BulkScanProgress:
+def _progress(scan: BulkScan) -> BulkScanProgress:
+    items = scan.items
     counts = {"pending": 0, "running": 0, "completed": 0, "failed": 0, "skipped": 0}
     for item in items:
         if item.status in counts:
             counts[item.status] += 1
-    return BulkScanProgress(total=len(items), **counts)
+    total = len(items)
+    done = counts["completed"] + counts["failed"] + counts["skipped"]
+    if scan.status == "queued" or total == 0:
+        percent = 0
+        label = "In coda"
+    elif scan.status in {"completed", "partial"}:
+        percent = 100
+        label = "Completata" if scan.status == "completed" else "Completata con errori"
+    elif scan.status == "failed":
+        percent = 100
+        label = "Fallita"
+    else:
+        percent = min(99, round(100 * done / total))
+        if counts["running"]:
+            label = f"Analisi siti · {done}/{total} · {counts['running']} in corso"
+        else:
+            label = f"Analisi siti · {done}/{total}"
+    return BulkScanProgress(total=total, percent=percent, label=label, **counts)
 
 
 def _item_response(item: BulkScanItem) -> BulkScanItemResponse:

@@ -12,8 +12,10 @@ import { fetchAuditIntelligence } from "../api/intelligence";
 import { fetchAuditProposal, generateProposal, type Proposal } from "../api/proposals";
 import { IntelligencePanel } from "../components/IntelligencePanel";
 import { PageBackLink } from "../components/HistoryNav";
+import { ProgressBar } from "../components/ProgressBar";
 import { ProposalCard } from "../components/ProposalCard";
 import { ScreenshotGallery } from "../components/ScreenshotGallery";
+import { ExternalLink } from "../components/ExternalLink";
 
 export function AuditPage() {
   const { auditId } = useParams();
@@ -23,7 +25,7 @@ export function AuditPage() {
     enabled: Boolean(auditId),
     refetchInterval: (query) => {
       const status = query.state.data?.status;
-      return status === "queued" || status === "running" ? 2000 : false;
+      return status === "queued" || status === "running" ? 1000 : false;
     },
   });
 
@@ -67,13 +69,19 @@ export function AuditPage() {
                 <h1 className="text-3xl font-semibold tracking-tight">{audit.domain}</h1>
                 <StatusPill status={audit.status} />
               </div>
-              <p className="text-stone-600">{audit.normalized_url}</p>
+              <p className="text-stone-600">
+                <ExternalLink href={audit.normalized_url} className="underline">
+                  {audit.normalized_url}
+                </ExternalLink>
+              </p>
             </header>
 
             {inProgress ? (
-              <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
-                Analisi in corso. I finding compariranno al termine della scansione.
-              </p>
+              <ProgressBar
+                percent={audit.progress_percent ?? 0}
+                label={audit.progress_label ?? "Analisi in corso"}
+                hint="I finding compariranno al termine della scansione."
+              />
             ) : null}
 
             {audit.status === "failed" ? (
@@ -129,6 +137,8 @@ export function AuditPage() {
               />
             </section>
 
+            <PerformanceSection data={audit.performance} />
+
             <section className="space-y-3">
               <h2 className="text-lg font-medium">Finding</h2>
               {audit.findings.length === 0 && !inProgress ? (
@@ -167,6 +177,74 @@ function Metric({ label, value }: { label: string; value: string }) {
       <p className="text-xs tracking-wide text-stone-500 uppercase">{label}</p>
       <p className="mt-1 text-lg font-medium">{value}</p>
     </div>
+  );
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+}
+
+function metricNumber(value: unknown): string {
+  return typeof value === "number" ? String(value) : "—";
+}
+
+function PerformanceSection({ data }: { data: Record<string, unknown> | null }) {
+  const browser = asRecord(data?.browser);
+  const pagespeed = asRecord(data?.pagespeed);
+  if (!browser && !pagespeed) return null;
+  const vitals = asRecord(pagespeed?.core_web_vitals);
+  return (
+    <section className="space-y-3">
+      <h2 className="text-lg font-medium">Performance</h2>
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Metric
+          label="Load (browser)"
+          value={browser?.load_time_ms != null ? `${metricNumber(browser.load_time_ms)} ms` : "—"}
+        />
+        <Metric
+          label="DCL (browser)"
+          value={
+            browser?.dom_content_loaded_ms != null
+              ? `${metricNumber(browser.dom_content_loaded_ms)} ms`
+              : "—"
+          }
+        />
+        <Metric
+          label="Transfer"
+          value={browser?.transfer_size != null ? `${metricNumber(browser.transfer_size)} B` : "—"}
+        />
+      </div>
+      {pagespeed ? (
+        pagespeed.ok === false ? (
+          <p className="text-sm text-stone-500">
+            PageSpeed non disponibile{typeof pagespeed.error === "string" ? `: ${pagespeed.error}` : "."}
+          </p>
+        ) : (
+          <>
+            <p className="text-xs text-stone-500">PageSpeed Insights (Lighthouse remoto)</p>
+            <div className="grid gap-4 sm:grid-cols-4">
+              <Metric label="PSI Performance" value={metricNumber(pagespeed.performance)} />
+              <Metric label="Accessibilità" value={metricNumber(pagespeed.accessibility)} />
+              <Metric label="Best practices" value={metricNumber(pagespeed.best_practices)} />
+              <Metric label="SEO PSI" value={metricNumber(pagespeed.seo)} />
+            </div>
+            {vitals ? (
+              <p className="text-sm text-stone-600">
+                LCP {typeof vitals["largest-contentful-paint"] === "string" ? vitals["largest-contentful-paint"] : "n/d"}
+                {" · "}
+                CLS {typeof vitals["cumulative-layout-shift"] === "string" ? vitals["cumulative-layout-shift"] : "n/d"}
+                {" · "}
+                INP {typeof vitals["interaction-to-next-paint"] === "string" ? vitals["interaction-to-next-paint"] : "n/d"}
+              </p>
+            ) : null}
+          </>
+        )
+      ) : (
+        <p className="text-sm text-stone-500">
+          PageSpeed Insights è opzionale: imposta PAGESPEED_API_KEY per Lighthouse remoto. Lighthouse locale resta rimandato.
+        </p>
+      )}
+    </section>
   );
 }
 
@@ -374,7 +452,7 @@ function ProposalSection({
         <div>
           <h2 className="text-lg font-medium">Proposta commerciale</h2>
           <p className="text-sm text-stone-500">
-            Summary, problemi prioritari, email e range indicativo. L’AI è opzionale: senza chiave resta il testo deterministico.
+            Summary, email da copiare e stima interna. Il prezzo non va in email. L’AI è opzionale: senza chiave resta il testo deterministico.
           </p>
         </div>
         <button

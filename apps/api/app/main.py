@@ -7,7 +7,9 @@ from app.api.crm import router as crm_router
 from app.api.discovery import router as discovery_router
 from app.api.health import router as health_router
 from app.api.intelligence import router as intelligence_router
+from app.api.map import router as map_router
 from app.api.proposals import router as proposals_router
+from app.api.settings import router as settings_router
 from app.config import get_settings
 from app.errors import register_error_handlers
 from app.logging import configure_logging
@@ -37,7 +39,9 @@ def create_app() -> FastAPI:
     app.include_router(bulk_scans_router)
     app.include_router(crm_router)
     app.include_router(proposals_router)
+    app.include_router(settings_router)
     app.include_router(intelligence_router)
+    app.include_router(map_router)
     return app
 
 

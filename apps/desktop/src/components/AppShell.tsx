@@ -30,8 +30,17 @@ export function AppShell() {
               <Link to="/discovery" className="text-stone-600 hover:text-stone-900">
                 Discovery
               </Link>
+              <Link to="/map" className="text-stone-600 hover:text-stone-900">
+                Mappa
+              </Link>
               <Link to="/pipeline" className="text-stone-600 hover:text-stone-900">
                 Pipeline
+              </Link>
+              <Link to="/agenda" className="text-stone-600 hover:text-stone-900">
+                Agenda
+              </Link>
+              <Link to="/settings" className="text-stone-600 hover:text-stone-900">
+                Impostazioni
               </Link>
             </nav>
             <div className="flex items-center gap-3 text-sm text-stone-500">

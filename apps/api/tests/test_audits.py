@@ -17,6 +17,8 @@ def test_create_and_get_audit(client, monkeypatch) -> None:
     assert payload["status"] == "queued"
     assert payload["normalized_url"] == "https://example.com/hotel"
     assert payload["domain"] == "example.com"
+    assert payload["progress_percent"] == 0
+    assert payload["progress_label"] == "In coda"
 
     fetched = client.get(f"/audits/{payload['id']}")
     assert fetched.status_code == 200

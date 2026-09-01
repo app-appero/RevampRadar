@@ -12,6 +12,7 @@ from app.discovery.provider import get_discovery_provider
 from app.discovery.types import DiscoveryCandidate
 from app.models.entities import Company, DiscoveryResult, DiscoveryRun, Website
 from app.scanner.url import UrlValidationError, normalize_url
+from app.schemas.discovery import MAX_RESULTS_EXTENDED, MAX_RESULTS_STANDARD
 
 
 class DiscoveryServiceError(Exception):
@@ -27,22 +28,27 @@ def create_discovery_run(
     location: str,
     max_results: int,
     provider_name: str = "openstreetmap",
+    extended: bool = False,
 ) -> DiscoveryRun:
-    industry_value = industry.strip()
-    location_value = location.strip()
-    if not industry_value:
-        raise DiscoveryServiceError("Indica un settore.", status_code=422)
-    if not location_value:
-        raise DiscoveryServiceError("Indica una località.", status_code=422)
-    if max_results < 1 or max_results > 50:
-        raise DiscoveryServiceError("max_results deve essere tra 1 e 50.", status_code=422)
+    industry_value = industry.strip() or "tutti"
+    location_value = location.strip() or "Italia"
+    cap = MAX_RESULTS_EXTENDED if extended else MAX_RESULTS_STANDARD
+    if max_results < 1 or max_results > cap:
+        raise DiscoveryServiceError(
+            f"max_results deve essere tra 1 e {cap}"
+            + (" con ricerca estesa." if extended else " (usa ricerca estesa per arrivare a 200)."),
+            status_code=422,
+        )
     run = DiscoveryRun(
         industry=industry_value,
         location=location_value,
         max_results=max_results,
+        extended=extended,
         provider=provider_name,
         status="queued",
         total_found=0,
+        progress_percent=0,
+        progress_label="In coda",
     )
     session.add(run)
     session.commit()
@@ -61,7 +67,7 @@ def execute_discovery(run_id: UUID, settings: Settings | None = None) -> None:
             return
         run.status = "running"
         run.started_at = datetime.now(UTC)
-        session.commit()
+        _set_progress(session, run, 8, "Avvio ricerca")
         _run_discovery(session, run, resolved)
         session.commit()
     except Exception as exc:
@@ -71,6 +77,7 @@ def execute_discovery(run_id: UUID, settings: Settings | None = None) -> None:
             run.status = "failed"
             run.error_message = str(exc)
             run.completed_at = datetime.now(UTC)
+            run.progress_label = run.progress_label or "Errore"
             session.commit()
         raise
     finally:
@@ -106,13 +113,35 @@ def get_company(session: Session, company_id: UUID) -> Company | None:
     )
 
 
+def _set_progress(session: Session, run: DiscoveryRun, percent: int, label: str) -> None:
+    run.progress_percent = max(0, min(100, percent))
+    run.progress_label = label
+    session.commit()
+
+
 def _run_discovery(session: Session, run: DiscoveryRun, settings: Settings) -> None:
     from app.discovery.types import DiscoveryQuery
 
     provider = get_discovery_provider(settings)
     run.provider = provider.name
-    query = DiscoveryQuery(industry=run.industry, location=run.location, max_results=run.max_results)
-    raw_candidates = provider.search_businesses(query)
+    query = DiscoveryQuery(
+        industry=run.industry,
+        location=run.location,
+        max_results=run.max_results,
+        include_without_website=bool(run.extended),
+    )
+
+    def on_stage(label: str) -> None:
+        percent = 18 if "località" in label.lower() else 40
+        _set_progress(session, run, percent, label)
+
+    _set_progress(session, run, 12, "Ricerca OpenStreetMap")
+    try:
+        raw_candidates = provider.search_businesses(query, on_stage=on_stage)
+    except TypeError:
+        raw_candidates = provider.search_businesses(query)
+
+    _set_progress(session, run, 55, "Normalizzazione risultati")
     persisted = 0
     seen_company_ids: set[UUID] = set()
     for raw in raw_candidates:
@@ -131,10 +160,21 @@ def _run_discovery(session: Session, run: DiscoveryRun, settings: Settings) -> N
             session.add(DiscoveryResult(discovery_run_id=run.id, company_id=company.id))
             persisted += 1
         seen_company_ids.add(company.id)
+        cap = max(run.max_results, 1)
+        percent = 55 + int(40 * min(persisted, cap) / cap)
+        _set_progress(session, run, percent, f"Aziende trovate · {persisted}")
         if persisted >= run.max_results:
             break
     run.total_found = persisted
     run.status = "completed"
+    run.progress_percent = 100
+    if persisted == 0:
+        from app.discovery.osm import empty_search_message
+
+        run.error_message = empty_search_message(run.industry, run.location)
+        run.progress_label = "Nessun risultato"
+    else:
+        run.progress_label = "Completata"
     run.completed_at = datetime.now(UTC)
 
 
@@ -147,6 +187,8 @@ def _upsert_company(session: Session, candidate: DiscoveryCandidate) -> Company:
             city=candidate.city,
             region=candidate.region,
             country=candidate.country,
+            latitude=candidate.latitude,
+            longitude=candidate.longitude,
             website_url=candidate.website_url,
             phone=candidate.phone,
             email=candidate.email,
@@ -219,6 +261,15 @@ def _fill_missing(company: Company, candidate: DiscoveryCandidate) -> None:
         company.email = candidate.email
     if not company.external_id and candidate.external_id:
         company.external_id = candidate.external_id
+    if candidate.latitude is not None and candidate.longitude is not None:
+        company.latitude = candidate.latitude
+        company.longitude = candidate.longitude
+    incoming = (candidate.extra or {}).get("osm_tags") if candidate.extra else None
+    if isinstance(incoming, dict) and incoming:
+        extra = dict(company.extra or {})
+        current = extra.get("osm_tags") if isinstance(extra.get("osm_tags"), dict) else {}
+        extra["osm_tags"] = {**current, **incoming}
+        company.extra = extra
 
 
 def _link_website(session: Session, company: Company, website_url: str) -> None:

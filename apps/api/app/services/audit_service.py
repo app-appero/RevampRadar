@@ -52,6 +52,8 @@ def create_audit(session: Session, raw_url: str, company_id: UUID | None = None)
         status="queued",
         request_url=normalized.original,
         scanner_version=SCANNER_VERSION,
+        progress_percent=0,
+        progress_label="In coda",
     )
     session.add(audit)
     session.commit()
@@ -71,7 +73,7 @@ def execute_audit(audit_id: UUID, settings: Settings | None = None) -> None:
             return
         audit.status = "running"
         audit.started_at = datetime.now(UTC)
-        session.commit()
+        _set_progress(session, audit, 5, "Avvio scansione")
 
         website = session.get(Website, audit.website_id)
         assert website is not None
@@ -84,21 +86,31 @@ def execute_audit(audit_id: UUID, settings: Settings | None = None) -> None:
             audit.status = "failed"
             audit.error_message = str(exc)
             audit.completed_at = datetime.now(UTC)
+            audit.progress_label = audit.progress_label or "Errore"
             session.commit()
         raise
     finally:
         session.close()
 
 
+def _set_progress(session: Session, audit: Audit, percent: int, label: str) -> None:
+    audit.progress_percent = max(0, min(100, percent))
+    audit.progress_label = label
+    session.commit()
+
+
 def _run_scan(session: Session, audit: Audit, website: Website, settings: Settings) -> None:
+    _set_progress(session, audit, 10, "Richiesta HTTP")
     http_result = scan_http(website.normalized_url, settings)
     audit.http_data = http_result.to_dict()
 
     html_result = None
     seo_result = None
     if http_result.html:
+        _set_progress(session, audit, 22, "Analisi HTML")
         html_result = scan_html(http_result.html, http_result.final_url or website.normalized_url)
         audit.html_data = html_result.to_dict()
+        _set_progress(session, audit, 32, "SEO / robots")
         seo_result = scan_seo(
             http_result.final_url or website.normalized_url,
             http_result.html,
@@ -106,11 +118,13 @@ def _run_scan(session: Session, audit: Audit, website: Website, settings: Settin
         )
         audit.seo_data = seo_result.to_dict()
 
+    _set_progress(session, audit, 38, "Finding tecnici")
     findings = build_findings(http_result, html_result, seo_result)
     target_url = http_result.final_url or website.normalized_url
     screenshot_devices: list[str] = []
 
     if http_result.ok:
+        _set_progress(session, audit, 45, "Screenshot")
         screenshot_dir = Path(settings.screenshot_dir) / str(audit.id)
         browser_result = capture_screenshots(target_url, screenshot_dir, settings)
         performance = {"browser": browser_result.get("performance")}
@@ -138,11 +152,13 @@ def _run_scan(session: Session, audit: Audit, website: Website, settings: Settin
                     file_path=shot["file_path"],
                 )
             )
+        _set_progress(session, audit, 72, "PageSpeed")
         pagespeed = fetch_pagespeed(target_url, settings)
         if pagespeed:
             performance["pagespeed"] = pagespeed
         audit.performance_data = performance
 
+    _set_progress(session, audit, 80, "Analisi AI")
     ai_result, ai_meta = analyze_audit(
         settings=settings,
         url=target_url,
@@ -171,13 +187,18 @@ def _run_scan(session: Session, audit: Audit, website: Website, settings: Settin
             )
         )
 
+    _set_progress(session, audit, 94, "Calcolo score")
     _persist_scores(session, audit, findings, ai_result)
 
     if not http_result.ok:
         audit.status = "failed"
         audit.error_message = http_result.error
+        audit.progress_percent = 100
+        audit.progress_label = "Fallita"
     else:
         audit.status = "completed"
+        audit.progress_percent = 100
+        audit.progress_label = "Completata"
     audit.completed_at = datetime.now(UTC)
 
 

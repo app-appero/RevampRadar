@@ -31,6 +31,19 @@ def normalize_text(raw: str | None) -> str | None:
     return value or None
 
 
+def normalize_coords(lat: float | None, lon: float | None) -> tuple[float, float] | None:
+    if lat is None or lon is None:
+        return None
+    try:
+        latitude = float(lat)
+        longitude = float(lon)
+    except (TypeError, ValueError):
+        return None
+    if not (-90.0 <= latitude <= 90.0 and -180.0 <= longitude <= 180.0):
+        return None
+    return latitude, longitude
+
+
 def normalize_candidate(raw: DiscoveryCandidate) -> DiscoveryCandidate | None:
     name = normalize_text(raw.name)
     if not name:
@@ -41,12 +54,15 @@ def normalize_candidate(raw: DiscoveryCandidate) -> DiscoveryCandidate | None:
             website_url = normalize_url(raw.website_url).normalized
         except UrlValidationError:
             website_url = None
+    coords = normalize_coords(raw.latitude, raw.longitude)
     return DiscoveryCandidate(
         name=name[:255],
         category=normalize_text(raw.category),
         city=normalize_text(raw.city),
         region=normalize_text(raw.region),
         country=normalize_text(raw.country),
+        latitude=coords[0] if coords else None,
+        longitude=coords[1] if coords else None,
         website_url=website_url,
         phone=normalize_phone(raw.phone),
         email=normalize_email(raw.email),

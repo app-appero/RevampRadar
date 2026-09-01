@@ -16,6 +16,8 @@ class AuditSummaryResponse(BaseModel):
     normalized_url: str
     created_at: datetime
     completed_at: datetime | None
+    progress_percent: int = 0
+    progress_label: str | None = None
     website_score: int | None = None
     opportunity_score: int | None = None
     priority: str | None = None
@@ -99,6 +101,8 @@ class AuditResponse(BaseModel):
     started_at: datetime | None
     completed_at: datetime | None
     error_message: str | None
+    progress_percent: int = 0
+    progress_label: str | None = None
     http: dict | None
     html: dict | None
     seo: dict | None

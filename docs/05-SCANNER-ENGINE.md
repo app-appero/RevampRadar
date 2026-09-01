@@ -74,7 +74,7 @@ Viewport standard desktop: inizio pagina, contenuto (se la pagina è lunga) e fo
 Viewport smartphone: inizio pagina e contenuto.
 
 ### Anteprima visiva
-Uno screenshot desktop aggiuntivo, etichettato come indicativo: testo più leggibile, CTA visibile, banner cookie nascosti. Non è un mockup di restyling né una promessa pixel-perfect.
+Uno screenshot per viewport già catturato (desktop inizio/contenuto/footer, mobile inizio/contenuto), etichettato come indicativo: testo più leggibile, CTA visibile, banner cookie nascosti. Non è un mockup di restyling né una promessa pixel-perfect.
 
 ## Performance
 
@@ -98,6 +98,10 @@ Ogni finding deve avere:
 - title;
 - evidence;
 - recommendation.
+
+## Progresso scansione
+
+Durante la scansione l'audit persiste `progress_percent` e `progress_label` a ogni passo (HTTP, HTML, SEO, screenshot, PageSpeed, AI, score). Lo stesso vale per discovery (Nominatim, Overpass, persistenza aziende) e per il bulk scan (siti completati sul totale). Il client mostra la percentuale; i finding restano visibili a scansione conclusa.
 
 ## Severità
 

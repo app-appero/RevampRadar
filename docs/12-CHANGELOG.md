@@ -23,10 +23,26 @@
 - Galleria screenshot: più viewport (inizio/contenuto/footer) e anteprima visiva indicativa, non un mockup di restyling.
 - App signals: link App Store / Play trovati sulla homepage; niente recensioni store.
 - Home: audit e discovery recenti più snapshot pipeline, per riprendere il lavoro senza perdere il filo.
+- App Store listing: nome/rating da iTunes Lookup sui link già trovati; Play resta URL + package id, senza scraping.
+- SaaS/demo: login, percorsi prodotto e widget rilevati sulla homepage, senza accedere a dashboard di terzi.
+- Audit: tempi browser e, se c’è `PAGESPEED_API_KEY`, categorie PageSpeed visibili; lo score performance usa il punteggio PSI già salvato.
+- Screenshot: clic per ingrandire in overlay; l’URL del sito si apre nel browser.
+- Provider AI: Claude (default) o OpenAI, uno alla volta via `AI_PROVIDER`.
+- Audit: barra di avanzamento in % su singolo sito, discovery OSM e analisi in batch.
+- Impostazioni: nome, sito, piattaforme freelance e social in firma email; il range resta solo visibile all'operatore.
+- Intelligence: recensioni App Store dal feed ufficiale Apple (sentiment e temi); Play resta URL + package id.
+- Mappa: pin OSM colorati per Opportunity Score e gruppi geografici (k-means su lat/lon, senza probabilità di chiusura).
+- Discovery: ricerca estesa fino a 200 risultati, include attività senza sito; elenco impaginato.
+- Discovery: tag OSM visibili nel form, nei risultati e in anagrafica; se il settore non c’è, avviso e zero risultati (niente altri settori).
+- Discovery: catalogo settori OSM ampliato (meccanico, gommista, mestieri, negozi); `start_date` e `opening_hours` se presenti su OSM.
+- Discovery: menu settore e cascata regione → provincia → città, tutti opzionali (vuoto = Italia / tutti i settori).
+- Agenda CRM: attività pianificate (`due_at`), calendario mensile, sezione in ritardo e completamento da desktop.
 
 ### Changed
 - PageSpeed Insights è opzionale via `PAGESPEED_API_KEY`; Lighthouse nativo è rimandato (M1-014).
-- L'analisi AI è un arricchimento: senza `OPENAI_API_KEY` l'audit tecnico e gli score deterministici restano validi.
+- L'analisi AI è un arricchimento: senza la chiave del provider scelto (`AI_PROVIDER=claude` o `openai`) l'audit tecnico e gli score deterministici restano validi.
+- L'email di proposta si apre con chi sei e perché scrivi, senza prezzo.
+- La mappa raggruppa per geografia; non predice chi accetterà.
 
 ### Decisions
 - Tauri 2 + React + TypeScript;

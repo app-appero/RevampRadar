@@ -21,6 +21,8 @@ class Company(Base):
     city: Mapped[str | None] = mapped_column(String(128), nullable=True)
     region: Mapped[str | None] = mapped_column(String(128), nullable=True)
     country: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     website_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     phone: Mapped[str | None] = mapped_column(String(64), nullable=True)
     email: Mapped[str | None] = mapped_column(String(255), nullable=True)
@@ -75,6 +77,8 @@ class Audit(Base):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     scanner_version: Mapped[str] = mapped_column(String(32), nullable=False)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    progress_percent: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    progress_label: Mapped[str | None] = mapped_column(String(128), nullable=True)
     http_data: Mapped[dict | None] = mapped_column(JsonType, nullable=True)
     html_data: Mapped[dict | None] = mapped_column(JsonType, nullable=True)
     seo_data: Mapped[dict | None] = mapped_column(JsonType, nullable=True)
@@ -197,10 +201,13 @@ class DiscoveryRun(Base):
     industry: Mapped[str] = mapped_column(String(128), nullable=False)
     location: Mapped[str] = mapped_column(String(255), nullable=False)
     max_results: Mapped[int] = mapped_column(Integer, nullable=False)
+    extended: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     provider: Mapped[str] = mapped_column(String(64), nullable=False)
     status: Mapped[str] = mapped_column(String(32), default="queued", nullable=False, index=True)
     total_found: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    progress_percent: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    progress_label: Mapped[str | None] = mapped_column(String(128), nullable=True)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
@@ -348,7 +355,9 @@ class Activity(Base):
     )
     type: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
-    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    occurred_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -388,3 +397,20 @@ class Proposal(Base):
 
     audit: Mapped[Audit] = relationship(back_populates="proposal")
     company: Mapped[Company | None] = relationship()
+
+
+class SenderProfile(Base):
+    __tablename__ = "sender_profiles"
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    display_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    intro: Mapped[str] = mapped_column(Text, nullable=False)
+    website_url: Mapped[str] = mapped_column(String(2048), nullable=False)
+    freelancer_links: Mapped[list] = mapped_column(JsonType, nullable=False)
+    social_links: Mapped[list] = mapped_column(JsonType, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )

@@ -6,6 +6,7 @@ import { createAudit } from "../api/audits";
 import {
   ACTIVITY_LABELS,
   ACTIVITY_TYPES,
+  SCHEDULED_ACTIVITY_TYPES,
   CRM_STATUSES,
   CRM_STATUS_LABELS,
   addActivity,
@@ -19,10 +20,11 @@ import {
 import { fetchCompanyIntelligence } from "../api/intelligence";
 import { generateProposal, fetchCompanyProposal } from "../api/proposals";
 import { IntelligencePanel } from "../components/IntelligencePanel";
-import { fetchCompany } from "../api/discovery";
+import { fetchCompany, formatOsmTags } from "../api/discovery";
 import { ProposalCard } from "../components/ProposalCard";
 import { ApiError } from "../api/health";
 import { PageBackLink } from "../components/HistoryNav";
+import { ExternalLink } from "../components/ExternalLink";
 
 export function CompanyPage() {
   const { companyId } = useParams();
@@ -117,10 +119,13 @@ export function CompanyPage() {
 
             <section className="grid gap-4 sm:grid-cols-2">
               <Field label="Categoria" value={company.category} />
+              <Field label="Tag OSM" value={formatOsmTags(company.osm_tags) || null} />
+              <Field label="Apertura (OSM)" value={company.osm_start_date} />
+              <Field label="Orari (OSM)" value={company.osm_opening_hours} />
               <Field label="Telefono" value={company.phone} />
               <Field label="Email" value={company.email} />
               <Field label="Fonte" value={`${company.source}${company.external_id ? ` · ${company.external_id}` : ""}`} />
-              <Field label="Sito" value={company.website_url} />
+              <Field label="Sito" value={company.website_url} href={company.website_url} />
               <Field label="Dominio" value={company.domain} />
             </section>
 
@@ -202,10 +207,13 @@ function CrmPanel({
   opportunity: OpportunityDetail;
   onChanged: (data?: OpportunityDetail) => void;
 }) {
+  const queryClient = useQueryClient();
   const [note, setNote] = useState("");
   const [tag, setTag] = useState("");
   const [activityType, setActivityType] = useState("call");
   const [activityNote, setActivityNote] = useState("");
+  const [activityMode, setActivityMode] = useState<"log" | "schedule">("log");
+  const [dueAt, setDueAt] = useState(() => defaultDueAtLocal());
   const [crmError, setCrmError] = useState<string | null>(null);
   const [status, setStatus] = useState(opportunity.status);
 
@@ -248,6 +256,16 @@ function CrmPanel({
   function onAddActivity(event: FormEvent) {
     event.preventDefault();
     mutate.mutate(async () => {
+      if (activityMode === "schedule") {
+        const result = await addActivity(opportunity.id, {
+          type: activityType,
+          note: activityNote.trim() || undefined,
+          due_at: new Date(dueAt).toISOString(),
+        });
+        setActivityNote("");
+        void queryClient.invalidateQueries({ queryKey: ["agenda"] });
+        return result;
+      }
       const result = await addActivity(opportunity.id, {
         type: activityType,
         note: activityNote.trim() || undefined,
@@ -346,47 +364,124 @@ function CrmPanel({
 
       <div className="space-y-2">
         <h2 className="text-lg font-medium">Attività</h2>
-        <form onSubmit={onAddActivity} className="flex flex-col gap-2 sm:flex-row">
+        <div className="flex gap-2 text-sm">
+          <button
+            type="button"
+            onClick={() => setActivityMode("log")}
+            className={`rounded-lg px-3 py-1.5 ${
+              activityMode === "log"
+                ? "bg-stone-900 text-white"
+                : "border border-stone-300 text-stone-700"
+            }`}
+          >
+            Registra
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setActivityMode("schedule");
+              if (!SCHEDULED_ACTIVITY_TYPES.includes(activityType as (typeof SCHEDULED_ACTIVITY_TYPES)[number])) {
+                setActivityType("call");
+              }
+            }}
+            className={`rounded-lg px-3 py-1.5 ${
+              activityMode === "schedule"
+                ? "bg-stone-900 text-white"
+                : "border border-stone-300 text-stone-700"
+            }`}
+          >
+            Pianifica
+          </button>
+        </div>
+        <form onSubmit={onAddActivity} className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
           <select
             value={activityType}
             onChange={(event) => setActivityType(event.target.value)}
             className="rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-stone-900"
           >
-            {ACTIVITY_TYPES.map((item) => (
+            {(activityMode === "schedule" ? SCHEDULED_ACTIVITY_TYPES : ACTIVITY_TYPES).map((item) => (
               <option key={item} value={item}>
                 {ACTIVITY_LABELS[item]}
               </option>
             ))}
           </select>
+          {activityMode === "schedule" ? (
+            <input
+              type="datetime-local"
+              value={dueAt}
+              onChange={(event) => setDueAt(event.target.value)}
+              className="rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-stone-900"
+            />
+          ) : null}
           <input
             value={activityNote}
             onChange={(event) => setActivityNote(event.target.value)}
-            placeholder="Dettaglio attività"
-            className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-stone-900"
+            placeholder={activityMode === "schedule" ? "Promemoria" : "Dettaglio attività"}
+            className="w-full min-w-[12rem] flex-1 rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-stone-900"
           />
           <button type="submit" className="rounded-lg border border-stone-300 px-3 py-2 text-sm whitespace-nowrap">
-            Registra
+            {activityMode === "schedule" ? "Pianifica" : "Registra"}
           </button>
         </form>
         <ul className="space-y-2">
-          {opportunity.activities.map((item) => (
-            <li key={item.id} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm">
-              <p className="font-medium">{ACTIVITY_LABELS[item.type] ?? item.type}</p>
-              {item.note ? <p className="text-stone-700">{item.note}</p> : null}
-              <p className="mt-1 text-xs text-stone-500">{new Date(item.occurred_at).toLocaleString()}</p>
-            </li>
-          ))}
+          {opportunity.activities.map((item) => {
+            const pending = item.due_at && !item.completed_at;
+            const when = pending
+              ? item.due_at
+              : item.occurred_at ?? item.completed_at ?? item.created_at;
+            return (
+              <li
+                key={item.id}
+                className={`rounded-xl border px-3 py-2 text-sm ${
+                  pending ? "border-amber-200 bg-amber-50" : "border-stone-200 bg-white"
+                }`}
+              >
+                <p className="font-medium">
+                  {ACTIVITY_LABELS[item.type] ?? item.type}
+                  {pending ? (
+                    <span className="ml-2 text-xs font-normal text-amber-800">Pianificata</span>
+                  ) : null}
+                </p>
+                {item.note ? <p className="text-stone-700">{item.note}</p> : null}
+                {when ? (
+                  <p className="mt-1 text-xs text-stone-500">{new Date(when).toLocaleString()}</p>
+                ) : null}
+              </li>
+            );
+          })}
         </ul>
       </div>
     </section>
   );
 }
 
-function Field({ label, value }: { label: string; value: string | null | undefined }) {
+function defaultDueAtLocal(): string {
+  const date = new Date();
+  date.setDate(date.getDate() + 1);
+  date.setHours(10, 0, 0, 0);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function Field({
+  label,
+  value,
+  href,
+}: {
+  label: string;
+  value: string | null | undefined;
+  href?: string | null;
+}) {
   return (
     <div className="rounded-2xl border border-stone-200 bg-white px-4 py-3">
       <p className="text-xs tracking-wide text-stone-500 uppercase">{label}</p>
-      <p className="mt-1 text-sm font-medium break-all">{value || "—"}</p>
+      {href && value ? (
+        <ExternalLink href={href} className="mt-1 block text-sm font-medium break-all underline">
+          {value}
+        </ExternalLink>
+      ) : (
+        <p className="mt-1 text-sm font-medium break-all">{value || "—"}</p>
+      )}
     </div>
   );
 }

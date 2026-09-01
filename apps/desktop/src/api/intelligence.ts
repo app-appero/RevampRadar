@@ -7,10 +7,36 @@ export type Intelligence = {
     technologies: string[];
     analytics: string[];
     social: { network: string; url: string }[];
-    app_links?: { store: string; url: string }[];
+    app_links?: {
+      store: string;
+      url: string;
+      listing?: {
+        name: string | null;
+        version: string | null;
+        average_rating: number | null;
+        rating_count: number | null;
+        package_id?: string | null;
+        source: string;
+        reviews?: {
+          source: string;
+          country: string;
+          fetched: number;
+          average_rating: number | null;
+          sentiment: string;
+          positive_count: number;
+          negative_count: number;
+          themes: { code: string; label: string; count: number }[];
+          samples: { rating: number | null; title: string | null; text: string }[];
+        } | null;
+      } | null;
+    }[];
     generator: string | null;
     aging: string[];
+    saas?: string[];
     osm_stars: string | null;
+    osm_tags?: Record<string, string>;
+    osm_start_date?: string | null;
+    osm_opening_hours?: string | null;
     has_phone: boolean;
     has_email: boolean;
     has_website: boolean;

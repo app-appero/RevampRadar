@@ -25,6 +25,8 @@ Gestire le opportunità senza trasformare RevampRadar in un CRM generalista.
 - tag;
 - preferiti;
 - attività;
+- attività pianificate (richiami, meeting) con data/ora;
+- agenda con calendario e completamento;
 - storico;
 - contatti;
 - filtro per score;

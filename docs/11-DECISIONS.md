@@ -55,7 +55,7 @@ Nessun login nell'uso personale iniziale.
 
 Discovery e AI devono poter cambiare provider senza riscrivere la business logic.
 
-In M2 l'AI usa un client HTTP OpenAI-compatible (`OPENAI_BASE_URL` + `OPENAI_API_KEY`). Lo scoring deterministico non dipende dal provider.
+In M2 l'AI usa un provider selezionabile (`AI_PROVIDER=claude` default, oppure `openai`). Claude parla con l'API Anthropic (`ANTHROPIC_API_KEY`); OpenAI resta sul client HTTP compatible (`OPENAI_BASE_URL` + `OPENAI_API_KEY`). Lo scoring deterministico non dipende dal provider.
 
 Il primo provider di discovery è OpenStreetMap (Nominatim + Overpass): è strutturato, non richiede API key e copre il caso “Hotel — Sicilia”.
 
@@ -84,3 +84,20 @@ Gli screenshot extra sono catture reali (viewport desktop/mobile a quote diverse
 ## ADR-016 — M8 parte dai link store già sul sito
 
 Il primo passo App/SaaS è rilevare link App Store e Play sulla homepage già scaricata. Niente scraping store, recensioni o rating inventati. Listing e sentiment restano dopo la validazione del flusso siti.
+
+## ADR-017 — Listing App Store da iTunes Lookup, recensioni dal feed Apple
+
+Se la homepage ha un link App Store con id numerico, Intelligence chiama l'API pubblica iTunes Lookup (nome, versione, rating medio, numero voti) e, se disponibile, il feed ufficiale RSS/JSON delle recensioni recenti (`customerreviews`). Sentiment e temi (crash, pagamenti, richieste) si calcolano solo su quei testi. Play Store resta solo URL e package id dal query string: non c'è API ufficiale e non facciamo scraping.
+
+## ADR-018 — SaaS/demo solo da segnali on-site
+
+M8-006 rileva login, percorsi prodotto (`/pricing`, `/demo`, `/app`…), CTA demo/trial e widget noti (Stripe, Intercom, Calendly, HubSpot, Zendesk, Crisp) sulla homepage già scaricata. Non si entra in dashboard di terzi e non si inventano recensioni o feature request.
+
+## ADR-019 — Range interno, firma da impostazioni
+
+Il range progetto resta deterministico e visibile solo all'operatore. L'email al prospect non contiene prezzi. Presentazione, sito, piattaforme freelance e social arrivano da un profilo impostazioni unico (app personale, senza login). L'AI può riscrivere il tono ma non reinserire il prezzo né inventare contatti.
+
+## ADR-020 — Mappa descrittiva, clustering solo geografico
+
+La mappa usa lat/lon persistiti da OpenStreetMap (nodo o `center` Overpass). I punti si colorano con l'Opportunity Score già calcolato. Il clustering è k-means non supervisionato sulle sole coordinate, in Python senza dipendenze ML: descrive gruppi spaziali (città, categoria, score medio, quota app). Non stima la probabilità che un prospect accetti. Le aziende scoperte prima della persistenza coordinate restano senza pin finché non si rilancia una discovery OSM.
+

@@ -14,7 +14,12 @@ SHOT_LABELS = {
     "desktop_footer": "Desktop · footer",
     "mobile_hero": "Mobile · inizio",
     "mobile_mid": "Mobile · contenuto",
-    "preview_desktop": "Anteprima miglioramenti",
+    "preview_desktop": "Dopo · desktop inizio",
+    "preview_desktop_hero": "Dopo · desktop inizio",
+    "preview_desktop_mid": "Dopo · desktop contenuto",
+    "preview_desktop_footer": "Dopo · desktop footer",
+    "preview_mobile_hero": "Dopo · mobile inizio",
+    "preview_mobile_mid": "Dopo · mobile contenuto",
 }
 
 PREVIEW_STYLE = """
@@ -109,7 +114,7 @@ def capture_screenshots(url: str, output_dir: Path, settings: Settings) -> dict:
                     "mobile",
                     MOBILE_VIEWPORT,
                     settings,
-                    with_preview=False,
+                    with_preview=True,
                 )
                 result["screenshots"] = desktop["screenshots"] + mobile["screenshots"]
                 result["performance"] = desktop.get("performance") or {}
@@ -167,14 +172,17 @@ def _capture_device(
             )
 
         if with_preview:
-            page.evaluate("window.scrollTo(0, 0)")
-            page.wait_for_timeout(150)
             page.add_style_tag(content=PREVIEW_STYLE)
             page.evaluate(_preview_dom_script())
             page.wait_for_timeout(200)
-            path = output_dir / "preview_desktop.png"
-            page.screenshot(path=str(path), full_page=False)
-            shots.append(_shot_meta("preview_desktop", width, height, path))
+            for name, top in viewport_scroll_offsets(scroll_height, height):
+                if prefix == "mobile" and name == "footer":
+                    continue
+                page.evaluate(f"window.scrollTo(0, {top})")
+                page.wait_for_timeout(250)
+                path = output_dir / f"preview_{prefix}_{name}.png"
+                page.screenshot(path=str(path), full_page=False)
+                shots.append(_shot_meta(f"preview_{prefix}_{name}", width, height, path))
         return {"screenshots": shots, "performance": performance}
     finally:
         page.close()

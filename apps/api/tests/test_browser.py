@@ -19,6 +19,6 @@ def test_viewport_scroll_offsets_long_page() -> None:
 
 def test_shot_labels() -> None:
     assert shot_label("desktop_hero") == "Desktop · inizio"
-    assert shot_label("preview_desktop") == "Anteprima miglioramenti"
-    assert is_preview_shot("preview_desktop")
+    assert shot_label("preview_desktop_hero") == "Dopo · desktop inizio"
+    assert is_preview_shot("preview_desktop_hero")
     assert not is_preview_shot("desktop_hero")

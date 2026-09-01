@@ -15,6 +15,9 @@ export type CompanySummary = {
   source: string;
   status: string;
   domain: string | null;
+  osm_tags?: Record<string, string> | null;
+  osm_start_date?: string | null;
+  osm_opening_hours?: string | null;
 };
 
 export type CompanyDetail = CompanySummary & {
@@ -30,6 +33,8 @@ export type BulkScanProgress = {
   completed: number;
   failed: number;
   skipped: number;
+  percent: number;
+  label: string;
 };
 
 export type BulkScanItem = {
@@ -100,12 +105,16 @@ export type DiscoveryRun = {
   industry: string;
   location: string;
   max_results: number;
+  extended?: boolean;
   provider: string;
   status: DiscoveryStatus;
   total_found: number;
   error_message: string | null;
   started_at: string | null;
   completed_at: string | null;
+  progress_percent: number;
+  progress_label: string | null;
+  osm_tags?: string[];
   companies: CompanySummary[];
   latest_scan_id: string | null;
 };
@@ -127,10 +136,76 @@ async function parseJson<T>(response: Response): Promise<T> {
   return payload as T;
 }
 
+export type OsmIndustryPreview = {
+  industry: string;
+  mapped: boolean;
+  tags: string[];
+  examples: string[];
+  sectors?: string[];
+};
+
+export type ItalyProvince = {
+  name: string;
+  cities: string[];
+};
+
+export type ItalyRegion = {
+  name: string;
+  provinces: ItalyProvince[];
+};
+
+export type DiscoveryCatalog = {
+  sectors: string[];
+  regions: ItalyRegion[];
+};
+
+export async function fetchDiscoveryCatalog(): Promise<DiscoveryCatalog> {
+  let response: Response;
+  try {
+    response = await fetch(`${getApiBaseUrl()}/discovery/catalog`);
+  } catch {
+    throw new ApiError("Impossibile raggiungere il backend.");
+  }
+  return parseJson<DiscoveryCatalog>(response);
+}
+
+export function composeLocation(region: string, province: string, city: string): string {
+  return [city, province, region].map((item) => item.trim()).filter(Boolean).join(", ") || "Italia";
+}
+
+export async function fetchOsmPreview(industry: string): Promise<OsmIndustryPreview> {
+  let response: Response;
+  try {
+    response = await fetch(
+      `${getApiBaseUrl()}/discovery/osm-preview?industry=${encodeURIComponent(industry)}`,
+    );
+  } catch {
+    throw new ApiError("Impossibile raggiungere il backend.");
+  }
+  return parseJson<OsmIndustryPreview>(response);
+}
+
+export function formatOsmTags(tags: Record<string, string> | string[] | null | undefined): string {
+  if (!tags) {
+    return "";
+  }
+  if (Array.isArray(tags)) {
+    return tags.join(" · ");
+  }
+  return Object.entries(tags)
+    .filter(([key]) => !["start_date", "opening_hours", "stars"].includes(key))
+    .map(([key, value]) => `${key}=${value}`)
+    .join(" · ");
+}
+
 export async function createDiscovery(input: {
   industry: string;
   location: string;
+  region?: string;
+  province?: string;
+  city?: string;
   max_results: number;
+  extended?: boolean;
 }): Promise<DiscoveryRun> {
   let response: Response;
   try {
@@ -153,6 +228,8 @@ export type DiscoveryRunSummary = {
   total_found: number;
   created_at: string;
   completed_at: string | null;
+  progress_percent?: number;
+  progress_label?: string | null;
 };
 
 export async function fetchRecentDiscoveries(limit = 8): Promise<DiscoveryRunSummary[]> {

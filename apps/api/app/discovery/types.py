@@ -8,6 +8,7 @@ class DiscoveryQuery:
     industry: str
     location: str
     max_results: int
+    include_without_website: bool = False
 
 
 @dataclass
@@ -17,6 +18,8 @@ class DiscoveryCandidate:
     city: str | None = None
     region: str | None = None
     country: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
     website_url: str | None = None
     phone: str | None = None
     email: str | None = None

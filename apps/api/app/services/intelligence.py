@@ -6,7 +6,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.entities import Audit, Company, Website
-
+from app.services.app_store import enrich_app_links
 
 STALE_AFTER_DAYS = 30
 
@@ -80,7 +80,7 @@ def _build(session: Session, audit: Audit) -> dict:
         "audit_id": str(audit.id),
         "signals": {
             **_page_signals(html),
-        **_company_signals(company),
+            **_company_signals(company),
         },
         "history": _history(audit, previous),
         "monitoring": {
@@ -95,9 +95,10 @@ def _page_signals(html: dict) -> dict:
     technologies = list(html.get("technologies") or [])
     analytics = list(html.get("analytics") or [])
     social = list(html.get("social_links") or [])
-    app_links = list(html.get("app_links") or [])
+    app_links = enrich_app_links(list(html.get("app_links") or []))
     generator = html.get("generator")
     aging = _aging_notes(technologies, generator)
+    saas = list(html.get("saas_signals") or [])
     return {
         "technologies": technologies,
         "analytics": analytics,
@@ -105,6 +106,7 @@ def _page_signals(html: dict) -> dict:
         "app_links": app_links,
         "generator": generator,
         "aging": aging,
+        "saas": saas,
     }
 
 
@@ -114,6 +116,9 @@ def _company_signals(company: Company | None) -> dict:
     stars = osm.get("stars") if osm else None
     return {
         "osm_stars": str(stars) if stars is not None else None,
+        "osm_tags": {str(key): str(value) for key, value in osm.items()} if osm else {},
+        "osm_start_date": str(osm["start_date"]) if osm.get("start_date") else None,
+        "osm_opening_hours": str(osm["opening_hours"]) if osm.get("opening_hours") else None,
         "has_phone": bool(company.phone) if company else False,
         "has_email": bool(company.email) if company else False,
         "has_website": bool(company.website_url) if company else False,

@@ -120,6 +120,21 @@ def test_ai_scores_are_blended_and_do_not_invent_ui_when_null() -> None:
     assert website.conversion_score < 100
 
 
+def test_pagespeed_category_score_blends_into_performance() -> None:
+    http = {"ok": True, "https": True, "response_time_ms": 200, "status_code": 200}
+    html = {"viewport": "width=device-width", "cta_texts": ["Prenota"], "h1": ["Hotel"], "title": "Hotel"}
+    seo = {"sitemap_found": True, "robots_found": True}
+    without = compute_website_score([], http, html, seo, None)
+    with_psi = compute_website_score(
+        [],
+        http,
+        html,
+        seo,
+        {"pagespeed": {"ok": True, "performance": 40, "source": "pagespeed"}},
+    )
+    assert with_psi.performance_score < without.performance_score
+
+
 def test_explainability_fields_are_populated() -> None:
     findings = [
         _finding("HTML_WEAK_CTA", "conversion", "medium", "CTA poco evidenti"),

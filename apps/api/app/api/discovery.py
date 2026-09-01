@@ -4,6 +4,8 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.db import get_db
+from app.discovery.italy_geo import compose_location, italy_geo
+from app.discovery.osm import format_industry_tags, listed_sectors, preview_industry
 from app.discovery.service import (
     DiscoveryServiceError,
     create_discovery_run,
@@ -18,11 +20,48 @@ from app.schemas.discovery import (
     CompanyDetail,
     CompanySummary,
     CreateDiscoveryRequest,
+    DiscoveryCatalog,
     DiscoveryRunResponse,
     DiscoveryRunSummary,
+    ItalyProvince,
+    ItalyRegion,
+    OsmIndustryPreview,
 )
 
+
 router = APIRouter(tags=["discovery"])
+
+
+def _request_location(payload: CreateDiscoveryRequest) -> str:
+    if payload.city.strip() or payload.province.strip() or payload.region.strip():
+        return compose_location(
+            region=payload.region,
+            province=payload.province,
+            city=payload.city,
+        )
+    return payload.location.strip()
+
+
+@router.get("/discovery/osm-preview", response_model=OsmIndustryPreview)
+def get_osm_preview(industry: str = Query("", max_length=128)) -> OsmIndustryPreview:
+    payload = preview_industry(industry)
+    return OsmIndustryPreview(**payload)
+
+
+@router.get("/discovery/catalog", response_model=DiscoveryCatalog)
+def get_discovery_catalog() -> DiscoveryCatalog:
+    geo = italy_geo()
+    regions = [
+        ItalyRegion(
+            name=region["name"],
+            provinces=[
+                ItalyProvince(name=province["name"], cities=province["cities"])
+                for province in region.get("provinces") or []
+            ],
+        )
+        for region in geo.get("regions") or []
+    ]
+    return DiscoveryCatalog(sectors=listed_sectors(), regions=regions)
 
 
 @router.post("/discoveries", status_code=202, response_model=DiscoveryRunResponse)
@@ -35,8 +74,9 @@ def post_discovery(
         run = create_discovery_run(
             db,
             industry=payload.industry,
-            location=payload.location,
+            location=_request_location(payload),
             max_results=payload.max_results,
+            extended=payload.extended,
         )
     except DiscoveryServiceError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
@@ -61,6 +101,8 @@ def list_discoveries(
             total_found=item.total_found,
             created_at=item.created_at,
             completed_at=item.completed_at,
+            progress_percent=item.progress_percent,
+            progress_label=item.progress_label,
         )
         for item in rows
     ]
@@ -95,12 +137,16 @@ def _run_response(db: Session, run: DiscoveryRun) -> DiscoveryRunResponse:
         industry=run.industry,
         location=run.location,
         max_results=run.max_results,
+        extended=run.extended,
         provider=run.provider,
         status=run.status,
         total_found=run.total_found,
         error_message=run.error_message,
         started_at=run.started_at,
         completed_at=run.completed_at,
+        progress_percent=run.progress_percent,
+        progress_label=run.progress_label,
+        osm_tags=format_industry_tags(run.industry),
         companies=companies,
         latest_scan_id=latest.id if latest else None,
     )
@@ -112,6 +158,7 @@ def _website(company: Company):
 
 def _company_summary(company: Company) -> CompanySummary:
     website = _website(company)
+    tags = _company_osm_tags(company)
     return CompanySummary(
         id=company.id,
         name=company.name,
@@ -125,7 +172,18 @@ def _company_summary(company: Company) -> CompanySummary:
         source=company.source,
         status=company.status,
         domain=website.domain if website else None,
+        osm_tags=tags,
+        osm_start_date=tags.get("start_date") if tags else None,
+        osm_opening_hours=tags.get("opening_hours") if tags else None,
     )
+
+
+def _company_osm_tags(company: Company) -> dict[str, str] | None:
+    extra = company.extra or {}
+    tags = extra.get("osm_tags")
+    if not isinstance(tags, dict) or not tags:
+        return None
+    return {str(key): str(value) for key, value in tags.items()}
 
 
 def _company_detail(company: Company) -> CompanyDetail:

@@ -106,6 +106,7 @@
 - [x] M6-005 Personalized email
 - [x] M6-006 Project range estimate
 - [x] M6-007 Proposal UI
+- [x] M6-008 Sender profile in settings (firma email; range solo interno)
 
 ## M7 — Advanced Intelligence
 
@@ -115,12 +116,13 @@
 - [x] M7-004 Monitoring freshness
 - [x] M7-005 Intelligence API
 - [x] M7-006 Intelligence UI
+- [x] M7-007 Map: OSM coordinates, geographic k-means, Opportunity Score pins
 
 ## M8 — App / SaaS Analysis
 
 - [x] M8-001 App Store / Play links from HTML
-- [ ] M8-002 App Store listing (solo dopo validazione flusso siti)
-- [ ] M8-003 Play Store listing
-- [ ] M8-004 Review sentiment
-- [ ] M8-005 Feature request mining
-- [ ] M8-006 Public SaaS / demo analysis
+- [x] M8-002 App Store listing via iTunes Lookup
+- [ ] M8-003 Play Store listing (bloccato: nessuna API ufficiale, no scraping)
+- [x] M8-004 Review sentiment (App Store: feed ufficiale Apple; Play bloccato)
+- [x] M8-005 Feature request mining (temi dai testi Apple; Play bloccato)
+- [x] M8-006 Public SaaS / demo signals from homepage

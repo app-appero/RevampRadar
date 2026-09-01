@@ -100,6 +100,8 @@ def _to_response(audit: Audit) -> AuditResponse:
         started_at=audit.started_at,
         completed_at=audit.completed_at,
         error_message=audit.error_message,
+        progress_percent=audit.progress_percent,
+        progress_label=audit.progress_label,
         http=audit.http_data,
         html=audit.html_data,
         seo=audit.seo_data,
@@ -146,6 +148,8 @@ def _to_summary(audit: Audit) -> AuditSummaryResponse:
         normalized_url=audit.website.normalized_url,
         created_at=audit.created_at,
         completed_at=audit.completed_at,
+        progress_percent=audit.progress_percent,
+        progress_label=audit.progress_label,
         website_score=website.overall_score if website else None,
         opportunity_score=opportunity.opportunity_score if opportunity else None,
         priority=opportunity.priority if opportunity else None,
@@ -227,7 +231,12 @@ _SHOT_ORDER = (
     "mobile_hero",
     "mobile",
     "mobile_mid",
+    "preview_desktop_hero",
     "preview_desktop",
+    "preview_desktop_mid",
+    "preview_desktop_footer",
+    "preview_mobile_hero",
+    "preview_mobile_mid",
 )
 
 

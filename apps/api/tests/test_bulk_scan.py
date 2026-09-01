@@ -159,6 +159,8 @@ def test_bulk_scan_api(client, db_session, monkeypatch) -> None:
     payload = created.json()
     assert payload["progress"]["skipped"] == 1
     assert payload["progress"]["pending"] == 2
+    assert payload["progress"]["percent"] == 0
+    assert payload["progress"]["label"] == "In coda"
     fetched = client.get(f"/bulk-scans/{payload['id']}")
     assert fetched.status_code == 200
     discovery = client.get(f"/discoveries/{run.id}")

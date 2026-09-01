@@ -1,5 +1,7 @@
 from uuid import UUID
 
+from datetime import UTC, datetime
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
@@ -10,6 +12,8 @@ from app.schemas.crm import (
     CreateTagRequest,
     DashboardCounts,
     DashboardResponse,
+    AgendaItemResponse,
+    ActivityResponse,
     OpportunityDetail,
     OpportunitySummary,
     TagResponse,
@@ -20,18 +24,41 @@ from app.services.crm_service import (
     add_activity,
     add_note,
     add_tag,
+    complete_activity,
     dashboard,
     get_opportunity,
     get_opportunity_for_company,
     latest_scores_map,
+    list_agenda,
     list_opportunities,
     remove_tag,
     update_opportunity,
     website_for,
 )
-from app.models.entities import Opportunity, OpportunityScore
+from app.models.entities import Activity, Opportunity, OpportunityScore
 
 router = APIRouter(tags=["crm"])
+
+
+@router.get("/agenda", response_model=list[AgendaItemResponse])
+def get_agenda(
+    db: Session = Depends(get_db),
+    from_dt: datetime | None = Query(default=None, alias="from"),
+    to_dt: datetime | None = Query(default=None, alias="to"),
+    include_overdue: bool = True,
+) -> list[AgendaItemResponse]:
+    now = datetime.now(UTC)
+    items = list_agenda(db, from_dt=from_dt, to_dt=to_dt, include_overdue=include_overdue)
+    return [_agenda_item(item, now) for item in items]
+
+
+@router.post("/activities/{activity_id}/complete", response_model=ActivityResponse)
+def post_complete_activity(activity_id: UUID, db: Session = Depends(get_db)) -> ActivityResponse:
+    try:
+        activity = complete_activity(db, activity_id)
+    except CrmServiceError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return _activity_response(activity)
 
 
 @router.get("/opportunities/dashboard", response_model=DashboardResponse)
@@ -167,11 +194,18 @@ def post_activity(
             activity_type=payload.type,
             note=payload.note,
             occurred_at=payload.occurred_at,
+            due_at=payload.due_at,
         )
     except CrmServiceError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     scores = latest_scores_map(db, [opportunity.company_id])
     return _detail(opportunity, scores.get(opportunity.company_id))
+
+
+def _as_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
 
 
 def _summary(opportunity: Opportunity, score: OpportunityScore | None) -> OpportunitySummary:
@@ -206,18 +240,50 @@ def _summary(opportunity: Opportunity, score: OpportunityScore | None) -> Opport
 def _detail(opportunity: Opportunity, score: OpportunityScore | None) -> OpportunityDetail:
     summary = _summary(opportunity, score)
     notes = sorted(opportunity.notes, key=lambda item: item.created_at, reverse=True)
-    activities = sorted(opportunity.activities, key=lambda item: item.occurred_at, reverse=True)
+    activities = _sorted_activities(opportunity.activities)
     return OpportunityDetail(
         **summary.model_dump(),
         notes=[{"id": item.id, "body": item.body, "created_at": item.created_at} for item in notes],
-        activities=[
-            {
-                "id": item.id,
-                "type": item.type,
-                "note": item.note,
-                "occurred_at": item.occurred_at,
-                "created_at": item.created_at,
-            }
-            for item in activities
-        ],
+        activities=[_activity_response(item) for item in activities],
+    )
+
+
+def _sorted_activities(activities: list[Activity]) -> list[Activity]:
+    pending = [item for item in activities if item.due_at is not None and item.completed_at is None]
+    past = [item for item in activities if not (item.due_at is not None and item.completed_at is None)]
+    pending.sort(key=lambda item: item.due_at or datetime.min.replace(tzinfo=UTC))
+    past.sort(
+        key=lambda item: item.occurred_at or item.completed_at or item.created_at,
+        reverse=True,
+    )
+    return pending + past
+
+
+def _activity_response(item: Activity) -> ActivityResponse:
+    return ActivityResponse(
+        id=item.id,
+        type=item.type,
+        note=item.note,
+        occurred_at=item.occurred_at,
+        due_at=item.due_at,
+        completed_at=item.completed_at,
+        created_at=item.created_at,
+    )
+
+
+def _agenda_item(activity: Activity, now: datetime) -> AgendaItemResponse:
+    opportunity = activity.opportunity
+    company = opportunity.company if opportunity else None
+    if activity.due_at is None:
+        raise ValueError("Agenda item requires due_at")
+    return AgendaItemResponse(
+        id=activity.id,
+        opportunity_id=activity.opportunity_id,
+        company_id=opportunity.company_id if opportunity else activity.opportunity_id,
+        company_name=company.name if company else "",
+        type=activity.type,
+        note=activity.note,
+        due_at=activity.due_at,
+        created_at=activity.created_at,
+        is_overdue=_as_utc(activity.due_at) < _as_utc(now),
     )

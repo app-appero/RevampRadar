@@ -80,6 +80,8 @@ export type Audit = {
   started_at: string | null;
   completed_at: string | null;
   error_message: string | null;
+  progress_percent: number;
+  progress_label: string | null;
   http: Record<string, unknown> | null;
   html: Record<string, unknown> | null;
   seo: Record<string, unknown> | null;
@@ -115,6 +117,8 @@ export type AuditSummary = {
   normalized_url: string;
   created_at: string;
   completed_at: string | null;
+  progress_percent?: number;
+  progress_label?: string | null;
   website_score: number | null;
   opportunity_score: number | null;
   priority: string | null;

@@ -63,7 +63,8 @@ Ogni ricerca deve essere persistita con:
 - stato;
 - numero risultati;
 - errori;
-- timestamp.
+- timestamp;
+- avanzamento in % (località, Overpass, aziende persistite).
 
 ## Stati
 

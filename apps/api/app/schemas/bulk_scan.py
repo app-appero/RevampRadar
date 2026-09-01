@@ -11,6 +11,8 @@ class BulkScanProgress(BaseModel):
     completed: int
     failed: int
     skipped: int
+    percent: int = 0
+    label: str = ""
 
 
 class BulkScanItemResponse(BaseModel):

@@ -33,6 +33,14 @@ def test_range_follows_service_and_does_not_invent_company() -> None:
     assert "hotelsole.test" in draft.summary
     assert "dipendenti" not in draft.email_body.lower()
     assert "fatturato" not in draft.email_body.lower()
+    assert "iva" not in draft.email_body.lower()
+    assert "1500" not in draft.email_body
+    assert "4000" not in draft.email_body
+    assert "Luca Bianchi" in draft.email_body
+    assert "lucabianchi.dev" in draft.email_body
+    assert "Upwork" in draft.email_body
+    assert "mi chiamo" in draft.email_body.lower()
+    assert f"EUR {draft.range_min}" in draft.brief
     assert draft.priority_problems[0]["code"] == "HTTP_NO_HTTPS"
     assert "HTTPS" in draft.recommended_service
 
@@ -53,7 +61,7 @@ def test_proposal_requires_completed_audit(client, monkeypatch) -> None:
 
 def test_generate_and_replace_proposal(client, db_session, monkeypatch) -> None:
     monkeypatch.setattr("app.api.audits.execute_audit", lambda audit_id: None)
-    monkeypatch.setattr("app.proposals.service.polish_proposal", lambda settings, draft, facts: None)
+    monkeypatch.setattr("app.proposals.service.polish_proposal", lambda *args, **kwargs: None)
     created = client.post("/audits", json={"url": "https://hotelsole.test"})
     audit_id = UUID(created.json()["id"])
     audit = db_session.get(Audit, audit_id)
@@ -113,6 +121,8 @@ def test_generate_and_replace_proposal(client, db_session, monkeypatch) -> None:
     assert body["recommended_service"].startswith("Messa in sicurezza")
     assert body["range_min"] == 1500
     assert "HTTPS" in body["email_body"]
+    assert "1500" not in body["email_body"]
+    assert "Luca Bianchi" in body["email_body"]
     assert body["priority_problems"][0]["code"] == "HTTP_NO_HTTPS"
     first_id = body["id"]
 
@@ -129,7 +139,7 @@ def test_generate_and_replace_proposal(client, db_session, monkeypatch) -> None:
 
 
 def test_service_builds_without_httpx(db_session, monkeypatch) -> None:
-    monkeypatch.setattr("app.proposals.service.polish_proposal", lambda settings, draft, facts: None)
+    monkeypatch.setattr("app.proposals.service.polish_proposal", lambda *args, **kwargs: None)
     from app.models.entities import Website
     from app.scanner.url import normalize_url
 
@@ -152,3 +162,29 @@ def test_service_builds_without_httpx(db_session, monkeypatch) -> None:
     proposal = create_or_replace_proposal(db_session, audit.id)
     assert proposal.source == "deterministic"
     assert "luna.test" in proposal.summary
+
+
+def test_sender_profile_defaults_and_update(client) -> None:
+    first = client.get("/settings/profile")
+    assert first.status_code == 200
+    body = first.json()
+    assert body["display_name"] == "Luca Bianchi"
+    assert body["website_url"].startswith("https://")
+    assert any(item["label"] == "Upwork" for item in body["freelancer_links"])
+
+    updated = client.put(
+        "/settings/profile",
+        json={
+            "display_name": "Sara Verdi",
+            "intro": "Realizzo siti per hotel e B&B.",
+            "website_url": "https://saraverdi.test",
+            "freelancer_links": [{"label": "Malt", "url": "https://www.malt.fr/profile/sara"}],
+            "social_links": [{"label": "LinkedIn", "url": "https://www.linkedin.com/in/saraverdi"}],
+        },
+    )
+    assert updated.status_code == 200
+    assert updated.json()["display_name"] == "Sara Verdi"
+    fetched = client.get("/settings/profile")
+    assert fetched.json()["intro"].startswith("Realizzo siti")
+    assert fetched.json()["freelancer_links"][0]["label"] == "Malt"
+

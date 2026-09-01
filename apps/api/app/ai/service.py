@@ -64,7 +64,7 @@ def analyze_audit(
         ],
     }
     meta["provider"] = provider.name
-    meta["model"] = settings.openai_model
+    meta["model"] = provider.model
     try:
         result = provider.analyze(payload)
     except Exception as exc:

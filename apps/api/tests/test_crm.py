@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from app.discovery.service import _run_discovery, create_discovery_run
 from app.discovery.types import DiscoveryCandidate
@@ -8,8 +8,10 @@ from app.services.crm_service import (
     add_activity,
     add_note,
     add_tag,
+    complete_activity,
     dashboard,
     ensure_opportunity,
+    list_agenda,
     list_opportunities,
     mark_analyzed_if_discovered,
     remove_tag,
@@ -215,3 +217,69 @@ def test_crm_api_roundtrip(client, db_session) -> None:
 
     bad = client.patch(f"/opportunities/{opportunity_id}", json={"status": "unknown"})
     assert bad.status_code == 422
+
+
+def test_scheduled_activity_agenda_and_complete(db_session) -> None:
+    company = _company(db_session)
+    opportunity = db_session.query(Opportunity).filter_by(company_id=company.id).one()
+    due = datetime.now(UTC) + timedelta(days=2)
+    overdue = datetime.now(UTC) - timedelta(days=1)
+
+    scheduled = add_activity(
+        db_session,
+        opportunity.id,
+        activity_type="call",
+        note="Richiamare",
+        occurred_at=None,
+        due_at=due,
+    )
+    pending = [item for item in scheduled.activities if item.due_at and not item.completed_at]
+    assert len(pending) == 1
+    assert pending[0].occurred_at is None
+
+    add_activity(
+        db_session,
+        opportunity.id,
+        activity_type="meeting",
+        note="Scaduto",
+        occurred_at=None,
+        due_at=overdue,
+    )
+
+    items = list_agenda(
+        db_session,
+        from_dt=datetime.now(UTC),
+        to_dt=due + timedelta(days=1),
+        include_overdue=True,
+    )
+    assert len(items) == 2
+
+    completed = complete_activity(db_session, pending[0].id)
+    assert completed.completed_at is not None
+    assert completed.occurred_at is not None
+
+    remaining = list_agenda(db_session)
+    assert len(remaining) == 1
+    assert remaining[0].note == "Scaduto"
+
+
+def test_agenda_api(client, db_session) -> None:
+    company = _company(db_session, name="Bar Blu")
+    opportunity = db_session.query(Opportunity).filter_by(company_id=company.id).one()
+    due = (datetime.now(UTC) + timedelta(hours=3)).isoformat().replace("+00:00", "Z")
+
+    created = client.post(
+        f"/opportunities/{opportunity.id}/activities",
+        json={"type": "call", "note": "Follow-up", "due_at": due},
+    )
+    assert created.status_code == 200
+    activity = next(item for item in created.json()["activities"] if item["due_at"])
+    assert activity["occurred_at"] is None
+
+    agenda = client.get("/agenda")
+    assert agenda.status_code == 200
+    assert any(item["company_name"] == "Bar Blu" for item in agenda.json())
+
+    done = client.post(f"/activities/{activity['id']}/complete")
+    assert done.status_code == 200
+    assert done.json()["completed_at"] is not None

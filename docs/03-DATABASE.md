@@ -16,6 +16,8 @@ Campi suggeriti:
 - city
 - region
 - country
+- latitude
+- longitude
 - website_url
 - phone
 - email
@@ -116,6 +118,18 @@ Campi suggeriti:
 - notes
 - created_at
 - updated_at
+
+### SenderProfile
+
+Profilo singolo dell'operatore (nessuna auth):
+
+- display_name
+- intro
+- website_url
+- freelancer_links
+- social_links
+
+Usato in firma email. Il range proposta resta sui record `proposals`, non va nel testo inviato al prospect.
 
 ### Contact
 

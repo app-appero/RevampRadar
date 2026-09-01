@@ -16,7 +16,7 @@ from app.models.entities import (
     Tag,
     Website,
 )
-from app.schemas.crm import ACTIVITY_TYPES, CRM_STATUSES
+from app.schemas.crm import ACTIVITY_TYPES, CRM_STATUSES, SCHEDULED_ACTIVITY_TYPES
 
 
 class CrmServiceError(Exception):
@@ -248,6 +248,12 @@ def remove_tag(session: Session, opportunity_id: UUID, tag_id: UUID) -> Opportun
     return loaded
 
 
+def _as_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
+
+
 def add_activity(
     session: Session,
     opportunity_id: UUID,
@@ -255,22 +261,86 @@ def add_activity(
     activity_type: str,
     note: str | None,
     occurred_at: datetime | None,
+    due_at: datetime | None = None,
 ) -> Opportunity:
     opportunity = _require(session, opportunity_id)
     if activity_type not in ACTIVITY_TYPES:
         raise CrmServiceError("Tipo attività non valido.", status_code=422)
-    session.add(
-        Activity(
-            opportunity_id=opportunity.id,
-            type=activity_type,
-            note=note.strip() if note else None,
-            occurred_at=occurred_at or datetime.now(UTC),
+    if due_at is not None:
+        if activity_type not in SCHEDULED_ACTIVITY_TYPES:
+            raise CrmServiceError("Questo tipo di attività non può essere pianificato.", status_code=422)
+        session.add(
+            Activity(
+                opportunity_id=opportunity.id,
+                type=activity_type,
+                note=note.strip() if note else None,
+                due_at=_as_utc(due_at),
+            )
         )
-    )
+    else:
+        session.add(
+            Activity(
+                opportunity_id=opportunity.id,
+                type=activity_type,
+                note=note.strip() if note else None,
+                occurred_at=occurred_at or datetime.now(UTC),
+            )
+        )
     session.commit()
     loaded = get_opportunity(session, opportunity.id)
     assert loaded is not None
     return loaded
+
+
+def list_agenda(
+    session: Session,
+    *,
+    from_dt: datetime | None = None,
+    to_dt: datetime | None = None,
+    include_overdue: bool = True,
+) -> list[Activity]:
+    q = (
+        session.query(Activity)
+        .join(Opportunity)
+        .join(Company)
+        .options(
+            selectinload(Activity.opportunity).selectinload(Opportunity.company),
+        )
+        .filter(Activity.due_at.isnot(None), Activity.completed_at.is_(None))
+    )
+    if from_dt is not None and to_dt is not None:
+        if include_overdue:
+            q = q.filter(Activity.due_at <= to_dt)
+        else:
+            q = q.filter(Activity.due_at >= from_dt, Activity.due_at <= to_dt)
+    elif from_dt is not None:
+        q = q.filter(Activity.due_at >= from_dt)
+    elif to_dt is not None:
+        q = q.filter(Activity.due_at <= to_dt)
+    return q.order_by(Activity.due_at.asc()).all()
+
+
+def complete_activity(session: Session, activity_id: UUID) -> Activity:
+    activity = (
+        session.query(Activity)
+        .options(
+            selectinload(Activity.opportunity).selectinload(Opportunity.company),
+        )
+        .filter(Activity.id == activity_id)
+        .one_or_none()
+    )
+    if activity is None:
+        raise CrmServiceError("Attività non trovata.", status_code=404)
+    if activity.due_at is None:
+        raise CrmServiceError("L'attività non è pianificata.", status_code=422)
+    if activity.completed_at is not None:
+        raise CrmServiceError("Attività già completata.", status_code=422)
+    now = datetime.now(UTC)
+    activity.completed_at = now
+    activity.occurred_at = now
+    session.commit()
+    session.refresh(activity)
+    return activity
 
 
 def latest_scores_map(session: Session, company_ids: list[UUID]) -> dict[UUID, OpportunityScore]:

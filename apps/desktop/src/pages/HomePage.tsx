@@ -15,10 +15,18 @@ export function HomePage() {
   const auditsQuery = useQuery({
     queryKey: ["recent-audits"],
     queryFn: () => fetchRecentAudits(8),
+    refetchInterval: (query) =>
+      query.state.data?.some((item) => item.status === "queued" || item.status === "running")
+        ? 2000
+        : false,
   });
   const discoveriesQuery = useQuery({
     queryKey: ["recent-discoveries"],
     queryFn: () => fetchRecentDiscoveries(6),
+    refetchInterval: (query) =>
+      query.state.data?.some((item) => item.status === "queued" || item.status === "running")
+        ? 2000
+        : false,
   });
   const dashboardQuery = useQuery({
     queryKey: ["crm-dashboard"],
@@ -106,7 +114,11 @@ export function HomePage() {
                 >
                   <span>
                     <span className="font-medium">{audit.domain}</span>
-                    <span className="ml-2 text-xs text-stone-500">{audit.status}</span>
+                    <span className="ml-2 text-xs text-stone-500">
+                      {audit.status === "queued" || audit.status === "running"
+                        ? `${audit.progress_percent ?? 0}%`
+                        : audit.status}
+                    </span>
                   </span>
                   <span className="text-sm text-stone-600">
                     {audit.opportunity_score != null ? `Opp. ${audit.opportunity_score}` : "—"}
@@ -137,7 +149,11 @@ export function HomePage() {
                     <span className="font-medium">
                       {run.industry} — {run.location}
                     </span>
-                    <span className="ml-2 text-xs text-stone-500">{run.status}</span>
+                    <span className="ml-2 text-xs text-stone-500">
+                      {run.status === "queued" || run.status === "running"
+                        ? `${run.progress_percent ?? 0}%`
+                        : run.status}
+                    </span>
                   </span>
                   <span className="text-sm text-stone-600">{run.total_found} aziende</span>
                 </Link>

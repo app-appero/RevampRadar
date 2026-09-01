@@ -12,28 +12,45 @@ from app.config import Settings
 
 
 class OpenAICompatibleProvider:
-    name = "openai-compatible"
+    name = "openai"
 
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
 
+    @property
+    def model(self) -> str:
+        return self._settings.openai_model
+
     def analyze(self, user_payload: dict) -> AIAnalysisResult:
+        content = self.complete_json(
+            SYSTEM_PROMPT,
+            json.dumps(user_payload, ensure_ascii=False),
+            temperature=0.2,
+        )
+        return parse_ai_output(content)
+
+    def complete_json(self, system: str, user: str, temperature: float = 0.2) -> str:
         base = self._settings.openai_base_url.rstrip("/") + "/"
         url = urljoin(base, "chat/completions")
         body = {
             "model": self._settings.openai_model,
-            "temperature": 0.2,
+            "temperature": temperature,
             "response_format": {"type": "json_object"},
             "messages": [
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": json.dumps(user_payload, ensure_ascii=False)},
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
             ],
         }
         headers = {
             "Authorization": f"Bearer {self._settings.openai_api_key}",
             "Content-Type": "application/json",
         }
-        timeout = httpx.Timeout(self._settings.openai_timeout_seconds)
+        timeout = httpx.Timeout(
+            connect=15.0,
+            read=self._settings.openai_timeout_seconds,
+            write=30.0,
+            pool=10.0,
+        )
         with httpx.Client(timeout=timeout) as client:
             try:
                 response = client.post(url, json=body, headers=headers)
@@ -51,4 +68,4 @@ class OpenAICompatibleProvider:
             raise RuntimeError("AI provider returned an unexpected payload.") from exc
         if not content:
             raise RuntimeError("AI provider returned empty content.")
-        return parse_ai_output(content)
+        return content

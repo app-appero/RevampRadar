@@ -30,6 +30,8 @@ export const CRM_STATUS_LABELS: Record<string, string> = {
 
 export const ACTIVITY_TYPES = ["call", "email", "meeting", "note", "other"] as const;
 
+export const SCHEDULED_ACTIVITY_TYPES = ["call", "email", "meeting", "other"] as const;
+
 export const ACTIVITY_LABELS: Record<string, string> = {
   call: "Chiamata",
   email: "Email",
@@ -45,8 +47,22 @@ export type Activity = {
   id: string;
   type: string;
   note: string | null;
-  occurred_at: string;
+  occurred_at: string | null;
+  due_at: string | null;
+  completed_at: string | null;
   created_at: string;
+};
+
+export type AgendaItem = {
+  id: string;
+  opportunity_id: string;
+  company_id: string;
+  company_name: string;
+  type: string;
+  note: string | null;
+  due_at: string;
+  created_at: string;
+  is_overdue: boolean;
 };
 
 export type OpportunitySummary = {
@@ -177,11 +193,28 @@ export function removeTag(id: string, tagId: string): Promise<OpportunityDetail>
 
 export function addActivity(
   id: string,
-  payload: { type: string; note?: string },
+  payload: { type: string; note?: string; due_at?: string; occurred_at?: string },
 ): Promise<OpportunityDetail> {
   return request(`/opportunities/${id}/activities`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
+}
+
+export function fetchAgenda(params: {
+  from?: string;
+  to?: string;
+  include_overdue?: boolean;
+}): Promise<AgendaItem[]> {
+  const search = new URLSearchParams();
+  if (params.from) search.set("from", params.from);
+  if (params.to) search.set("to", params.to);
+  if (params.include_overdue === false) search.set("include_overdue", "false");
+  const query = search.toString();
+  return request(`/agenda${query ? `?${query}` : ""}`);
+}
+
+export function completeActivity(activityId: string): Promise<Activity> {
+  return request(`/activities/${activityId}/complete`, { method: "POST" });
 }

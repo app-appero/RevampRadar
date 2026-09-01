@@ -31,6 +31,7 @@ class HtmlScanResult:
     social_links: list[dict] = field(default_factory=list)
     app_links: list[dict] = field(default_factory=list)
     generator: str | None = None
+    saas_signals: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return {
@@ -50,6 +51,7 @@ class HtmlScanResult:
             "social_links": self.social_links,
             "app_links": self.app_links,
             "generator": self.generator,
+            "saas_signals": self.saas_signals,
         }
 
 
@@ -125,6 +127,8 @@ def scan_html(html: str, page_url: str) -> HtmlScanResult:
         if len(cta_texts) >= 20:
             break
 
+    saas_signals = _saas_signals(soup, html_lower, internal_links, cta_texts)
+
     return HtmlScanResult(
         title=title or None,
         meta_description=meta_description or None,
@@ -142,6 +146,7 @@ def scan_html(html: str, page_url: str) -> HtmlScanResult:
         social_links=social_links,
         app_links=app_links,
         generator=generator or None,
+        saas_signals=saas_signals,
     )
 
 
@@ -157,6 +162,64 @@ _SOCIAL_HOSTS = (
     ("youtube.com", "youtube"),
     ("tiktok.com", "tiktok"),
 )
+
+
+_SAAS_PATHS = (
+    "/login",
+    "/signin",
+    "/sign-in",
+    "/signup",
+    "/sign-up",
+    "/register",
+    "/app",
+    "/dashboard",
+    "/pricing",
+    "/demo",
+    "/trial",
+)
+
+_SAAS_WIDGETS = (
+    ("widget.intercom.io", "intercom"),
+    ("js.intercomcdn.com", "intercom"),
+    ("js.stripe.com", "stripe"),
+    ("assets.calendly.com", "calendly"),
+    ("js.hs-scripts.com", "hubspot"),
+    ("js.hs-analytics.net", "hubspot"),
+    ("static.zdassets.com", "zendesk"),
+    ("client.crisp.chat", "crisp"),
+)
+
+_DEMO_CTA = re.compile(
+    r"richiedi demo|request demo|book a demo|free trial|prova gratuita|start free|try (it )?free",
+    re.IGNORECASE,
+)
+
+
+def _saas_signals(
+    soup: BeautifulSoup,
+    html_lower: str,
+    internal_links: list[str],
+    cta_texts: list[str],
+) -> list[str]:
+    found: list[str] = []
+    if soup.find("input", attrs={"type": re.compile("^password$", re.I)}):
+        found.append("login_form")
+    path_hits: list[str] = []
+    for href in internal_links:
+        path = urlparse(href).path.lower().rstrip("/") or "/"
+        for token in _SAAS_PATHS:
+            if path == token or path.startswith(token + "/"):
+                if token not in path_hits:
+                    path_hits.append(token)
+    if path_hits:
+        found.append("product_paths:" + ",".join(path_hits[:6]))
+    widgets = [name for needle, name in _SAAS_WIDGETS if needle in html_lower]
+    unique_widgets = list(dict.fromkeys(widgets))
+    if unique_widgets:
+        found.append("widgets:" + ",".join(unique_widgets))
+    if any(_DEMO_CTA.search(text) for text in cta_texts):
+        found.append("demo_or_trial_cta")
+    return found
 
 
 _APP_HOSTS = (

@@ -2,12 +2,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-
-PROMPT_VERSION = "m6-v1"
+from app.proposals.sender import DEFAULT_SENDER, SenderProfileView, format_signature
 
 RANGE_NOTE = (
-    "Range indicativo per un intervento freelance/agenzia piccola, IVA esclusa. "
-    "Non è un preventivo: va confermato dopo un call e uno scope chiuso."
+    "Stima solo per te, IVA esclusa. Non va in email né al prospect: "
+    "va confermata dopo una call e uno scope chiuso."
 )
 
 
@@ -35,6 +34,7 @@ def build_proposal_draft(
     findings: list,
     website_score,
     opportunity_score,
+    sender: SenderProfileView | None = None,
 ) -> ProposalDraft:
     name = company_name or domain
     place = f" a {city}" if city else ""
@@ -52,7 +52,7 @@ def build_proposal_draft(
     strategy = _strategy(service, problems, website_overall)
     brief = _brief(name, url, domain, website_overall, opportunity_value, service, problems, range_min, range_max)
     email_subject = f"{name}: un'idea concreta per il sito"
-    email_body = _email(name, place, domain, service, problems, range_min, range_max)
+    email_body = _email(name, place, domain, service, problems, sender or DEFAULT_SENDER)
     return ProposalDraft(
         summary=summary,
         priority_problems=problems,
@@ -188,8 +188,7 @@ def _email(
     domain: str,
     service: str,
     problems: list[dict],
-    range_min: int,
-    range_max: int,
+    sender: SenderProfileView,
 ) -> str:
     issue = problems[0]["title"] if problems else "alcuni limiti sul sito"
     extra = ""
@@ -197,11 +196,13 @@ def _email(
         extra = " Tra gli altri punti: " + "; ".join(item["title"] for item in problems[1:3]) + "."
     return (
         f"Buongiorno,\n\n"
-        f"ho dato un'occhiata al sito di {name}{place} ({domain}). "
-        f"Il punto più evidente oggi è: {issue}.{extra}\n\n"
+        f"mi chiamo {sender.display_name}. {sender.intro}\n\n"
+        f"Vi scrivo perché ho analizzato il sito di {name}{place} ({domain}) "
+        f"e ho visto dove la presenza digitale può funzionare meglio per chi vi cerca. "
+        f"Non è una vendita a freddo: è un'occhiata concreta a quello che c'è oggi. "
+        f"Il punto più evidente è: {issue}.{extra}\n\n"
         f"Un intervento utile sarebbe: {service}. "
-        f"A grandi linee, per un lavoro di questo tipo il range è {range_min}–{range_max} EUR "
-        f"(indicativo, IVA esclusa).\n\n"
-        f"Se vi interessa, vi mando un brief di una pagina e ci sentiamo 15 minuti.\n\n"
-        f"Un saluto"
+        f"Se vi interessa, vi mando un brief di una pagina e ci sentiamo 15 minuti, senza impegno.\n\n"
+        f"Un saluto,\n"
+        f"{format_signature(sender)}"
     )
