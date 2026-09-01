@@ -12,8 +12,11 @@ from app.services.crm_service import (
     dashboard,
     ensure_opportunity,
     list_agenda,
+    list_agenda_history,
     list_opportunities,
     mark_analyzed_if_discovered,
+    reopen_activity,
+    delete_scheduled_activity,
     remove_tag,
     update_opportunity,
 )
@@ -258,9 +261,19 @@ def test_scheduled_activity_agenda_and_complete(db_session) -> None:
     assert completed.completed_at is not None
     assert completed.occurred_at is not None
 
+    history = list_agenda_history(db_session)
+    assert len(history) == 1
+    assert history[0].note == "Richiamare"
+
+    restored = reopen_activity(db_session, completed.id)
+    assert restored.completed_at is None
+    assert restored.occurred_at is None
+    assert list_agenda_history(db_session) == []
+
     remaining = list_agenda(db_session)
-    assert len(remaining) == 1
-    assert remaining[0].note == "Scaduto"
+    assert len(remaining) == 2
+    assert any(item.note == "Richiamare" for item in remaining)
+    assert any(item.note == "Scaduto" for item in remaining)
 
 
 def test_agenda_api(client, db_session) -> None:
@@ -283,3 +296,20 @@ def test_agenda_api(client, db_session) -> None:
     done = client.post(f"/activities/{activity['id']}/complete")
     assert done.status_code == 200
     assert done.json()["completed_at"] is not None
+
+    history = client.get("/agenda/history")
+    assert history.status_code == 200
+    assert any(item["company_name"] == "Bar Blu" for item in history.json())
+
+    reopened = client.post(f"/activities/{activity['id']}/reopen")
+    assert reopened.status_code == 200
+    assert reopened.json()["completed_at"] is None
+    assert reopened.json()["occurred_at"] is None
+
+    agenda_again = client.get("/agenda")
+    assert any(item["company_name"] == "Bar Blu" for item in agenda_again.json())
+    assert not any(item["company_name"] == "Bar Blu" for item in client.get("/agenda/history").json())
+
+    deleted = client.delete(f"/activities/{activity['id']}")
+    assert deleted.status_code == 204
+    assert not any(item["company_name"] == "Bar Blu" for item in client.get("/agenda").json())

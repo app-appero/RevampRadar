@@ -320,6 +320,29 @@ def list_agenda(
     return q.order_by(Activity.due_at.asc()).all()
 
 
+def list_agenda_history(
+    session: Session,
+    *,
+    from_dt: datetime | None = None,
+    to_dt: datetime | None = None,
+    limit: int = 50,
+) -> list[Activity]:
+    q = (
+        session.query(Activity)
+        .join(Opportunity)
+        .join(Company)
+        .options(
+            selectinload(Activity.opportunity).selectinload(Opportunity.company),
+        )
+        .filter(Activity.due_at.isnot(None), Activity.completed_at.isnot(None))
+    )
+    if from_dt is not None:
+        q = q.filter(Activity.completed_at >= from_dt)
+    if to_dt is not None:
+        q = q.filter(Activity.completed_at <= to_dt)
+    return q.order_by(Activity.completed_at.desc()).limit(limit).all()
+
+
 def complete_activity(session: Session, activity_id: UUID) -> Activity:
     activity = (
         session.query(Activity)
@@ -341,6 +364,38 @@ def complete_activity(session: Session, activity_id: UUID) -> Activity:
     session.commit()
     session.refresh(activity)
     return activity
+
+
+def reopen_activity(session: Session, activity_id: UUID) -> Activity:
+    activity = (
+        session.query(Activity)
+        .options(
+            selectinload(Activity.opportunity).selectinload(Opportunity.company),
+        )
+        .filter(Activity.id == activity_id)
+        .one_or_none()
+    )
+    if activity is None:
+        raise CrmServiceError("Attività non trovata.", status_code=404)
+    if activity.due_at is None:
+        raise CrmServiceError("L'attività non è pianificata.", status_code=422)
+    if activity.completed_at is None:
+        raise CrmServiceError("L'attività non è completata.", status_code=422)
+    activity.completed_at = None
+    activity.occurred_at = None
+    session.commit()
+    session.refresh(activity)
+    return activity
+
+
+def delete_scheduled_activity(session: Session, activity_id: UUID) -> None:
+    activity = session.get(Activity, activity_id)
+    if activity is None:
+        raise CrmServiceError("Attività non trovata.", status_code=404)
+    if activity.due_at is None:
+        raise CrmServiceError("Solo le attività pianificate possono essere eliminate dall'agenda.", status_code=422)
+    session.delete(activity)
+    session.commit()
 
 
 def latest_scores_map(session: Session, company_ids: list[UUID]) -> dict[UUID, OpportunityScore]:

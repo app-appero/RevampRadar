@@ -5,7 +5,11 @@ import { Link } from "react-router-dom";
 import {
   ACTIVITY_LABELS,
   completeActivity,
+  deleteActivity,
   fetchAgenda,
+  fetchAgendaHistory,
+  reopenActivity,
+  type AgendaHistoryItem,
   type AgendaItem,
 } from "../api/crm";
 import { ApiError } from "../api/health";
@@ -101,11 +105,22 @@ export function AgendaPage() {
       }),
   });
 
+  const historyQuery = useQuery({
+    queryKey: ["agenda-history", rangeFrom.toISOString(), rangeTo.toISOString()],
+    queryFn: () =>
+      fetchAgendaHistory({
+        from: toApiIso(rangeFrom),
+        to: toApiIso(rangeTo),
+        limit: 100,
+      }),
+  });
+
   const completeMutation = useMutation({
     mutationFn: completeActivity,
     onSuccess: () => {
       setError(null);
       void queryClient.invalidateQueries({ queryKey: ["agenda"] });
+      void queryClient.invalidateQueries({ queryKey: ["agenda-history"] });
       void queryClient.invalidateQueries({ queryKey: ["company-opportunity"] });
     },
     onError: (err) => {
@@ -113,7 +128,42 @@ export function AgendaPage() {
     },
   });
 
+  const reopenMutation = useMutation({
+    mutationFn: reopenActivity,
+    onSuccess: () => {
+      setError(null);
+      void queryClient.invalidateQueries({ queryKey: ["agenda"] });
+      void queryClient.invalidateQueries({ queryKey: ["agenda-history"] });
+      void queryClient.invalidateQueries({ queryKey: ["company-opportunity"] });
+    },
+    onError: (err) => {
+      setError(err instanceof ApiError ? err.message : "Ripristino non riuscito.");
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteActivity,
+    onSuccess: () => {
+      setError(null);
+      void queryClient.invalidateQueries({ queryKey: ["agenda"] });
+      void queryClient.invalidateQueries({ queryKey: ["agenda-history"] });
+      void queryClient.invalidateQueries({ queryKey: ["company-opportunity"] });
+    },
+    onError: (err) => {
+      setError(err instanceof ApiError ? err.message : "Eliminazione non riuscita.");
+    },
+  });
+
+  const actionPending =
+    completeMutation.isPending || reopenMutation.isPending || deleteMutation.isPending;
+
+  function onDelete(item: { id: string; company_name: string }) {
+    if (!window.confirm(`Eliminare l'attività per ${item.company_name}?`)) return;
+    deleteMutation.mutate(item.id);
+  }
+
   const items = agendaQuery.data ?? [];
+  const history = historyQuery.data ?? [];
   const byDay = useMemo(() => groupByDay(items), [items]);
   const overdue = useMemo(() => items.filter((item) => item.is_overdue), [items]);
   const selectedItems = useMemo(() => {
@@ -225,7 +275,8 @@ export function AgendaPage() {
                     key={item.id}
                     item={item}
                     onComplete={() => completeMutation.mutate(item.id)}
-                    pending={completeMutation.isPending}
+                    onDelete={() => onDelete(item)}
+                    pending={actionPending}
                   />
                 ))}
               </ul>
@@ -257,7 +308,33 @@ export function AgendaPage() {
                     key={item.id}
                     item={item}
                     onComplete={() => completeMutation.mutate(item.id)}
-                    pending={completeMutation.isPending}
+                    onDelete={() => onDelete(item)}
+                    pending={actionPending}
+                  />
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div className="space-y-2 border-t border-stone-200 pt-6">
+            <h2 className="text-sm font-medium tracking-wide text-stone-500 uppercase">
+              Storico ({history.length})
+            </h2>
+            {historyQuery.isLoading ? (
+              <p className="text-sm text-stone-500">Caricamento…</p>
+            ) : history.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-stone-300 px-4 py-6 text-center text-sm text-stone-500">
+                Nessuna attività completata in questo mese.
+              </p>
+            ) : (
+              <ul className="max-h-72 space-y-2 overflow-y-auto">
+                {history.map((item) => (
+                  <HistoryCard
+                    key={item.id}
+                    item={item}
+                    onReopen={() => reopenMutation.mutate(item.id)}
+                    onDelete={() => onDelete(item)}
+                    pending={actionPending}
                   />
                 ))}
               </ul>
@@ -272,10 +349,12 @@ export function AgendaPage() {
 function AgendaCard({
   item,
   onComplete,
+  onDelete,
   pending,
 }: {
   item: AgendaItem;
   onComplete: () => void;
+  onDelete: () => void;
   pending: boolean;
 }) {
   return (
@@ -295,14 +374,74 @@ function AgendaCard({
             {formatTime(item.due_at)}
           </p>
         </div>
-        <button
-          type="button"
-          disabled={pending}
-          onClick={onComplete}
-          className="shrink-0 rounded-lg border border-stone-300 px-3 py-1.5 text-xs font-medium hover:bg-stone-50 disabled:opacity-50"
-        >
-          Fatto
-        </button>
+        <div className="flex shrink-0 flex-col gap-1.5">
+          <button
+            type="button"
+            disabled={pending}
+            onClick={onComplete}
+            className="rounded-lg border border-stone-300 px-3 py-1.5 text-xs font-medium hover:bg-stone-50 disabled:opacity-50"
+          >
+            Fatto
+          </button>
+          <button
+            type="button"
+            disabled={pending}
+            onClick={onDelete}
+            className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
+          >
+            Elimina
+          </button>
+        </div>
+      </div>
+    </li>
+  );
+}
+
+function HistoryCard({
+  item,
+  onReopen,
+  onDelete,
+  pending,
+}: {
+  item: AgendaHistoryItem;
+  onReopen: () => void;
+  onDelete: () => void;
+  pending: boolean;
+}) {
+  return (
+    <li className="rounded-xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 space-y-1">
+          <p className="font-medium">
+            <Link to={`/companies/${item.company_id}`} className="hover:underline">
+              {item.company_name}
+            </Link>
+          </p>
+          <p className="text-stone-700">
+            {ACTIVITY_LABELS[item.type] ?? item.type}
+            {item.note ? ` — ${item.note}` : ""}
+          </p>
+          <p className="text-xs text-stone-500">Pianificato: {formatTime(item.due_at)}</p>
+          <p className="text-xs text-emerald-700">Completato: {formatTime(item.completed_at)}</p>
+        </div>
+        <div className="flex shrink-0 flex-col gap-1.5">
+          <button
+            type="button"
+            disabled={pending}
+            onClick={onReopen}
+            className="rounded-lg border border-stone-300 px-3 py-1.5 text-xs font-medium hover:bg-white disabled:opacity-50"
+          >
+            Ripristina
+          </button>
+          <button
+            type="button"
+            disabled={pending}
+            onClick={onDelete}
+            className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
+          >
+            Elimina
+          </button>
+        </div>
       </div>
     </li>
   );

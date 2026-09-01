@@ -53,6 +53,18 @@ export type Activity = {
   created_at: string;
 };
 
+export type AgendaHistoryItem = {
+  id: string;
+  opportunity_id: string;
+  company_id: string;
+  company_name: string;
+  type: string;
+  note: string | null;
+  due_at: string;
+  completed_at: string;
+  created_at: string;
+};
+
 export type AgendaItem = {
   id: string;
   opportunity_id: string;
@@ -215,6 +227,37 @@ export function fetchAgenda(params: {
   return request(`/agenda${query ? `?${query}` : ""}`);
 }
 
+export function fetchAgendaHistory(params: {
+  from?: string;
+  to?: string;
+  limit?: number;
+}): Promise<AgendaHistoryItem[]> {
+  const search = new URLSearchParams();
+  if (params.from) search.set("from", params.from);
+  if (params.to) search.set("to", params.to);
+  if (params.limit != null) search.set("limit", String(params.limit));
+  const query = search.toString();
+  return request(`/agenda/history${query ? `?${query}` : ""}`);
+}
+
 export function completeActivity(activityId: string): Promise<Activity> {
   return request(`/activities/${activityId}/complete`, { method: "POST" });
+}
+
+export function reopenActivity(activityId: string): Promise<Activity> {
+  return request(`/activities/${activityId}/reopen`, { method: "POST" });
+}
+
+export async function deleteActivity(activityId: string): Promise<void> {
+  const response = await fetch(`${getApiBaseUrl()}/activities/${activityId}`, { method: "DELETE" });
+  if (!response.ok) {
+    let detail = `Errore ${response.status}`;
+    try {
+      const payload = (await response.json()) as { detail?: string };
+      if (payload.detail) detail = payload.detail;
+    } catch {
+      // ignore
+    }
+    throw new ApiError(detail, response.status);
+  }
 }

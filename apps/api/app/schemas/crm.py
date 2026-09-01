@@ -56,6 +56,18 @@ class AgendaItemResponse(BaseModel):
     is_overdue: bool
 
 
+class AgendaHistoryItemResponse(BaseModel):
+    id: UUID
+    opportunity_id: UUID
+    company_id: UUID
+    company_name: str
+    type: str
+    note: str | None
+    due_at: datetime
+    completed_at: datetime
+    created_at: datetime
+
+
 class OpportunitySummary(BaseModel):
     id: UUID
     company_id: UUID

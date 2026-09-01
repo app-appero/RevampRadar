@@ -2,7 +2,7 @@ from uuid import UUID
 
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session
 
 from app.db import get_db
@@ -13,6 +13,7 @@ from app.schemas.crm import (
     DashboardCounts,
     DashboardResponse,
     AgendaItemResponse,
+    AgendaHistoryItemResponse,
     ActivityResponse,
     OpportunityDetail,
     OpportunitySummary,
@@ -26,11 +27,14 @@ from app.services.crm_service import (
     add_tag,
     complete_activity,
     dashboard,
+    delete_scheduled_activity,
     get_opportunity,
     get_opportunity_for_company,
     latest_scores_map,
     list_agenda,
+    list_agenda_history,
     list_opportunities,
+    reopen_activity,
     remove_tag,
     update_opportunity,
     website_for,
@@ -38,6 +42,17 @@ from app.services.crm_service import (
 from app.models.entities import Activity, Opportunity, OpportunityScore
 
 router = APIRouter(tags=["crm"])
+
+
+@router.get("/agenda/history", response_model=list[AgendaHistoryItemResponse])
+def get_agenda_history(
+    db: Session = Depends(get_db),
+    from_dt: datetime | None = Query(default=None, alias="from"),
+    to_dt: datetime | None = Query(default=None, alias="to"),
+    limit: int = Query(default=50, ge=1, le=200),
+) -> list[AgendaHistoryItemResponse]:
+    items = list_agenda_history(db, from_dt=from_dt, to_dt=to_dt, limit=limit)
+    return [_agenda_history_item(item) for item in items]
 
 
 @router.get("/agenda", response_model=list[AgendaItemResponse])
@@ -59,6 +74,24 @@ def post_complete_activity(activity_id: UUID, db: Session = Depends(get_db)) -> 
     except CrmServiceError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return _activity_response(activity)
+
+
+@router.post("/activities/{activity_id}/reopen", response_model=ActivityResponse)
+def post_reopen_activity(activity_id: UUID, db: Session = Depends(get_db)) -> ActivityResponse:
+    try:
+        activity = reopen_activity(db, activity_id)
+    except CrmServiceError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return _activity_response(activity)
+
+
+@router.delete("/activities/{activity_id}", status_code=204)
+def delete_activity(activity_id: UUID, db: Session = Depends(get_db)) -> Response:
+    try:
+        delete_scheduled_activity(db, activity_id)
+    except CrmServiceError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return Response(status_code=204)
 
 
 @router.get("/opportunities/dashboard", response_model=DashboardResponse)
@@ -286,4 +319,22 @@ def _agenda_item(activity: Activity, now: datetime) -> AgendaItemResponse:
         due_at=activity.due_at,
         created_at=activity.created_at,
         is_overdue=_as_utc(activity.due_at) < _as_utc(now),
+    )
+
+
+def _agenda_history_item(activity: Activity) -> AgendaHistoryItemResponse:
+    opportunity = activity.opportunity
+    company = opportunity.company if opportunity else None
+    if activity.due_at is None or activity.completed_at is None:
+        raise ValueError("History item requires due_at and completed_at")
+    return AgendaHistoryItemResponse(
+        id=activity.id,
+        opportunity_id=activity.opportunity_id,
+        company_id=opportunity.company_id if opportunity else activity.opportunity_id,
+        company_name=company.name if company else "",
+        type=activity.type,
+        note=activity.note,
+        due_at=activity.due_at,
+        completed_at=activity.completed_at,
+        created_at=activity.created_at,
     )
