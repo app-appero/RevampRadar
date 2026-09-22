@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from app.models.entities import Audit, AuditFinding, OpportunityScore, WebsiteScore
+from app.models.entities import Audit, AuditFinding, Company, OpportunityScore, WebsiteScore
 from app.proposals.builder import build_proposal_draft, estimate_range
 from app.proposals.service import create_or_replace_proposal
 
@@ -162,6 +162,54 @@ def test_service_builds_without_httpx(db_session, monkeypatch) -> None:
     proposal = create_or_replace_proposal(db_session, audit.id)
     assert proposal.source == "deterministic"
     assert "luna.test" in proposal.summary
+
+
+def test_greenfield_proposal_for_company_without_website(client, db_session, monkeypatch) -> None:
+    monkeypatch.setattr("app.proposals.service.polish_proposal", lambda *args, **kwargs: None)
+    company = Company(
+        name="Trattoria da Mario",
+        category="Ristorante",
+        city="Palermo",
+        region="Sicilia",
+        country="Italia",
+        website_url=None,
+        phone="0911234567",
+        source="osm",
+        status="discovered",
+    )
+    db_session.add(company)
+    db_session.commit()
+
+    generated = client.post(f"/companies/{company.id}/greenfield-proposal")
+    assert generated.status_code == 200
+    body = generated.json()
+    assert body["kind"] == "greenfield"
+    assert body["audit_id"] is None
+    assert "non ha ancora un sito" in body["email_body"]
+    assert "Trattoria da Mario" in body["summary"]
+
+    fetched = client.get(f"/companies/{company.id}/proposal")
+    assert fetched.status_code == 200
+    assert fetched.json()["id"] == body["id"]
+
+    growth = client.get(f"/companies/{company.id}/growth-score")
+    assert growth.status_code == 200
+    assert growth.json()["score"] >= 0
+
+
+def test_greenfield_proposal_rejected_when_company_has_website(client, db_session) -> None:
+    company = Company(
+        name="Hotel Sole",
+        category="Hotel",
+        website_url="https://hotelsole.test",
+        source="osm",
+        status="discovered",
+    )
+    db_session.add(company)
+    db_session.commit()
+
+    response = client.post(f"/companies/{company.id}/greenfield-proposal")
+    assert response.status_code == 409
 
 
 def test_sender_profile_defaults_and_update(client) -> None:

@@ -12,6 +12,12 @@ import {
 
 const PRIORITIES = ["VERY_HIGH", "HIGH", "MEDIUM", "LOW"] as const;
 
+const SEGMENTS = [
+  { value: "", label: "Tutte" },
+  { value: "refactor", label: "Da rifare (con sito)" },
+  { value: "greenfield", label: "Da creare (senza sito)" },
+] as const;
+
 export function PipelinePage() {
   const [status, setStatus] = useState("");
   const [q, setQ] = useState("");
@@ -22,6 +28,7 @@ export function PipelinePage() {
   const [minScore, setMinScore] = useState("");
   const [shortlist, setShortlist] = useState(false);
   const [favorite, setFavorite] = useState(false);
+  const [segment, setSegment] = useState<"" | "refactor" | "greenfield">("");
 
   const filters = useMemo<OpportunityFilters>(
     () => ({
@@ -34,8 +41,9 @@ export function PipelinePage() {
       min_score: minScore ? Number(minScore) : undefined,
       shortlist: shortlist || undefined,
       favorite: favorite || undefined,
+      segment: segment || undefined,
     }),
-    [status, q, city, category, tag, priority, minScore, shortlist, favorite],
+    [status, q, city, category, tag, priority, minScore, shortlist, favorite, segment],
   );
 
   const dashboardQuery = useQuery({
@@ -110,6 +118,21 @@ export function PipelinePage() {
           </section>
         ) : null}
 
+        <div className="flex flex-wrap gap-2">
+          {SEGMENTS.map((item) => (
+            <button
+              key={item.value}
+              type="button"
+              onClick={() => setSegment(item.value)}
+              className={`rounded-full px-3 py-1.5 text-xs font-medium ${
+                segment === item.value ? "bg-stone-900 text-white" : "bg-stone-100 text-stone-700 hover:bg-stone-200"
+              }`}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+
         {dash ? (
           <div className="flex flex-wrap gap-2">
             {CRM_STATUSES.map((item) => (
@@ -174,7 +197,7 @@ export function PipelinePage() {
             max={100}
             value={minScore}
             onChange={(event) => setMinScore(event.target.value)}
-            placeholder="Opportunity min"
+            placeholder="Punteggio min"
             className="rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-stone-900"
           />
           <label className="flex items-center gap-2 text-sm text-stone-700">
@@ -193,37 +216,57 @@ export function PipelinePage() {
               <tr>
                 <th className="px-4 py-3">Azienda</th>
                 <th className="px-4 py-3">Stato</th>
-                <th className="px-4 py-3">Opportunity</th>
+                <th className="px-4 py-3">Segmento</th>
+                <th className="px-4 py-3">Punteggio</th>
                 <th className="px-4 py-3">Priorità</th>
                 <th className="px-4 py-3">Tag</th>
               </tr>
             </thead>
             <tbody>
-              {(listQuery.data ?? []).map((item) => (
-                <tr key={item.id} className="border-t border-stone-100">
-                  <td className="px-4 py-3">
-                    <Link to={`/companies/${item.company_id}`} className="font-medium hover:underline">
-                      {item.is_favorite ? "★ " : ""}
-                      {item.company_name}
-                    </Link>
-                    <p className="text-xs text-stone-500">
-                      {[item.city, item.category].filter(Boolean).join(" · ") || item.domain || "—"}
-                    </p>
-                  </td>
-                  <td className="px-4 py-3 text-stone-600">{CRM_STATUS_LABELS[item.status] ?? item.status}</td>
-                  <td className="px-4 py-3 font-medium">{item.opportunity_score ?? "—"}</td>
-                  <td className="px-4 py-3">
-                    {item.latest_audit_id ? (
-                      <Link to={`/audits/${item.latest_audit_id}`} className="underline">
-                        {item.priority ?? "audit"}
+              {(listQuery.data ?? []).map((item) => {
+                const isGreenfield = item.segment === "greenfield";
+                const score = isGreenfield ? item.growth_score : item.opportunity_score;
+                const priority = isGreenfield ? item.growth_priority : item.priority;
+                return (
+                  <tr key={item.id} className="border-t border-stone-100">
+                    <td className="px-4 py-3">
+                      <Link to={`/companies/${item.company_id}`} className="font-medium hover:underline">
+                        {item.is_favorite ? "★ " : ""}
+                        {item.company_name}
                       </Link>
-                    ) : (
-                      <span className="text-stone-500">{item.priority ?? "—"}</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-stone-500">{item.tags.map((tagItem) => tagItem.name).join(", ") || "—"}</td>
-                </tr>
-              ))}
+                      <p className="text-xs text-stone-500">
+                        {[item.city, item.category].filter(Boolean).join(" · ") || item.domain || "—"}
+                      </p>
+                    </td>
+                    <td className="px-4 py-3 text-stone-600">{CRM_STATUS_LABELS[item.status] ?? item.status}</td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                          isGreenfield ? "bg-amber-100 text-amber-800" : "bg-stone-100 text-stone-700"
+                        }`}
+                      >
+                        {isGreenfield ? "Da creare" : "Da rifare"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 font-medium">
+                      {score ?? "—"}
+                      {isGreenfield && score != null ? (
+                        <span className="ml-1 text-xs font-normal text-stone-500">(growth)</span>
+                      ) : null}
+                    </td>
+                    <td className="px-4 py-3">
+                      {!isGreenfield && item.latest_audit_id ? (
+                        <Link to={`/audits/${item.latest_audit_id}`} className="underline">
+                          {priority ?? "audit"}
+                        </Link>
+                      ) : (
+                        <span className="text-stone-500">{priority ?? "—"}</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-stone-500">{item.tags.map((tagItem) => tagItem.name).join(", ") || "—"}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
           {listQuery.isSuccess && (listQuery.data?.length ?? 0) === 0 ? (

@@ -168,3 +168,23 @@ Solo dopo validazione sui siti web:
 - feature request mining;
 - SaaS pubblici;
 - piattaforme con demo pubbliche.
+
+---
+
+## M9 — Growth Potential (aziende senza sito)
+
+Obiettivo: non limitarsi al refactor di siti esistenti. La discovery estesa trova
+anche aziende senza sito (spesso i prospect migliori): vanno qualificate e
+trasformate in proposta "creazione sito da zero", non solo mostrate su mappa/lista.
+
+Deliverable:
+
+- Growth Potential Score euristico (categoria, competition gap, contattabilità, reputazione);
+- persistenza per azienda, calcolato alla discovery e ricalcolabile a mano;
+- Proposal Engine "greenfield": servizio, range, email, brief dedicati;
+- Pipeline: filtro segmento "da rifare" / "da creare", ranking che usa il Growth Score quando manca l'Opportunity Score.
+
+Definition of Done:
+
+Un'azienda scoperta senza sito ha un punteggio spiegabile, compare nel ranking
+della pipeline e può generare una proposta di creazione sito senza passare da un audit.

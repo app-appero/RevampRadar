@@ -30,6 +30,7 @@ from app.services.crm_service import (
     delete_scheduled_activity,
     get_opportunity,
     get_opportunity_for_company,
+    latest_growth_scores_map,
     latest_scores_map,
     list_agenda,
     list_agenda_history,
@@ -39,7 +40,7 @@ from app.services.crm_service import (
     update_opportunity,
     website_for,
 )
-from app.models.entities import Activity, Opportunity, OpportunityScore
+from app.models.entities import Activity, GrowthScore, Opportunity, OpportunityScore
 
 router = APIRouter(tags=["crm"])
 
@@ -119,6 +120,7 @@ def get_opportunities(
     tag: str | None = None,
     min_score: int | None = Query(default=None, ge=0, le=100),
     priority: str | None = None,
+    segment: str | None = None,
 ) -> list[OpportunitySummary]:
     try:
         items = list_opportunities(
@@ -132,11 +134,12 @@ def get_opportunities(
             tag=tag,
             min_score=min_score,
             priority=priority,
+            segment=segment,
         )
     except CrmServiceError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
-    scores = latest_scores_map(db, [item.company_id for item in items])
-    return [_summary(item, scores.get(item.company_id)) for item in items]
+    scores, growth_scores = _score_maps(db, [item.company_id for item in items])
+    return [_summary(item, scores.get(item.company_id), growth_scores.get(item.company_id)) for item in items]
 
 
 @router.get("/companies/{company_id}/opportunity", response_model=OpportunityDetail)
@@ -144,8 +147,8 @@ def get_company_opportunity(company_id: UUID, db: Session = Depends(get_db)) -> 
     opportunity = get_opportunity_for_company(db, company_id)
     if opportunity is None:
         raise HTTPException(status_code=404, detail="Azienda non trovata.")
-    scores = latest_scores_map(db, [opportunity.company_id])
-    return _detail(opportunity, scores.get(opportunity.company_id))
+    scores, growth_scores = _score_maps(db, [opportunity.company_id])
+    return _detail(opportunity, scores.get(opportunity.company_id), growth_scores.get(opportunity.company_id))
 
 
 @router.get("/opportunities/{opportunity_id}", response_model=OpportunityDetail)
@@ -153,8 +156,8 @@ def get_opportunity_detail(opportunity_id: UUID, db: Session = Depends(get_db)) 
     opportunity = get_opportunity(db, opportunity_id)
     if opportunity is None:
         raise HTTPException(status_code=404, detail="Opportunità non trovata.")
-    scores = latest_scores_map(db, [opportunity.company_id])
-    return _detail(opportunity, scores.get(opportunity.company_id))
+    scores, growth_scores = _score_maps(db, [opportunity.company_id])
+    return _detail(opportunity, scores.get(opportunity.company_id), growth_scores.get(opportunity.company_id))
 
 
 @router.patch("/opportunities/{opportunity_id}", response_model=OpportunityDetail)
@@ -172,8 +175,8 @@ def patch_opportunity(
         )
     except CrmServiceError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
-    scores = latest_scores_map(db, [opportunity.company_id])
-    return _detail(opportunity, scores.get(opportunity.company_id))
+    scores, growth_scores = _score_maps(db, [opportunity.company_id])
+    return _detail(opportunity, scores.get(opportunity.company_id), growth_scores.get(opportunity.company_id))
 
 
 @router.post("/opportunities/{opportunity_id}/notes", response_model=OpportunityDetail)
@@ -186,8 +189,8 @@ def post_note(
         opportunity = add_note(db, opportunity_id, payload.body)
     except CrmServiceError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
-    scores = latest_scores_map(db, [opportunity.company_id])
-    return _detail(opportunity, scores.get(opportunity.company_id))
+    scores, growth_scores = _score_maps(db, [opportunity.company_id])
+    return _detail(opportunity, scores.get(opportunity.company_id), growth_scores.get(opportunity.company_id))
 
 
 @router.post("/opportunities/{opportunity_id}/tags", response_model=OpportunityDetail)
@@ -200,8 +203,8 @@ def post_tag(
         opportunity = add_tag(db, opportunity_id, payload.name)
     except CrmServiceError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
-    scores = latest_scores_map(db, [opportunity.company_id])
-    return _detail(opportunity, scores.get(opportunity.company_id))
+    scores, growth_scores = _score_maps(db, [opportunity.company_id])
+    return _detail(opportunity, scores.get(opportunity.company_id), growth_scores.get(opportunity.company_id))
 
 
 @router.delete("/opportunities/{opportunity_id}/tags/{tag_id}", response_model=OpportunityDetail)
@@ -210,8 +213,8 @@ def delete_tag(opportunity_id: UUID, tag_id: UUID, db: Session = Depends(get_db)
         opportunity = remove_tag(db, opportunity_id, tag_id)
     except CrmServiceError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
-    scores = latest_scores_map(db, [opportunity.company_id])
-    return _detail(opportunity, scores.get(opportunity.company_id))
+    scores, growth_scores = _score_maps(db, [opportunity.company_id])
+    return _detail(opportunity, scores.get(opportunity.company_id), growth_scores.get(opportunity.company_id))
 
 
 @router.post("/opportunities/{opportunity_id}/activities", response_model=OpportunityDetail)
@@ -231,8 +234,8 @@ def post_activity(
         )
     except CrmServiceError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
-    scores = latest_scores_map(db, [opportunity.company_id])
-    return _detail(opportunity, scores.get(opportunity.company_id))
+    scores, growth_scores = _score_maps(db, [opportunity.company_id])
+    return _detail(opportunity, scores.get(opportunity.company_id), growth_scores.get(opportunity.company_id))
 
 
 def _as_utc(value: datetime) -> datetime:
@@ -241,9 +244,20 @@ def _as_utc(value: datetime) -> datetime:
     return value.astimezone(UTC)
 
 
-def _summary(opportunity: Opportunity, score: OpportunityScore | None) -> OpportunitySummary:
+def _score_maps(
+    db: Session, company_ids: list[UUID]
+) -> tuple[dict[UUID, OpportunityScore], dict[UUID, GrowthScore]]:
+    return latest_scores_map(db, company_ids), latest_growth_scores_map(db, company_ids)
+
+
+def _summary(
+    opportunity: Opportunity,
+    score: OpportunityScore | None,
+    growth: GrowthScore | None = None,
+) -> OpportunitySummary:
     company = opportunity.company
     website = website_for(company) if company else None
+    has_website = bool(company and (company.website_url or company.websites))
     tags = [
         TagResponse(id=link.tag.id, name=link.tag.name)
         for link in opportunity.tag_links
@@ -266,12 +280,20 @@ def _summary(opportunity: Opportunity, score: OpportunityScore | None) -> Opport
         opportunity_score=score.opportunity_score if score else None,
         priority=score.priority if score else None,
         latest_audit_id=score.audit_id if score else None,
+        has_website=has_website,
+        growth_score=growth.score if growth else None,
+        growth_priority=growth.priority if growth else None,
+        segment="refactor" if has_website else "greenfield",
         updated_at=opportunity.updated_at,
     )
 
 
-def _detail(opportunity: Opportunity, score: OpportunityScore | None) -> OpportunityDetail:
-    summary = _summary(opportunity, score)
+def _detail(
+    opportunity: Opportunity,
+    score: OpportunityScore | None,
+    growth: GrowthScore | None = None,
+) -> OpportunityDetail:
+    summary = _summary(opportunity, score, growth)
     notes = sorted(opportunity.notes, key=lambda item: item.created_at, reverse=True)
     activities = _sorted_activities(opportunity.activities)
     return OpportunityDetail(

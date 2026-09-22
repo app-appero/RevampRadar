@@ -206,6 +206,10 @@ def _upsert_company(session: Session, candidate: DiscoveryCandidate) -> Company:
         _fill_missing(company, candidate)
     if candidate.website_url:
         _link_website(session, company, candidate.website_url)
+    if not company.website_url:
+        from app.services.growth_service import compute_and_store_growth_score
+
+        compute_and_store_growth_score(session, company)
     return company
 
 

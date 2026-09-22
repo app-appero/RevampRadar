@@ -126,3 +126,13 @@
 - [x] M8-004 Review sentiment (App Store: feed ufficiale Apple; Play bloccato)
 - [x] M8-005 Feature request mining (temi dai testi Apple; Play bloccato)
 - [x] M8-006 Public SaaS / demo signals from homepage
+
+## M9 — Growth Potential (aziende senza sito)
+
+- [x] M9-001 Growth Potential Score model + heuristic formula
+- [x] M9-002 Compute at discovery time for companies without a website
+- [x] M9-003 Growth score API (get + recompute)
+- [x] M9-004 Greenfield proposal builder (service, range, email, brief)
+- [x] M9-005 Greenfield proposal endpoint + persistence (nullable audit_id, kind)
+- [x] M9-006 Pipeline segment filter (refactor / greenfield) and unified ranking
+- [x] M9-007 Company page: growth score panel + greenfield proposal CTA

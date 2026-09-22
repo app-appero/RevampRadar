@@ -42,6 +42,9 @@ class Company(Base):
     opportunity: Mapped["Opportunity | None"] = relationship(
         back_populates="company", uselist=False, cascade="all, delete-orphan"
     )
+    growth_score: Mapped["GrowthScore | None"] = relationship(
+        back_populates="company", uselist=False, cascade="all, delete-orphan"
+    )
 
 
 class Website(Base):
@@ -192,6 +195,34 @@ class OpportunityScore(Base):
     )
 
     audit: Mapped[Audit] = relationship(back_populates="opportunity_score")
+
+
+class GrowthScore(Base):
+    __tablename__ = "growth_scores"
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    company_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("companies.id"), unique=True, nullable=False, index=True
+    )
+    score: Mapped[int] = mapped_column(Integer, nullable=False)
+    priority: Mapped[str] = mapped_column(String(16), nullable=False)
+    confidence: Mapped[float] = mapped_column(Float, nullable=False)
+    explanation: Mapped[str] = mapped_column(Text, nullable=False)
+    top_reasons: Mapped[list] = mapped_column(JsonType, nullable=False)
+    positive_factors: Mapped[list] = mapped_column(JsonType, nullable=False)
+    negative_factors: Mapped[list] = mapped_column(JsonType, nullable=False)
+    recommended_service: Mapped[str] = mapped_column(Text, nullable=False)
+    components: Mapped[dict | None] = mapped_column(JsonType, nullable=True)
+    peer_sample_size: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    formula_version: Mapped[str] = mapped_column(String(32), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    company: Mapped[Company] = relationship(back_populates="growth_score")
 
 
 class DiscoveryRun(Base):
@@ -369,12 +400,13 @@ class Proposal(Base):
     __tablename__ = "proposals"
 
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    audit_id: Mapped[UUID] = mapped_column(
-        Uuid, ForeignKey("audits.id"), unique=True, nullable=False, index=True
+    audit_id: Mapped[UUID | None] = mapped_column(
+        Uuid, ForeignKey("audits.id"), unique=True, nullable=True, index=True
     )
     company_id: Mapped[UUID | None] = mapped_column(
         Uuid, ForeignKey("companies.id"), nullable=True, index=True
     )
+    kind: Mapped[str] = mapped_column(String(16), default="refactor", nullable=False)
     source: Mapped[str] = mapped_column(String(32), nullable=False)
     prompt_version: Mapped[str] = mapped_column(String(32), nullable=False)
     summary: Mapped[str] = mapped_column(Text, nullable=False)
@@ -395,7 +427,7 @@ class Proposal(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
 
-    audit: Mapped[Audit] = relationship(back_populates="proposal")
+    audit: Mapped[Audit | None] = relationship(back_populates="proposal")
     company: Mapped[Company | None] = relationship()
 
 

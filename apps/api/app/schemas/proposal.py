@@ -13,8 +13,9 @@ class ProblemItem(BaseModel):
 
 class ProposalResponse(BaseModel):
     id: UUID
-    audit_id: UUID
+    audit_id: UUID | None
     company_id: UUID | None
+    kind: str
     source: str
     prompt_version: str
     summary: str

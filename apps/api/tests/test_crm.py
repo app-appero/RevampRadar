@@ -181,6 +181,55 @@ def test_list_filters_and_dashboard(db_session) -> None:
     assert stats["counts"]["discovered"] == 1
 
 
+def test_segment_filter_and_growth_ranking(db_session) -> None:
+    from app.models.entities import GrowthScore
+
+    with_site = _company(db_session, name="Hotel Con Sito", city="Palermo")
+    no_site = Company(
+        name="Trattoria Senza Sito",
+        city="Palermo",
+        category="ristorante",
+        source="fake",
+        external_id="no-site",
+        status="discovered",
+        website_url=None,
+    )
+    db_session.add(no_site)
+    db_session.flush()
+    ensure_opportunity(db_session, no_site)
+    db_session.add(
+        GrowthScore(
+            company_id=no_site.id,
+            score=88,
+            priority="VERY_HIGH",
+            confidence=0.6,
+            explanation="Growth Potential 88/100 (VERY_HIGH).",
+            top_reasons=["gap competitivo"],
+            positive_factors=[],
+            negative_factors=[],
+            recommended_service="Creazione sito vetrina con prenotazione online",
+            peer_sample_size=5,
+            formula_version="1.0.0",
+        )
+    )
+    db_session.commit()
+
+    refactor_only = list_opportunities(db_session, segment="refactor")
+    assert [item.company.name for item in refactor_only] == ["Hotel Con Sito"]
+
+    greenfield_only = list_opportunities(db_session, segment="greenfield")
+    assert [item.company.name for item in greenfield_only] == ["Trattoria Senza Sito"]
+
+    all_ranked = list_opportunities(db_session, min_score=80)
+    assert [item.company.name for item in all_ranked] == ["Trattoria Senza Sito"]
+
+    everyone = list_opportunities(db_session)
+    assert [item.company.name for item in everyone] == ["Trattoria Senza Sito", with_site.name]
+
+    stats = dashboard(db_session)
+    assert stats["high_priority"] == 1
+
+
 def test_crm_api_roundtrip(client, db_session) -> None:
     company = _company(db_session)
     listed = client.get("/opportunities")

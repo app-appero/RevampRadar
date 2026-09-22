@@ -18,7 +18,8 @@ import {
   type OpportunityDetail,
 } from "../api/crm";
 import { fetchCompanyIntelligence } from "../api/intelligence";
-import { generateProposal, fetchCompanyProposal } from "../api/proposals";
+import { fetchCompanyGrowthScore } from "../api/growth";
+import { generateGreenfieldProposal, generateProposal, fetchCompanyProposal } from "../api/proposals";
 import { IntelligencePanel } from "../components/IntelligencePanel";
 import { fetchCompany, formatOsmTags } from "../api/discovery";
 import { ProposalCard } from "../components/ProposalCard";
@@ -53,6 +54,12 @@ export function CompanyPage() {
     enabled: Boolean(companyId),
     retry: false,
   });
+  const growthQuery = useQuery({
+    queryKey: ["company-growth", companyId],
+    queryFn: () => fetchCompanyGrowthScore(companyId!),
+    enabled: Boolean(companyId) && query.isSuccess && !query.data?.website_url,
+    retry: false,
+  });
   const analyze = useMutation({
     mutationFn: async () => {
       const company = query.data;
@@ -74,6 +81,15 @@ export function CompanyPage() {
       }
       return generateProposal(auditId);
     },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["company-proposal", companyId] });
+    },
+    onError: (err) => {
+      setError(err instanceof ApiError ? err.message : "Proposta non generata.");
+    },
+  });
+  const generateGreenfieldMut = useMutation({
+    mutationFn: async () => generateGreenfieldProposal(companyId!),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["company-proposal", companyId] });
     },
@@ -179,9 +195,53 @@ export function CompanyPage() {
                   {generateProposalMut.isPending ? "Generazione…" : "Genera proposta"}
                 </button>
               ) : null}
+              {!company.website_url ? (
+                <button
+                  type="button"
+                  disabled={generateGreenfieldMut.isPending}
+                  onClick={() => {
+                    setError(null);
+                    generateGreenfieldMut.mutate();
+                  }}
+                  className="rounded-lg bg-amber-700 px-4 py-2 text-sm font-medium text-white hover:bg-amber-800 disabled:opacity-50"
+                >
+                  {generateGreenfieldMut.isPending ? "Generazione…" : "Genera proposta di creazione sito"}
+                </button>
+              ) : null}
             </div>
             {!company.website_url ? (
-              <p className="text-sm text-stone-500">Nessun sito collegato: non è possibile avviare l’audit.</p>
+              <p className="text-sm text-stone-500">
+                Nessun sito collegato: non è possibile avviare l'audit. Questa azienda rientra nel segmento
+                "da creare".
+              </p>
+            ) : null}
+
+            {!company.website_url && growthQuery.data ? (
+              <section className="space-y-3 rounded-2xl border border-amber-200 bg-amber-50 p-5">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-medium">Growth Potential Score</h2>
+                  <p className="text-2xl font-semibold">
+                    {growthQuery.data.score}/100{" "}
+                    <span className="text-sm font-normal text-stone-600">({growthQuery.data.priority})</span>
+                  </p>
+                </div>
+                <p className="text-sm text-stone-700">{growthQuery.data.explanation}</p>
+                <p className="text-sm font-medium">Servizio indicato: {growthQuery.data.recommended_service}</p>
+                {growthQuery.data.top_reasons.length > 0 ? (
+                  <div>
+                    <h3 className="text-xs tracking-wide text-stone-500 uppercase">Motivi principali</h3>
+                    <ul className="mt-2 list-disc space-y-1 pl-4 text-sm text-stone-700">
+                      {growthQuery.data.top_reasons.map((reason, index) => (
+                        <li key={index}>{reason}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+                <p className="text-xs text-stone-500">
+                  Stima euristica basata su categoria, concorrenza locale con sito e contattabilità (campione:{" "}
+                  {growthQuery.data.peer_sample_size} attività simili) — non è un'analisi di un sito esistente.
+                </p>
+              </section>
             ) : null}
 
             {intelligenceQuery.data ? <IntelligencePanel data={intelligenceQuery.data} /> : null}
