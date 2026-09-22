@@ -463,6 +463,8 @@ def test_company_summary_exposes_social_fallback(client, db_session) -> None:
         status="discovered",
         phone=None,
         email=None,
+        latitude=38.1157,
+        longitude=13.3615,
         extra={"osm_tags": {"contact:instagram": "trattoriasenzasito"}},
     )
     db_session.add(company)
@@ -473,3 +475,5 @@ def test_company_summary_exposes_social_fallback(client, db_session) -> None:
     assert body["phone"] is None
     assert body["social_label"] == "Instagram"
     assert body["social_url"] == "https://instagram.com/trattoriasenzasito"
+    assert body["latitude"] == 38.1157
+    assert body["longitude"] == 13.3615

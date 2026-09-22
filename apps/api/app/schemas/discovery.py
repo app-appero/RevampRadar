@@ -54,6 +54,8 @@ class CompanySummary(BaseModel):
     source: str
     status: str
     domain: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
     osm_tags: dict[str, str] | None = None
     osm_start_date: str | None = None
     osm_opening_hours: str | None = None

@@ -15,6 +15,8 @@ export type CompanySummary = {
   source: string;
   status: string;
   domain: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   osm_tags?: Record<string, string> | null;
   osm_start_date?: string | null;
   osm_opening_hours?: string | null;

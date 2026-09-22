@@ -173,6 +173,8 @@ def _company_summary(company: Company) -> CompanySummary:
         source=company.source,
         status=company.status,
         domain=website.domain if website else None,
+        latitude=company.latitude,
+        longitude=company.longitude,
         osm_tags=tags,
         osm_start_date=tags.get("start_date") if tags else None,
         osm_opening_hours=tags.get("opening_hours") if tags else None,

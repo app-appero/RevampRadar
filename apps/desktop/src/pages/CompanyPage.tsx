@@ -170,7 +170,7 @@ export function CompanyPage() {
 
             <div className="flex flex-wrap gap-3">
               <ExternalLink
-                href={googleMapsSearchUrl(company.name, company.city)}
+                href={googleMapsSearchUrl(company.name, company.city, company.latitude, company.longitude)}
                 className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-800 hover:bg-stone-50"
               >
                 Cerca su Google Maps
@@ -527,7 +527,15 @@ function CrmPanel({
   );
 }
 
-function googleMapsSearchUrl(name: string, city: string | null): string {
+function googleMapsSearchUrl(
+  name: string,
+  city: string | null,
+  latitude?: number | null,
+  longitude?: number | null,
+): string {
+  if (latitude != null && longitude != null) {
+    return `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
+  }
   const query = [name, city].filter(Boolean).join(" ");
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }
