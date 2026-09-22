@@ -40,6 +40,7 @@
 - Growth Potential Score: stima euristica (non ML) per le aziende senza sito, basata su categoria, concorrenza locale con sito già online, contattabilità e reputazione se nota; spiegabile con motivi/fattori come l'Opportunity Score.
 - Proposal Engine "greenfield": proposta dedicata (servizio, range, email, brief) per chi non ha un sito, distinta da quella di refactor legata all'audit.
 - Pipeline: filtro per segmento "da rifare" (con sito) / "da creare" (senza sito); il ranking usa il Growth Score come punteggio quando manca l'Opportunity Score, così i prospect senza sito non finiscono sempre in fondo.
+- Discovery: telefono con fallback su `contact:mobile`/`mobile`; contatto social (WhatsApp/Facebook/Instagram) recuperato dai tag OSM e mostrato in anagrafica come alternativa quando telefono/email mancano.
 
 ### Changed
 - PageSpeed Insights è opzionale via `PAGESPEED_API_KEY`; Lighthouse nativo è rimandato (M1-014).

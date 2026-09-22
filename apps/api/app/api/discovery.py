@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.discovery.italy_geo import compose_location, italy_geo
-from app.discovery.osm import format_industry_tags, listed_sectors, preview_industry
+from app.discovery.osm import format_industry_tags, listed_sectors, preview_industry, social_contact_link
 from app.discovery.service import (
     DiscoveryServiceError,
     create_discovery_run,
@@ -159,6 +159,7 @@ def _website(company: Company):
 def _company_summary(company: Company) -> CompanySummary:
     website = _website(company)
     tags = _company_osm_tags(company)
+    social = social_contact_link(tags)
     return CompanySummary(
         id=company.id,
         name=company.name,
@@ -175,6 +176,8 @@ def _company_summary(company: Company) -> CompanySummary:
         osm_tags=tags,
         osm_start_date=tags.get("start_date") if tags else None,
         osm_opening_hours=tags.get("opening_hours") if tags else None,
+        social_label=social[0] if social else None,
+        social_url=social[1] if social else None,
     )
 
 

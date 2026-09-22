@@ -57,6 +57,8 @@ class CompanySummary(BaseModel):
     osm_tags: dict[str, str] | None = None
     osm_start_date: str | None = None
     osm_opening_hours: str | None = None
+    social_label: str | None = None
+    social_url: str | None = None
 
 
 class CompanyDetail(CompanySummary):

@@ -140,10 +140,16 @@ export function CompanyPage() {
               <Field label="Orari (OSM)" value={company.osm_opening_hours} />
               <Field label="Telefono" value={company.phone} />
               <Field label="Email" value={company.email} />
+              <Field label="Contatto social" value={company.social_label} href={company.social_url} />
               <Field label="Fonte" value={`${company.source}${company.external_id ? ` · ${company.external_id}` : ""}`} />
               <Field label="Sito" value={company.website_url} href={company.website_url} />
               <Field label="Dominio" value={company.domain} />
             </section>
+            {!company.phone && !company.email && company.social_url ? (
+              <p className="text-sm text-stone-500">
+                Nessun telefono/email su OSM: come contatto alternativo c'è la pagina {company.social_label}.
+              </p>
+            ) : null}
 
             {opportunity ? (
               <section className="grid gap-4 sm:grid-cols-3">

@@ -18,6 +18,8 @@ export type CompanySummary = {
   osm_tags?: Record<string, string> | null;
   osm_start_date?: string | null;
   osm_opening_hours?: string | null;
+  social_label?: string | null;
+  social_url?: string | null;
 };
 
 export type CompanyDetail = CompanySummary & {

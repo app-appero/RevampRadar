@@ -140,6 +140,7 @@ _SUBSTRING_TAGS: tuple[tuple[tuple[str, ...], list[tuple[str, str]]], ...] = (
 )
 
 _COMMERCIAL_KEYS = ("shop", "craft", "amenity", "tourism", "office", "leisure", "healthcare")
+_SOCIAL_KEYS = ("contact:whatsapp", "whatsapp", "contact:facebook", "facebook", "contact:instagram", "instagram")
 _OSM_EXTERNAL = re.compile(r"^(node|way|relation)/(\d+)$", re.IGNORECASE)
 _OSM_REF_PREFIX = {"node": "N", "way": "W", "relation": "R"}
 _DEFAULT_OVERPASS = (
@@ -574,10 +575,39 @@ def element_coords(element: dict) -> tuple[float, float] | None:
 
 
 def _osm_extra(tags: dict) -> dict:
-    keys = (*_COMMERCIAL_KEYS, "stars", "start_date", "opening_hours")
+    keys = (*_COMMERCIAL_KEYS, *_SOCIAL_KEYS, "stars", "start_date", "opening_hours")
     return {
         "osm_tags": {key: tags[key] for key in keys if key in tags},
     }
+
+
+def _phone_from_tags(tags: dict) -> str | None:
+    return tags.get("phone") or tags.get("contact:phone") or tags.get("contact:mobile") or tags.get("mobile")
+
+
+def social_contact_link(osm_tags: dict | None) -> tuple[str, str] | None:
+    """Contatto alternativo (label, url) da tag social OSM, quando telefono/email mancano."""
+    if not osm_tags:
+        return None
+    whatsapp = osm_tags.get("contact:whatsapp") or osm_tags.get("whatsapp")
+    if whatsapp:
+        digits = re.sub(r"[^\d+]", "", whatsapp)
+        if digits:
+            return ("WhatsApp", f"https://wa.me/{digits.lstrip('+')}")
+    facebook = osm_tags.get("contact:facebook") or osm_tags.get("facebook")
+    if facebook:
+        return ("Facebook", _social_url(facebook, "https://facebook.com/"))
+    instagram = osm_tags.get("contact:instagram") or osm_tags.get("instagram")
+    if instagram:
+        return ("Instagram", _social_url(instagram.lstrip("@"), "https://instagram.com/"))
+    return None
+
+
+def _social_url(value: str, base: str) -> str:
+    value = value.strip()
+    if value.startswith("http://") or value.startswith("https://"):
+        return value
+    return base + value.lstrip("/")
 
 
 def _category_from_tags(tags: dict, industry: str) -> str:
@@ -608,7 +638,7 @@ def _from_osm(element: dict, industry: str) -> DiscoveryCandidate | None:
         latitude=coords[0] if coords else None,
         longitude=coords[1] if coords else None,
         website_url=website,
-        phone=tags.get("phone") or tags.get("contact:phone"),
+        phone=_phone_from_tags(tags),
         email=tags.get("email") or tags.get("contact:email"),
         source="openstreetmap",
         external_id=f"{osm_type}/{osm_id}" if osm_id is not None else None,
@@ -639,7 +669,7 @@ def _from_nominatim(item: dict, industry: str) -> DiscoveryCandidate | None:
         latitude=coords[0] if coords else None,
         longitude=coords[1] if coords else None,
         website_url=extra.get("website") or extra.get("contact:website") or extra.get("url"),
-        phone=extra.get("phone") or extra.get("contact:phone"),
+        phone=_phone_from_tags(extra),
         email=extra.get("email") or extra.get("contact:email"),
         source="openstreetmap",
         external_id=f"{osm_type}/{osm_id}" if osm_type and osm_id is not None else None,

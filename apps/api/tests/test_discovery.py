@@ -131,6 +131,51 @@ def test_osm_keeps_start_date_and_opening_hours() -> None:
     assert candidate.extra["osm_tags"]["opening_hours"] == "Mo-Fr 08:00-18:00"
 
 
+def test_osm_falls_back_to_mobile_and_keeps_social_tags() -> None:
+    candidate = _from_osm(
+        {
+            "type": "node",
+            "id": 4,
+            "lat": 41.9,
+            "lon": 12.5,
+            "tags": {
+                "name": "Trattoria da Elvira",
+                "amenity": "restaurant",
+                "contact:mobile": "+39 333 1234567",
+                "contact:instagram": "trattoriaelvira",
+            },
+        },
+        "ristorante",
+    )
+    assert candidate is not None
+    assert candidate.phone == "+39 333 1234567"
+    assert candidate.email is None
+    assert candidate.extra["osm_tags"]["contact:instagram"] == "trattoriaelvira"
+
+
+def test_social_contact_link_prefers_whatsapp_then_facebook_then_instagram() -> None:
+    from app.discovery.osm import social_contact_link
+
+    assert social_contact_link(None) is None
+    assert social_contact_link({}) is None
+    assert social_contact_link({"contact:whatsapp": "+39 333 1234567"}) == ("WhatsApp", "https://wa.me/393331234567")
+    assert social_contact_link({"contact:facebook": "trattoriaelvira"}) == (
+        "Facebook",
+        "https://facebook.com/trattoriaelvira",
+    )
+    assert social_contact_link({"facebook": "https://facebook.com/pagina"}) == (
+        "Facebook",
+        "https://facebook.com/pagina",
+    )
+    assert social_contact_link({"instagram": "@trattoriaelvira"}) == (
+        "Instagram",
+        "https://instagram.com/trattoriaelvira",
+    )
+    assert social_contact_link(
+        {"contact:whatsapp": "+39 333 1234567", "contact:facebook": "x"}
+    ) == ("WhatsApp", "https://wa.me/393331234567")
+
+
 def test_osm_element_coords_from_node_and_center() -> None:
     assert element_coords({"lat": 38.1, "lon": 13.3}) == (38.1, 13.3)
     assert element_coords({"center": {"lat": 37.5, "lon": 15.1}}) == (37.5, 15.1)
@@ -406,3 +451,25 @@ def test_company_detail_after_persist(client, db_session) -> None:
     response = client.get(f"/companies/{company.id}")
     assert response.status_code == 200
     assert response.json()["name"] == "Hotel Test"
+
+
+def test_company_summary_exposes_social_fallback(client, db_session) -> None:
+    company = Company(
+        name="Trattoria Senza Sito",
+        category="Ristorante",
+        city="Palermo",
+        source="fake",
+        external_id="x/2",
+        status="discovered",
+        phone=None,
+        email=None,
+        extra={"osm_tags": {"contact:instagram": "trattoriasenzasito"}},
+    )
+    db_session.add(company)
+    db_session.commit()
+    response = client.get(f"/companies/{company.id}")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["phone"] is None
+    assert body["social_label"] == "Instagram"
+    assert body["social_url"] == "https://instagram.com/trattoriasenzasito"
