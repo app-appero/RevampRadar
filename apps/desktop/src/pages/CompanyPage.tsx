@@ -169,6 +169,12 @@ export function CompanyPage() {
             {error ? <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{error}</p> : null}
 
             <div className="flex flex-wrap gap-3">
+              <ExternalLink
+                href={googleMapsSearchUrl(company.name, company.city)}
+                className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-800 hover:bg-stone-50"
+              >
+                Cerca su Google Maps
+              </ExternalLink>
               <button
                 type="button"
                 disabled={!company.website_url || analyze.isPending}
@@ -519,6 +525,11 @@ function CrmPanel({
       </div>
     </section>
   );
+}
+
+function googleMapsSearchUrl(name: string, city: string | null): string {
+  const query = [name, city].filter(Boolean).join(" ");
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }
 
 function defaultDueAtLocal(): string {
