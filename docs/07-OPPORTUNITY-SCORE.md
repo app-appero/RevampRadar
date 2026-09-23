@@ -102,3 +102,10 @@ stima esplicativa, stessa logica dell'Opportunity Score (score 0–100, priority
 top reasons, fattori positivi/negativi, servizio consigliato). Serve a non far
 sparire in fondo alla pipeline i prospect senza sito, che spesso sono i più
 interessanti, e ad alimentare la proposta "creazione sito da zero".
+
+Il confronto con le attività simili riguarda solo le aziende già trovate da
+RevampRadar nella stessa zona (discovery precedenti), non un dato di mercato o
+di settore verificato altrove: la spiegazione mostra sempre quante attività
+sono state effettivamente considerate (es. "6 su 10"), non solo la
+percentuale, per evitare di far sembrare la stima più rappresentativa di
+quanto sia.

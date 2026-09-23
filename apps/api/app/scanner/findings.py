@@ -39,15 +39,32 @@ def build_findings(
         return findings
 
     if http_result.status_code and http_result.status_code >= 400:
+        likely_blocked = http_result.status_code in {403, 429}
+        if likely_blocked:
+            severity = "medium"
+            description = (
+                "La pagina principale ha risposto con "
+                f"{http_result.status_code}, spesso un blocco anti-bot o un limite di richieste "
+                "lato server, non necessariamente un problema per chi visita il sito normalmente. "
+                "Controllo incompleto: riprova l'analisi più tardi per una verifica più affidabile."
+            )
+            recommendation = (
+                "Riprova l'analisi tra qualche minuto. Se il blocco persiste, verifica manualmente "
+                "che il sito sia raggiungibile da un browser normale."
+            )
+        else:
+            severity = "critical" if http_result.status_code >= 500 else "high"
+            description = "La pagina principale non restituisce uno status di successo."
+            recommendation = "Correggi la pagina o i redirect in modo che la home risponda 200."
         findings.append(
             FindingDraft(
                 category="http",
-                severity="critical" if http_result.status_code >= 500 else "high",
+                severity=severity,
                 code="HTTP_ERROR_STATUS",
                 title=f"Lo status HTTP è {http_result.status_code}",
-                description="La pagina principale non restituisce uno status di successo.",
+                description=description,
                 evidence=str(http_result.status_code),
-                recommendation="Correggi la pagina o i redirect in modo che la home risponda 200.",
+                recommendation=recommendation,
             )
         )
 

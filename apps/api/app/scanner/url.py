@@ -1,3 +1,4 @@
+import ipaddress
 from dataclasses import dataclass
 from urllib.parse import urlparse, urlunparse
 
@@ -30,6 +31,8 @@ def normalize_url(raw: str) -> NormalizedUrl:
     hostname = parsed.hostname
     if not hostname:
         raise UrlValidationError("L'URL non contiene un dominio valido.")
+    if _is_blocked_literal_host(hostname):
+        raise UrlValidationError("Non è possibile analizzare indirizzi di rete privati o locali.")
 
     try:
         domain = hostname.encode("idna").decode("ascii").lower()
@@ -47,3 +50,31 @@ def normalize_url(raw: str) -> NormalizedUrl:
 
     normalized = urlunparse((scheme, netloc, path, "", parsed.query, ""))
     return NormalizedUrl(original=original, normalized=normalized, domain=domain, scheme=scheme)
+
+
+_BLOCKED_HOSTNAMES = {"localhost", "localhost.localdomain"}
+
+
+def _is_blocked_literal_host(hostname: str) -> bool:
+    """Rifiuta gli indirizzi IP letterali privati/locali (SSRF di base).
+
+    Non risolve i nomi a dominio qui (resterebbe una funzione pura, senza rete):
+    la verifica sull'IP effettivamente raggiunto avviene allo scan (vedi scanner/http.py),
+    così anche un dominio pubblico che punta a un IP privato viene bloccato prima di
+    essere interrogato o fotografato.
+    """
+    host = hostname.strip().lower().rstrip(".")
+    if host in _BLOCKED_HOSTNAMES:
+        return True
+    try:
+        parsed_ip = ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    return (
+        parsed_ip.is_private
+        or parsed_ip.is_loopback
+        or parsed_ip.is_link_local
+        or parsed_ip.is_multicast
+        or parsed_ip.is_reserved
+        or parsed_ip.is_unspecified
+    )

@@ -48,6 +48,14 @@
 - Prompt AI delle proposte: niente più gergo tecnico nell'email (spiega la conseguenza pratica, non i termini tecnici) e niente più proposte di durata/orario per una chiamata; un controllo lato codice scarta la risposta AI e usa il testo deterministico se lo ignora comunque.
 - Discovery: risultati di una ricerca filtrabili per settore (utile con "tutti i settori", che mischia categorie diverse nello stesso elenco).
 - Pipeline: filtro "Settore" ora è un menù a tendina con i settori realmente presenti in anagrafica, non più testo libero.
+- Affidabilità (giro di ottimizzazione, senza nuove funzionalità):
+  - Scanner: bloccati gli indirizzi di rete privati/locali (IP letterali e domini che vi risolvono, redirect inclusi) prima di contattarli o fotografarli — protezione SSRF di base (`app/scanner/url.py`, `app/scanner/ssrf_guard.py`, `app/scanner/http.py`).
+  - Audit: uno status HTTP 403/429 (spesso blocco anti-bot o rate-limit) non è più trattato come un sito rotto: severità ridotta e finding esplicito che invita a riprovare, invece di un giudizio negativo definitivo.
+  - PageSpeed: l'errore restituito in caso di problema con l'API non include più l'URL della richiesta (che conteneva la chiave), né in log né nella risposta salvata.
+  - Proposte: due controlli in più, allo stesso modo di quelli già presenti per prezzo e orari — l'email generata dall'AI viene scartata (si torna al testo deterministico) se cita un punteggio interno (Website/Opportunity/Growth Potential Score) o se afferma che il sito attuale sta facendo perdere clienti/fatturato senza averlo verificato.
+  - Proposte "da rifare": l'email può ora citare **un solo** problema verificato e tradotto in linguaggio semplice (es. sito poco leggibile da smartphone, contatto poco chiaro) quando l'audit ne ha trovato uno rilevante nella lista già filtrata; resta generica quando non c'è nulla di sufficientemente rilevante, senza elencare più problemi insieme.
+  - Proposte "da creare": l'oggetto dell'email non afferma più come fatto accertato che l'azienda non ha un sito ("vi manca ancora un sito web") — nei dati OSM può solo non risultare, non è una verifica.
+  - Growth Potential Score: il confronto con le attività simili ora indica anche quante sono state effettivamente trovate (es. "6 su 10"), non solo la percentuale, ed è più chiaro che il confronto riguarda solo le attività già presenti nel database di RevampRadar.
 
 ### Changed
 - PageSpeed Insights è opzionale via `PAGESPEED_API_KEY`; Lighthouse nativo è rimandato (M1-014).

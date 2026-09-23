@@ -419,6 +419,13 @@ function TemplateField({
       <p className="text-xs text-stone-500">
         Placeholder disponibili: {tokens.map((token) => `{{${token}}}`).join(", ")}
       </p>
+      {tokens.includes("osservazione") ? (
+        <p className="text-xs text-stone-500">
+          {"{{osservazione}}"} viene compilato in automatico solo se l'analisi ha trovato un problema
+          rilevante e sicuro da citare (es. sito poco leggibile da smartphone); altrimenti resta vuoto,
+          senza lasciare spazi o frasi a metà.
+        </p>
+      ) : null}
     </label>
   );
 }
