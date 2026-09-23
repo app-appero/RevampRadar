@@ -39,6 +39,7 @@ class CreateDiscoveryRequest(BaseModel):
     city: str = Field(default="", max_length=128)
     max_results: int = Field(default=20, ge=1, le=MAX_RESULTS_EXTENDED)
     extended: bool = False
+    require_contactable: bool = False
 
 
 class SocialLink(BaseModel):
@@ -91,6 +92,7 @@ class DiscoveryRunResponse(BaseModel):
     location: str
     max_results: int
     extended: bool = False
+    require_contactable: bool = False
     provider: str
     status: str
     total_found: int

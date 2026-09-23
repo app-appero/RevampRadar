@@ -78,6 +78,7 @@ def post_discovery(
             location=_request_location(payload),
             max_results=payload.max_results,
             extended=payload.extended,
+            require_contactable=payload.require_contactable,
         )
     except DiscoveryServiceError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
@@ -139,6 +140,7 @@ def _run_response(db: Session, run: DiscoveryRun) -> DiscoveryRunResponse:
         location=run.location,
         max_results=run.max_results,
         extended=run.extended,
+        require_contactable=run.require_contactable,
         provider=run.provider,
         status=run.status,
         total_found=run.total_found,

@@ -26,6 +26,7 @@ export function DiscoveryPage() {
   const [city, setCity] = useState("");
   const [maxResults, setMaxResults] = useState(20);
   const [extended, setExtended] = useState(false);
+  const [requireContactable, setRequireContactable] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const sectorRef = useRef<HTMLDivElement | null>(null);
@@ -89,6 +90,7 @@ export function DiscoveryPage() {
         city,
         max_results: Math.min(maxResults, cap),
         extended,
+        require_contactable: requireContactable,
       });
       navigate(`/discoveries/${run.id}`);
     } catch (err) {
@@ -304,6 +306,22 @@ export function DiscoveryPage() {
             <span className="mt-1 block text-stone-600">
               Include attività senza sito (spesso i prospect migliori) e alza il tetto a {EXTENDED_MAX}{" "}
               risultati.
+            </span>
+          </span>
+        </label>
+        <label className="flex items-start gap-3 rounded-xl border border-stone-200 bg-stone-50 px-3 py-3 text-sm">
+          <input
+            type="checkbox"
+            checked={requireContactable}
+            onChange={(event) => setRequireContactable(event.target.checked)}
+            className="mt-0.5"
+            disabled={submitting}
+          />
+          <span>
+            <span className="font-medium text-stone-800">Escludi attività incontattabili</span>
+            <span className="mt-1 block text-stone-600">
+              Non salvare chi non ha né telefono, né email, né social, né sito: senza nessuno di
+              questi non hai modo di contattarli.
             </span>
           </span>
         </label>
