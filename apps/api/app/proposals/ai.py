@@ -8,7 +8,7 @@ from app.ai.provider import get_ai_provider
 from app.config import Settings
 from app.proposals.builder import ProposalDraft
 from app.proposals.prompt_v1 import SYSTEM_PROMPT
-from app.proposals.sender import SenderProfileView, email_leaks_price, ensure_signature
+from app.proposals.sender import SenderProfileView, email_leaks_price, email_proposes_time_slot, ensure_signature
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +40,10 @@ def polish_proposal(
             "Non modificare range o servizio consigliato.",
             "Non inserire prezzi in email_body o email_subject.",
             "Conserva presentazione e firma del mittente.",
+            "In email_body niente gergo tecnico (viewport, responsive, H1, CTA, HTTPS, SEO...): "
+            "spiega solo la conseguenza pratica per il cliente.",
+            "In email_body non proporre orari o durate specifiche per una chiamata/incontro "
+            "(niente '10 minuti', 'un quarto d'ora'...): chiusura aperta, senza impegnare un tempo.",
         ],
     }
     try:
@@ -54,6 +58,8 @@ def polish_proposal(
         return None
     email_body = str(parsed.get("email_body") or draft.email_body)
     if email_leaks_price(email_body, draft.range_min, draft.range_max):
+        email_body = draft.email_body
+    elif email_proposes_time_slot(email_body):
         email_body = draft.email_body
     email_body = ensure_signature(email_body, sender)
     return ProposalDraft(

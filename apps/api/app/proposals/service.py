@@ -9,6 +9,7 @@ from app.models.entities import Audit, Company, Proposal, Website
 from app.proposals.ai import polish_proposal
 from app.proposals.builder import ProposalDraft, build_greenfield_proposal_draft, build_proposal_draft
 from app.proposals.prompt_v1 import PROMPT_VERSION
+from app.services.ai_settings import effective_settings
 from app.services.email_templates import get_or_create_email_templates
 from app.services.growth_service import compute_and_store_growth_score, get_growth_score
 from app.services.sender_profile import get_or_create_sender_profile, profile_view
@@ -37,8 +38,9 @@ def create_or_replace_proposal(
     session: Session,
     audit_id: UUID,
     settings: Settings | None = None,
+    use_ai: bool | None = None,
 ) -> Proposal:
-    resolved = settings or get_settings()
+    resolved = effective_settings(session, settings or get_settings())
     audit = (
         session.query(Audit)
         .options(
@@ -72,10 +74,11 @@ def create_or_replace_proposal(
         email_template=templates.refactor_body,
     )
     source = "deterministic"
-    polished = polish_proposal(resolved, draft, _facts(audit, company, draft, sender), sender)
-    if polished is not None:
-        draft = polished
-        source = "ai"
+    if use_ai is not False:
+        polished = polish_proposal(resolved, draft, _facts(audit, company, draft, sender), sender)
+        if polished is not None:
+            draft = polished
+            source = "ai"
 
     existing = audit.proposal
     if existing is not None:
@@ -112,8 +115,9 @@ def create_or_replace_greenfield_proposal(
     session: Session,
     company_id: UUID,
     settings: Settings | None = None,
+    use_ai: bool | None = None,
 ) -> Proposal:
-    resolved = settings or get_settings()
+    resolved = effective_settings(session, settings or get_settings())
     company = (
         session.query(Company)
         .options(selectinload(Company.websites))
@@ -140,10 +144,11 @@ def create_or_replace_greenfield_proposal(
         email_template=templates.greenfield_body,
     )
     source = "deterministic"
-    polished = polish_proposal(resolved, draft, _greenfield_facts(company, score, draft, sender), sender)
-    if polished is not None:
-        draft = polished
-        source = "ai"
+    if use_ai is not False:
+        polished = polish_proposal(resolved, draft, _greenfield_facts(company, score, draft, sender), sender)
+        if polished is not None:
+            draft = polished
+            source = "ai"
 
     existing = (
         session.query(Proposal)

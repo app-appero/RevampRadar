@@ -43,6 +43,9 @@
 - Discovery: telefono con fallback su `contact:mobile`/`mobile`; contatto social (WhatsApp/Facebook/Instagram) recuperato dai tag OSM e mostrato in anagrafica come alternativa quando telefono/email mancano.
 - Scheda azienda: link "Cerca su Google Maps" per trovare a mano un contatto quando OSM non ne ha; niente API a pagamento, nessun dato salvato — è solo una ricerca che apri nel browser.
 - Impostazioni: editor dei template email delle proposte (da rifare / da creare), con placeholder ({{nome_mittente}}, {{nome_attivita}}, {{luogo}}, {{dominio}}, {{firma}}) e pulsante per tornare al testo di default; il testo deterministico di partenza resta quello, personalizzabile senza toccare il codice.
+- Impostazioni: chiavi AI (Claude/OpenAI) modificabili dall'app, salvate nel database e con priorità su quelle di `.env`; usate sia per l'analisi AI degli audit sia per le proposte.
+- Proposte: alla generazione, se una chiave AI è configurata, un popup chiede se vuoi la versione arricchita con AI o quella di default; senza chiave si genera direttamente quella di default, senza chiedere.
+- Prompt AI delle proposte: niente più gergo tecnico nell'email (spiega la conseguenza pratica, non i termini tecnici) e niente più proposte di durata/orario per una chiamata; un controllo lato codice scarta la risposta AI e usa il testo deterministico se lo ignora comunque.
 
 ### Changed
 - PageSpeed Insights è opzionale via `PAGESPEED_API_KEY`; Lighthouse nativo è rimandato (M1-014).

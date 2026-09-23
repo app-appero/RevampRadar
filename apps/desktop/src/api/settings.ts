@@ -24,6 +24,16 @@ export type EmailTemplates = {
   updated_at: string;
 };
 
+export type AiSettings = {
+  provider: string;
+  has_anthropic_key: boolean;
+  has_openai_key: boolean;
+  anthropic_key_preview: string | null;
+  openai_key_preview: string | null;
+  ai_available: boolean;
+  updated_at: string;
+};
+
 async function parseJson<T>(response: Response): Promise<T> {
   let payload: T | { detail?: string };
   try {
@@ -92,4 +102,32 @@ export async function saveEmailTemplates(payload: {
     throw new ApiError("Impossibile raggiungere il backend.");
   }
   return parseJson<EmailTemplates>(response);
+}
+
+export async function fetchAiSettings(): Promise<AiSettings> {
+  let response: Response;
+  try {
+    response = await fetch(`${getApiBaseUrl()}/settings/ai`);
+  } catch {
+    throw new ApiError("Impossibile raggiungere il backend.");
+  }
+  return parseJson<AiSettings>(response);
+}
+
+export async function saveAiSettings(payload: {
+  provider?: string;
+  anthropic_api_key?: string | null;
+  openai_api_key?: string | null;
+}): Promise<AiSettings> {
+  let response: Response;
+  try {
+    response = await fetch(`${getApiBaseUrl()}/settings/ai`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  } catch {
+    throw new ApiError("Impossibile raggiungere il backend.");
+  }
+  return parseJson<AiSettings>(response);
 }

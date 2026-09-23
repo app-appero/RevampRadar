@@ -56,12 +56,16 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return parseJson<T>(response);
 }
 
-export function generateProposal(auditId: string): Promise<Proposal> {
-  return request(`/audits/${auditId}/proposal`, { method: "POST" });
+function aiQueryString(useAi?: boolean): string {
+  return useAi == null ? "" : `?use_ai=${useAi ? "true" : "false"}`;
 }
 
-export function generateGreenfieldProposal(companyId: string): Promise<Proposal> {
-  return request(`/companies/${companyId}/greenfield-proposal`, { method: "POST" });
+export function generateProposal(auditId: string, useAi?: boolean): Promise<Proposal> {
+  return request(`/audits/${auditId}/proposal${aiQueryString(useAi)}`, { method: "POST" });
+}
+
+export function generateGreenfieldProposal(companyId: string, useAi?: boolean): Promise<Proposal> {
+  return request(`/companies/${companyId}/greenfield-proposal${aiQueryString(useAi)}`, { method: "POST" });
 }
 
 export async function fetchAuditProposal(auditId: string): Promise<Proposal | null> {
