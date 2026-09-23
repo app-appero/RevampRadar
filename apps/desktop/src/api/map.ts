@@ -12,6 +12,7 @@ export type MapPoint = {
   priority: string | null;
   has_app: boolean;
   has_website: boolean;
+  is_contactable: boolean;
   cluster_id: number;
   audit_id: string | null;
 };

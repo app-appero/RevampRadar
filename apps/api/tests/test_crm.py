@@ -230,6 +230,27 @@ def test_segment_filter_and_growth_ranking(db_session) -> None:
     assert stats["high_priority"] == 1
 
 
+def test_contactable_filter_hides_companies_with_no_reach(db_session) -> None:
+    _company(db_session, name="Hotel Con Sito", city="Palermo")
+    unreachable = Company(
+        name="Nessun Contatto",
+        city="Palermo",
+        source="fake",
+        external_id="unreachable",
+        status="discovered",
+    )
+    db_session.add(unreachable)
+    db_session.flush()
+    ensure_opportunity(db_session, unreachable)
+    db_session.commit()
+
+    everyone = list_opportunities(db_session)
+    assert {item.company.name for item in everyone} == {"Hotel Con Sito", "Nessun Contatto"}
+
+    only_reachable = list_opportunities(db_session, contactable=True)
+    assert [item.company.name for item in only_reachable] == ["Hotel Con Sito"]
+
+
 def test_crm_api_roundtrip(client, db_session) -> None:
     company = _company(db_session)
     listed = client.get("/opportunities")

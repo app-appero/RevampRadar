@@ -29,6 +29,7 @@ export function PipelinePage() {
   const [shortlist, setShortlist] = useState(false);
   const [favorite, setFavorite] = useState(false);
   const [segment, setSegment] = useState<"" | "refactor" | "greenfield">("");
+  const [contactableOnly, setContactableOnly] = useState(false);
 
   const filters = useMemo<OpportunityFilters>(
     () => ({
@@ -42,8 +43,9 @@ export function PipelinePage() {
       shortlist: shortlist || undefined,
       favorite: favorite || undefined,
       segment: segment || undefined,
+      contactable: contactableOnly || undefined,
     }),
-    [status, q, city, category, tag, priority, minScore, shortlist, favorite, segment],
+    [status, q, city, category, tag, priority, minScore, shortlist, favorite, segment, contactableOnly],
   );
 
   const dashboardQuery = useQuery({
@@ -207,6 +209,14 @@ export function PipelinePage() {
           <label className="flex items-center gap-2 text-sm text-stone-700">
             <input type="checkbox" checked={favorite} onChange={(event) => setFavorite(event.target.checked)} />
             Solo preferiti
+          </label>
+          <label className="flex items-center gap-2 text-sm text-stone-700">
+            <input
+              type="checkbox"
+              checked={contactableOnly}
+              onChange={(event) => setContactableOnly(event.target.checked)}
+            />
+            Nascondi incontattabili
           </label>
         </form>
 
