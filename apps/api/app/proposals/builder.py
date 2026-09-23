@@ -3,6 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from app.proposals.sender import DEFAULT_SENDER, SenderProfileView, format_signature
+from app.proposals.templates import (
+    DEFAULT_GREENFIELD_EMAIL_TEMPLATE,
+    DEFAULT_REFACTOR_EMAIL_TEMPLATE,
+    render_email_template,
+)
 
 RANGE_NOTE = (
     "Stima solo per te, IVA esclusa. Non va in email né al prospect: "
@@ -35,6 +40,7 @@ def build_proposal_draft(
     website_score,
     opportunity_score,
     sender: SenderProfileView | None = None,
+    email_template: str | None = None,
 ) -> ProposalDraft:
     name = company_name or domain
     place = f" a {city}" if city else ""
@@ -52,7 +58,7 @@ def build_proposal_draft(
     strategy = _strategy(service, problems, website_overall)
     brief = _brief(name, url, domain, website_overall, opportunity_value, service, problems, range_min, range_max)
     email_subject = f"{name}: un'idea concreta per il sito"
-    email_body = _email(name, place, domain, service, problems, sender or DEFAULT_SENDER)
+    email_body = _email(name, place, domain, sender or DEFAULT_SENDER, email_template)
     return ProposalDraft(
         summary=summary,
         priority_problems=problems,
@@ -75,6 +81,7 @@ def build_greenfield_proposal_draft(
     city: str | None,
     growth_score,
     sender: SenderProfileView | None = None,
+    email_template: str | None = None,
 ) -> ProposalDraft:
     place = f" a {city}" if city else ""
     service = growth_score.recommended_service
@@ -84,7 +91,7 @@ def build_greenfield_proposal_draft(
     strategy = _greenfield_strategy(service, growth_score)
     brief = _greenfield_brief(company_name, category, city, growth_score, service, range_min, range_max)
     email_subject = f"{company_name}: vi manca ancora un sito web"
-    email_body = _greenfield_email(company_name, place, growth_score, service, sender or DEFAULT_SENDER)
+    email_body = _greenfield_email(company_name, place, sender or DEFAULT_SENDER, email_template)
     return ProposalDraft(
         summary=summary,
         priority_problems=problems,
@@ -187,46 +194,16 @@ def _greenfield_brief(
 def _greenfield_email(
     name: str,
     place: str,
-    growth_score,
-    service: str,
     sender: SenderProfileView,
+    template: str | None,
 ) -> str:
-    pitch = _greenfield_pitch(service)
-    return (
-        f"Buongiorno,\n\n"
-        f"mi chiamo {sender.display_name} e sono uno sviluppatore web freelance. Aiuto le attività a "
-        f"migliorare la propria presenza online, rendendo più semplice per i clienti scoprirle, "
-        f"conoscerle e mettersi in contatto con loro.\n\n"
-        f"Ho avuto modo di conoscere {name}{place} e credo ci siano delle interessanti opportunità "
-        f"per valorizzare ulteriormente la vostra attività attraverso una presenza online dedicata.\n\n"
-        f"Mi piacerebbe proporvi la realizzazione di un sito web moderno e semplice da utilizzare, "
-        f"{pitch}\n\n"
-        f"Un sito web dedicato potrebbe aiutarvi a raggiungere nuovi clienti e offrire un punto di "
-        f"riferimento a chi desidera conoscere meglio la vostra attività.\n\n"
-        f"Se vi fa piacere, possiamo approfondire insieme questa possibilità e valutare una soluzione "
-        f"adatta alle vostre esigenze.\n\n"
-        f"Resto a disposizione per qualsiasi informazione.\n\n"
-        f"Un saluto,\n"
-        f"{format_signature(sender)}"
-    )
-
-
-def _greenfield_pitch(service: str) -> str:
-    text = service.lower()
-    if "prenotazione" in text:
-        return (
-            "che permetta di presentare al meglio la vostra attività e offrire ai clienti la "
-            "possibilità di conoscere quello che offrite e prenotare direttamente online."
-        )
-    if "catalogo" in text:
-        return (
-            "che permetta di presentare al meglio i vostri prodotti e offrire ai clienti la "
-            "possibilità di scoprirli e contattarvi facilmente."
-        )
-    return (
-        "che permetta di presentare al meglio la vostra attività e offrire ai clienti un modo "
-        "semplice per conoscervi e contattarvi."
-    )
+    context = {
+        "nome_mittente": sender.display_name,
+        "nome_attivita": name,
+        "luogo": place,
+        "firma": format_signature(sender),
+    }
+    return render_email_template(template or DEFAULT_GREENFIELD_EMAIL_TEMPLATE, context)
 
 
 def estimate_range(service: str, website_overall: int | None, priority: str | None) -> tuple[int, int]:
@@ -347,23 +324,14 @@ def _email(
     name: str,
     place: str,
     domain: str,
-    service: str,
-    problems: list[dict],
     sender: SenderProfileView,
+    template: str | None,
 ) -> str:
-    return (
-        f"Buongiorno,\n\n"
-        f"mi chiamo {sender.display_name} e sono uno sviluppatore web freelance. Aiuto le attività a "
-        f"migliorare la propria presenza online, rendendo i loro siti web più moderni, funzionali e "
-        f"semplici da utilizzare per i clienti.\n\n"
-        f"Ho avuto modo di visitare il sito di {name}{place} ({domain}) e credo ci siano delle "
-        f"interessanti opportunità per valorizzare ulteriormente la vostra attività online.\n\n"
-        f"Mi piacerebbe proporvi alcune soluzioni per migliorare l'esperienza di chi visita il vostro "
-        f"sito, facilitare il contatto con i potenziali clienti e rendere la vostra presenza digitale "
-        f"ancora più efficace.\n\n"
-        f"Se vi fa piacere, possiamo approfondire insieme le possibilità di miglioramento e capire "
-        f"quali interventi potrebbero essere più utili per la vostra struttura.\n\n"
-        f"Resto a disposizione per qualsiasi informazione.\n\n"
-        f"Un saluto,\n"
-        f"{format_signature(sender)}"
-    )
+    context = {
+        "nome_mittente": sender.display_name,
+        "nome_attivita": name,
+        "luogo": place,
+        "dominio": domain,
+        "firma": format_signature(sender),
+    }
+    return render_email_template(template or DEFAULT_REFACTOR_EMAIL_TEMPLATE, context)

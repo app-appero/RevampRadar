@@ -18,3 +18,18 @@ class SenderProfileUpdate(BaseModel):
 
 class SenderProfileResponse(SenderProfileUpdate):
     updated_at: datetime
+
+
+class EmailTemplatesUpdate(BaseModel):
+    refactor_body: str | None = Field(default=None, max_length=8000)
+    greenfield_body: str | None = Field(default=None, max_length=8000)
+
+
+class EmailTemplatesResponse(BaseModel):
+    refactor_body: str | None
+    greenfield_body: str | None
+    refactor_default: str
+    greenfield_default: str
+    refactor_tokens: list[str]
+    greenfield_tokens: list[str]
+    updated_at: datetime

@@ -432,6 +432,20 @@ class Proposal(Base):
     company: Mapped[Company | None] = relationship()
 
 
+class EmailTemplates(Base):
+    __tablename__ = "email_templates"
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    refactor_body: Mapped[str | None] = mapped_column(Text, nullable=True)
+    greenfield_body: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
 class SenderProfile(Base):
     __tablename__ = "sender_profiles"
 
