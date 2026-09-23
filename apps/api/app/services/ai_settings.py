@@ -55,10 +55,3 @@ def effective_settings(session: Session, base: Settings) -> Settings:
 
 def is_ai_available(session: Session, base: Settings) -> bool:
     return get_ai_provider(effective_settings(session, base)) is not None
-
-
-def key_preview(value: str | None) -> str | None:
-    if not value:
-        return None
-    tail = value.strip()[-4:]
-    return f"••••{tail}"

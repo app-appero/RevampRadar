@@ -21,7 +21,6 @@ from app.schemas.profile import (
 from app.services.ai_settings import (
     get_or_create_ai_credentials,
     is_ai_available,
-    key_preview,
     update_ai_credentials,
 )
 from app.services.email_templates import get_or_create_email_templates, update_email_templates
@@ -88,10 +87,8 @@ def _to_response(profile: SenderProfile) -> SenderProfileResponse:
 def _ai_response(db: Session, row: AiCredentials) -> AiCredentialsResponse:
     return AiCredentialsResponse(
         provider=row.provider,
-        has_anthropic_key=bool(row.anthropic_api_key),
-        has_openai_key=bool(row.openai_api_key),
-        anthropic_key_preview=key_preview(row.anthropic_api_key),
-        openai_key_preview=key_preview(row.openai_api_key),
+        anthropic_api_key=row.anthropic_api_key,
+        openai_api_key=row.openai_api_key,
         ai_available=is_ai_available(db, get_settings()),
         updated_at=row.updated_at,
     )

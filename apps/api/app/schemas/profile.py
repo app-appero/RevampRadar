@@ -43,9 +43,7 @@ class AiCredentialsUpdate(BaseModel):
 
 class AiCredentialsResponse(BaseModel):
     provider: str
-    has_anthropic_key: bool
-    has_openai_key: bool
-    anthropic_key_preview: str | None
-    openai_key_preview: str | None
+    anthropic_api_key: str | None
+    openai_api_key: str | None
     ai_available: bool
     updated_at: datetime

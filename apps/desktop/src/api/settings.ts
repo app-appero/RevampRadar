@@ -26,10 +26,8 @@ export type EmailTemplates = {
 
 export type AiSettings = {
   provider: string;
-  has_anthropic_key: boolean;
-  has_openai_key: boolean;
-  anthropic_key_preview: string | null;
-  openai_key_preview: string | null;
+  anthropic_api_key: string | null;
+  openai_api_key: string | null;
   ai_available: boolean;
   updated_at: string;
 };
