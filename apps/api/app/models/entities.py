@@ -233,6 +233,7 @@ class DiscoveryRun(Base):
     location: Mapped[str] = mapped_column(String(255), nullable=False)
     max_results: Mapped[int] = mapped_column(Integer, nullable=False)
     extended: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    require_contactable: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     provider: Mapped[str] = mapped_column(String(64), nullable=False)
     status: Mapped[str] = mapped_column(String(32), default="queued", nullable=False, index=True)
     total_found: Mapped[int] = mapped_column(Integer, default=0, nullable=False)

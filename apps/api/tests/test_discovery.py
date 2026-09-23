@@ -414,6 +414,47 @@ def test_discovery_persists_dedupes_and_links_website(db_session, monkeypatch) -
     assert get_company(db_session, sole.id) is not None
 
 
+def test_discovery_skips_uncontactable_when_required(db_session, monkeypatch) -> None:
+    class Fake:
+        name = "fake"
+
+        def search_businesses(self, query):
+            return [
+                DiscoveryCandidate(
+                    name="Bar Con Telefono",
+                    city="Palermo",
+                    phone="0911234567",
+                    source="fake",
+                    external_id="n/10",
+                ),
+                DiscoveryCandidate(
+                    name="Bar Senza Niente",
+                    city="Palermo",
+                    source="fake",
+                    external_id="n/11",
+                ),
+                DiscoveryCandidate(
+                    name="Bar Con Instagram",
+                    city="Palermo",
+                    source="fake",
+                    external_id="n/12",
+                    extra={"osm_tags": {"contact:instagram": "barconinstagram"}},
+                ),
+            ]
+
+    monkeypatch.setattr("app.discovery.service.get_discovery_provider", lambda settings: Fake())
+    run = create_discovery_run(
+        db_session, industry="Bar", location="Palermo", max_results=20, require_contactable=True
+    )
+    _run_discovery(db_session, run, Settings())
+    db_session.commit()
+
+    assert run.total_found == 2
+    assert "1 escluse (incontattabili)" in run.progress_label
+    names = sorted(item.name for item in list_companies(db_session))
+    assert names == ["Bar Con Instagram", "Bar Con Telefono"]
+
+
 def test_create_discovery_api_queues_job(client, monkeypatch) -> None:
     monkeypatch.setattr("app.api.discovery.execute_discovery", lambda run_id: None)
     created = client.post(
@@ -426,9 +467,20 @@ def test_create_discovery_api_queues_job(client, monkeypatch) -> None:
     assert payload["industry"] == "Hotel"
     assert payload["progress_percent"] == 0
     assert payload["progress_label"] == "In coda"
+    assert payload["require_contactable"] is False
     fetched = client.get(f"/discoveries/{payload['id']}")
     assert fetched.status_code == 200
     assert fetched.json()["companies"] == []
+
+
+def test_create_discovery_api_require_contactable(client, monkeypatch) -> None:
+    monkeypatch.setattr("app.api.discovery.execute_discovery", lambda run_id: None)
+    created = client.post(
+        "/discoveries",
+        json={"industry": "Hotel", "location": "Sicilia", "max_results": 5, "require_contactable": True},
+    )
+    assert created.status_code == 202
+    assert created.json()["require_contactable"] is True
 
 
 def test_list_recent_discoveries(client, monkeypatch) -> None:
