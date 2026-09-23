@@ -20,8 +20,12 @@ export type CompanySummary = {
   osm_tags?: Record<string, string> | null;
   osm_start_date?: string | null;
   osm_opening_hours?: string | null;
-  social_label?: string | null;
-  social_url?: string | null;
+  social_links?: SocialLink[];
+};
+
+export type SocialLink = {
+  label: string;
+  url: string;
 };
 
 export type CompanyDetail = CompanySummary & {

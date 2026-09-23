@@ -140,14 +140,15 @@ export function CompanyPage() {
               <Field label="Orari (OSM)" value={company.osm_opening_hours} />
               <Field label="Telefono" value={company.phone} />
               <Field label="Email" value={company.email} />
-              <Field label="Contatto social" value={company.social_label} href={company.social_url} />
+              <SocialLinksField links={company.social_links} />
               <Field label="Fonte" value={`${company.source}${company.external_id ? ` · ${company.external_id}` : ""}`} />
               <Field label="Sito" value={company.website_url} href={company.website_url} />
               <Field label="Dominio" value={company.domain} />
             </section>
-            {!company.phone && !company.email && company.social_url ? (
+            {!company.phone && !company.email && (company.social_links?.length ?? 0) > 0 ? (
               <p className="text-sm text-stone-500">
-                Nessun telefono/email su OSM: come contatto alternativo c'è la pagina {company.social_label}.
+                Nessun telefono/email su OSM: come contatto alternativo{" "}
+                {(company.social_links ?? []).length > 1 ? "ci sono queste pagine" : "c'è questa pagina"}.
               </p>
             ) : null}
 
@@ -566,6 +567,25 @@ function Field({
         </ExternalLink>
       ) : (
         <p className="mt-1 text-sm font-medium break-all">{value || "—"}</p>
+      )}
+    </div>
+  );
+}
+
+function SocialLinksField({ links }: { links?: { label: string; url: string }[] }) {
+  return (
+    <div className="rounded-2xl border border-stone-200 bg-white px-4 py-3">
+      <p className="text-xs tracking-wide text-stone-500 uppercase">Contatto social</p>
+      {links && links.length > 0 ? (
+        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+          {links.map((item) => (
+            <ExternalLink key={item.url} href={item.url} className="text-sm font-medium underline">
+              {item.label}
+            </ExternalLink>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-1 text-sm font-medium">—</p>
       )}
     </div>
   );

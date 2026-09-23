@@ -153,27 +153,39 @@ def test_osm_falls_back_to_mobile_and_keeps_social_tags() -> None:
     assert candidate.extra["osm_tags"]["contact:instagram"] == "trattoriaelvira"
 
 
-def test_social_contact_link_prefers_whatsapp_then_facebook_then_instagram() -> None:
-    from app.discovery.osm import social_contact_link
+def test_social_contact_links_returns_all_matches_in_order() -> None:
+    from app.discovery.osm import social_contact_links
 
-    assert social_contact_link(None) is None
-    assert social_contact_link({}) is None
-    assert social_contact_link({"contact:whatsapp": "+39 333 1234567"}) == ("WhatsApp", "https://wa.me/393331234567")
-    assert social_contact_link({"contact:facebook": "trattoriaelvira"}) == (
-        "Facebook",
-        "https://facebook.com/trattoriaelvira",
-    )
-    assert social_contact_link({"facebook": "https://facebook.com/pagina"}) == (
-        "Facebook",
-        "https://facebook.com/pagina",
-    )
-    assert social_contact_link({"instagram": "@trattoriaelvira"}) == (
-        "Instagram",
-        "https://instagram.com/trattoriaelvira",
-    )
-    assert social_contact_link(
-        {"contact:whatsapp": "+39 333 1234567", "contact:facebook": "x"}
-    ) == ("WhatsApp", "https://wa.me/393331234567")
+    assert social_contact_links(None) == []
+    assert social_contact_links({}) == []
+    assert social_contact_links({"contact:whatsapp": "+39 333 1234567"}) == [
+        ("WhatsApp", "https://wa.me/393331234567")
+    ]
+    assert social_contact_links({"contact:facebook": "trattoriaelvira"}) == [
+        ("Facebook", "https://facebook.com/trattoriaelvira"),
+    ]
+    assert social_contact_links({"facebook": "https://facebook.com/pagina"}) == [
+        ("Facebook", "https://facebook.com/pagina"),
+    ]
+    assert social_contact_links({"instagram": "@trattoriaelvira"}) == [
+        ("Instagram", "https://instagram.com/trattoriaelvira"),
+    ]
+    # Più social insieme: tutti presenti, nell'ordine whatsapp -> facebook -> instagram -> ...
+    assert social_contact_links(
+        {"contact:whatsapp": "+39 333 1234567", "contact:facebook": "x", "contact:instagram": "@y"}
+    ) == [
+        ("WhatsApp", "https://wa.me/393331234567"),
+        ("Facebook", "https://facebook.com/x"),
+        ("Instagram", "https://instagram.com/y"),
+    ]
+    assert social_contact_links({"contact:telegram": "@mario"}) == [("Telegram", "https://t.me/mario")]
+    assert social_contact_links({"contact:tiktok": "mario.rossi"}) == [
+        ("TikTok", "https://tiktok.com/@mario.rossi")
+    ]
+    assert social_contact_links({"contact:twitter": "@mario"}) == [("X", "https://x.com/mario")]
+    assert social_contact_links({"youtube": "https://youtube.com/@mario"}) == [
+        ("YouTube", "https://youtube.com/@mario")
+    ]
 
 
 def test_osm_element_coords_from_node_and_center() -> None:
@@ -465,7 +477,12 @@ def test_company_summary_exposes_social_fallback(client, db_session) -> None:
         email=None,
         latitude=38.1157,
         longitude=13.3615,
-        extra={"osm_tags": {"contact:instagram": "trattoriasenzasito"}},
+        extra={
+            "osm_tags": {
+                "contact:instagram": "trattoriasenzasito",
+                "contact:facebook": "trattoriasenzasito",
+            }
+        },
     )
     db_session.add(company)
     db_session.commit()
@@ -473,7 +490,9 @@ def test_company_summary_exposes_social_fallback(client, db_session) -> None:
     assert response.status_code == 200
     body = response.json()
     assert body["phone"] is None
-    assert body["social_label"] == "Instagram"
-    assert body["social_url"] == "https://instagram.com/trattoriasenzasito"
+    assert body["social_links"] == [
+        {"label": "Facebook", "url": "https://facebook.com/trattoriasenzasito"},
+        {"label": "Instagram", "url": "https://instagram.com/trattoriasenzasito"},
+    ]
     assert body["latitude"] == 38.1157
     assert body["longitude"] == 13.3615

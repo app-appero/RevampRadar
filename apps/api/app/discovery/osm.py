@@ -140,7 +140,15 @@ _SUBSTRING_TAGS: tuple[tuple[tuple[str, ...], list[tuple[str, str]]], ...] = (
 )
 
 _COMMERCIAL_KEYS = ("shop", "craft", "amenity", "tourism", "office", "leisure", "healthcare")
-_SOCIAL_KEYS = ("contact:whatsapp", "whatsapp", "contact:facebook", "facebook", "contact:instagram", "instagram")
+_SOCIAL_KEYS = (
+    "contact:whatsapp", "whatsapp",
+    "contact:facebook", "facebook",
+    "contact:instagram", "instagram",
+    "contact:telegram", "telegram",
+    "contact:tiktok", "tiktok",
+    "contact:twitter", "twitter", "contact:x",
+    "contact:youtube", "youtube",
+)
 _OSM_EXTERNAL = re.compile(r"^(node|way|relation)/(\d+)$", re.IGNORECASE)
 _OSM_REF_PREFIX = {"node": "N", "way": "W", "relation": "R"}
 _DEFAULT_OVERPASS = (
@@ -585,22 +593,43 @@ def _phone_from_tags(tags: dict) -> str | None:
     return tags.get("phone") or tags.get("contact:phone") or tags.get("contact:mobile") or tags.get("mobile")
 
 
-def social_contact_link(osm_tags: dict | None) -> tuple[str, str] | None:
-    """Contatto alternativo (label, url) da tag social OSM, quando telefono/email mancano."""
+def social_contact_links(osm_tags: dict | None) -> list[tuple[str, str]]:
+    """Tutti i contatti social (label, url) trovati nei tag OSM, non solo il migliore."""
     if not osm_tags:
-        return None
+        return []
+    links: list[tuple[str, str]] = []
+
     whatsapp = osm_tags.get("contact:whatsapp") or osm_tags.get("whatsapp")
     if whatsapp:
         digits = re.sub(r"[^\d+]", "", whatsapp)
         if digits:
-            return ("WhatsApp", f"https://wa.me/{digits.lstrip('+')}")
+            links.append(("WhatsApp", f"https://wa.me/{digits.lstrip('+')}"))
+
     facebook = osm_tags.get("contact:facebook") or osm_tags.get("facebook")
     if facebook:
-        return ("Facebook", _social_url(facebook, "https://facebook.com/"))
+        links.append(("Facebook", _social_url(facebook, "https://facebook.com/")))
+
     instagram = osm_tags.get("contact:instagram") or osm_tags.get("instagram")
     if instagram:
-        return ("Instagram", _social_url(instagram.lstrip("@"), "https://instagram.com/"))
-    return None
+        links.append(("Instagram", _social_url(instagram.lstrip("@"), "https://instagram.com/")))
+
+    telegram = osm_tags.get("contact:telegram") or osm_tags.get("telegram")
+    if telegram:
+        links.append(("Telegram", _social_url(telegram.lstrip("@"), "https://t.me/")))
+
+    tiktok = osm_tags.get("contact:tiktok") or osm_tags.get("tiktok")
+    if tiktok:
+        links.append(("TikTok", _social_url(f"@{tiktok.lstrip('@')}", "https://tiktok.com/")))
+
+    twitter = osm_tags.get("contact:twitter") or osm_tags.get("twitter") or osm_tags.get("contact:x")
+    if twitter:
+        links.append(("X", _social_url(twitter.lstrip("@"), "https://x.com/")))
+
+    youtube = osm_tags.get("contact:youtube") or osm_tags.get("youtube")
+    if youtube:
+        links.append(("YouTube", _social_url(youtube, "https://youtube.com/")))
+
+    return links
 
 
 def _social_url(value: str, base: str) -> str:

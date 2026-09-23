@@ -41,6 +41,11 @@ class CreateDiscoveryRequest(BaseModel):
     extended: bool = False
 
 
+class SocialLink(BaseModel):
+    label: str
+    url: str
+
+
 class CompanySummary(BaseModel):
     id: UUID
     name: str
@@ -59,8 +64,7 @@ class CompanySummary(BaseModel):
     osm_tags: dict[str, str] | None = None
     osm_start_date: str | None = None
     osm_opening_hours: str | None = None
-    social_label: str | None = None
-    social_url: str | None = None
+    social_links: list[SocialLink] = Field(default_factory=list)
 
 
 class CompanyDetail(CompanySummary):
