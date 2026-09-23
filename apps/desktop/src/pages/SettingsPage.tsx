@@ -3,7 +3,9 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 
 import { ApiError } from "../api/health";
 import {
+  fetchEmailTemplates,
   fetchSenderProfile,
+  saveEmailTemplates,
   saveSenderProfile,
   type ProfileLink,
 } from "../api/settings";
@@ -124,7 +126,137 @@ export function SettingsPage() {
           {save.isPending ? "Salvataggio…" : "Salva"}
         </button>
       </form>
+
+      <EmailTemplatesEditor />
     </main>
+  );
+}
+
+function EmailTemplatesEditor() {
+  const templatesQuery = useQuery({
+    queryKey: ["email-templates"],
+    queryFn: fetchEmailTemplates,
+  });
+  const [refactorBody, setRefactorBody] = useState("");
+  const [greenfieldBody, setGreenfieldBody] = useState("");
+
+  useEffect(() => {
+    const data = templatesQuery.data;
+    if (!data) return;
+    setRefactorBody(data.refactor_body ?? data.refactor_default);
+    setGreenfieldBody(data.greenfield_body ?? data.greenfield_default);
+  }, [templatesQuery.data]);
+
+  const save = useMutation({
+    mutationFn: () =>
+      saveEmailTemplates({
+        refactor_body: refactorBody.trim() || null,
+        greenfield_body: greenfieldBody.trim() || null,
+      }),
+    onSuccess: () => {
+      void templatesQuery.refetch();
+    },
+  });
+
+  function onSubmit(event: FormEvent) {
+    event.preventDefault();
+    save.mutate();
+  }
+
+  const data = templatesQuery.data;
+
+  return (
+    <section className="space-y-4">
+      <header className="space-y-1">
+        <p className="text-sm font-medium tracking-wide text-stone-500 uppercase">Proposte</p>
+        <h2 className="text-xl font-semibold tracking-tight">Template email</h2>
+        <p className="max-w-2xl text-stone-600">
+          Il testo che finisce nelle email generate per le proposte. Usa i placeholder tra doppie
+          parentesi graffe: vengono sostituiti con i dati dell'azienda e i tuoi dati da qui sopra
+          quando generi una proposta.
+        </p>
+      </header>
+
+      {templatesQuery.isError ? (
+        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">
+          {templatesQuery.error instanceof ApiError
+            ? templatesQuery.error.message
+            : "Impossibile caricare i template."}
+        </p>
+      ) : null}
+
+      {data ? (
+        <form onSubmit={onSubmit} className="space-y-6 rounded-2xl border border-stone-200 bg-white p-6">
+          <TemplateField
+            label="Email — azienda con sito (da rifare)"
+            value={refactorBody}
+            onChange={setRefactorBody}
+            tokens={data.refactor_tokens}
+            onReset={() => setRefactorBody(data.refactor_default)}
+          />
+          <TemplateField
+            label="Email — azienda senza sito (da creare)"
+            value={greenfieldBody}
+            onChange={setGreenfieldBody}
+            tokens={data.greenfield_tokens}
+            onReset={() => setGreenfieldBody(data.greenfield_default)}
+          />
+
+          {save.isError ? (
+            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">
+              {save.error instanceof ApiError ? save.error.message : "Salvataggio non riuscito."}
+            </p>
+          ) : null}
+          {save.isSuccess ? (
+            <p className="text-sm text-emerald-800">
+              Template salvati. Le proposte già generate non cambiano; rigenerale per usare il nuovo testo.
+            </p>
+          ) : null}
+
+          <button
+            type="submit"
+            disabled={save.isPending}
+            className="rounded-lg bg-stone-900 px-4 py-2 text-sm font-medium text-white hover:bg-stone-800 disabled:opacity-50"
+          >
+            {save.isPending ? "Salvataggio…" : "Salva template"}
+          </button>
+        </form>
+      ) : null}
+    </section>
+  );
+}
+
+function TemplateField({
+  label,
+  value,
+  onChange,
+  tokens,
+  onReset,
+}: {
+  label: string;
+  value: string;
+  onChange: (next: string) => void;
+  tokens: string[];
+  onReset: () => void;
+}) {
+  return (
+    <label className="block space-y-1">
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-medium text-stone-700">{label}</span>
+        <button type="button" onClick={onReset} className="text-xs text-stone-500 underline">
+          Ripristina il default
+        </button>
+      </div>
+      <textarea
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        rows={12}
+        className="w-full rounded-lg border border-stone-300 px-3 py-2 font-mono text-sm outline-none focus:border-stone-900"
+      />
+      <p className="text-xs text-stone-500">
+        Placeholder disponibili: {tokens.map((token) => `{{${token}}}`).join(", ")}
+      </p>
+    </label>
   );
 }
 

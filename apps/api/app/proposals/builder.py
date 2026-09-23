@@ -3,6 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from app.proposals.sender import DEFAULT_SENDER, SenderProfileView, format_signature
+from app.proposals.templates import (
+    DEFAULT_GREENFIELD_EMAIL_TEMPLATE,
+    DEFAULT_REFACTOR_EMAIL_TEMPLATE,
+    render_email_template,
+)
 
 RANGE_NOTE = (
     "Stima solo per te, IVA esclusa. Non va in email né al prospect: "
@@ -35,6 +40,7 @@ def build_proposal_draft(
     website_score,
     opportunity_score,
     sender: SenderProfileView | None = None,
+    email_template: str | None = None,
 ) -> ProposalDraft:
     name = company_name or domain
     place = f" a {city}" if city else ""
@@ -52,7 +58,7 @@ def build_proposal_draft(
     strategy = _strategy(service, problems, website_overall)
     brief = _brief(name, url, domain, website_overall, opportunity_value, service, problems, range_min, range_max)
     email_subject = f"{name}: un'idea concreta per il sito"
-    email_body = _email(name, place, domain, service, problems, sender or DEFAULT_SENDER)
+    email_body = _email(name, place, domain, sender or DEFAULT_SENDER, email_template)
     return ProposalDraft(
         summary=summary,
         priority_problems=problems,
@@ -75,6 +81,7 @@ def build_greenfield_proposal_draft(
     city: str | None,
     growth_score,
     sender: SenderProfileView | None = None,
+    email_template: str | None = None,
 ) -> ProposalDraft:
     place = f" a {city}" if city else ""
     service = growth_score.recommended_service
@@ -84,7 +91,7 @@ def build_greenfield_proposal_draft(
     strategy = _greenfield_strategy(service, growth_score)
     brief = _greenfield_brief(company_name, category, city, growth_score, service, range_min, range_max)
     email_subject = f"{company_name}: vi manca ancora un sito web"
-    email_body = _greenfield_email(company_name, place, growth_score, service, sender or DEFAULT_SENDER)
+    email_body = _greenfield_email(company_name, place, sender or DEFAULT_SENDER, email_template)
     return ProposalDraft(
         summary=summary,
         priority_problems=problems,
@@ -187,21 +194,16 @@ def _greenfield_brief(
 def _greenfield_email(
     name: str,
     place: str,
-    growth_score,
-    service: str,
     sender: SenderProfileView,
+    template: str | None,
 ) -> str:
-    reason = growth_score.top_reasons[0] if growth_score.top_reasons else "chi vi cerca online oggi fatica a trovarvi"
-    return (
-        f"Buongiorno,\n\n"
-        f"mi chiamo {sender.display_name}. {sender.intro}\n\n"
-        f"Vi scrivo perché ho notato che {name}{place} non ha ancora un sito web. "
-        f"Non è una vendita a freddo: {reason}\n\n"
-        f"Un intervento utile sarebbe: {service}. "
-        f"Se vi interessa, vi mando un brief di una pagina e ci sentiamo 15 minuti, senza impegno.\n\n"
-        f"Un saluto,\n"
-        f"{format_signature(sender)}"
-    )
+    context = {
+        "nome_mittente": sender.display_name,
+        "nome_attivita": name,
+        "luogo": place,
+        "firma": format_signature(sender),
+    }
+    return render_email_template(template or DEFAULT_GREENFIELD_EMAIL_TEMPLATE, context)
 
 
 def estimate_range(service: str, website_overall: int | None, priority: str | None) -> tuple[int, int]:
@@ -322,23 +324,14 @@ def _email(
     name: str,
     place: str,
     domain: str,
-    service: str,
-    problems: list[dict],
     sender: SenderProfileView,
+    template: str | None,
 ) -> str:
-    issue = problems[0]["title"] if problems else "alcuni limiti sul sito"
-    extra = ""
-    if len(problems) > 1:
-        extra = " Tra gli altri punti: " + "; ".join(item["title"] for item in problems[1:3]) + "."
-    return (
-        f"Buongiorno,\n\n"
-        f"mi chiamo {sender.display_name}. {sender.intro}\n\n"
-        f"Vi scrivo perché ho analizzato il sito di {name}{place} ({domain}) "
-        f"e ho visto dove la presenza digitale può funzionare meglio per chi vi cerca. "
-        f"Non è una vendita a freddo: è un'occhiata concreta a quello che c'è oggi. "
-        f"Il punto più evidente è: {issue}.{extra}\n\n"
-        f"Un intervento utile sarebbe: {service}. "
-        f"Se vi interessa, vi mando un brief di una pagina e ci sentiamo 15 minuti, senza impegno.\n\n"
-        f"Un saluto,\n"
-        f"{format_signature(sender)}"
-    )
+    context = {
+        "nome_mittente": sender.display_name,
+        "nome_attivita": name,
+        "luogo": place,
+        "dominio": domain,
+        "firma": format_signature(sender),
+    }
+    return render_email_template(template or DEFAULT_REFACTOR_EMAIL_TEMPLATE, context)

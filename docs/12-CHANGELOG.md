@@ -42,6 +42,7 @@
 - Pipeline: filtro per segmento "da rifare" (con sito) / "da creare" (senza sito); il ranking usa il Growth Score come punteggio quando manca l'Opportunity Score, così i prospect senza sito non finiscono sempre in fondo.
 - Discovery: telefono con fallback su `contact:mobile`/`mobile`; contatto social (WhatsApp/Facebook/Instagram) recuperato dai tag OSM e mostrato in anagrafica come alternativa quando telefono/email mancano.
 - Scheda azienda: link "Cerca su Google Maps" per trovare a mano un contatto quando OSM non ne ha; niente API a pagamento, nessun dato salvato — è solo una ricerca che apri nel browser.
+- Impostazioni: editor dei template email delle proposte (da rifare / da creare), con placeholder ({{nome_mittente}}, {{nome_attivita}}, {{luogo}}, {{dominio}}, {{firma}}) e pulsante per tornare al testo di default; il testo deterministico di partenza resta quello, personalizzabile senza toccare il codice.
 
 ### Changed
 - PageSpeed Insights è opzionale via `PAGESPEED_API_KEY`; Lighthouse nativo è rimandato (M1-014).
