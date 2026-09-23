@@ -29,6 +29,35 @@ def test_html_extracts_core_fields() -> None:
     assert result.structured_data_count == 1
 
 
+def test_403_status_is_flagged_as_possible_block_not_high_severity() -> None:
+    http_result = HttpScanResult(
+        ok=True,
+        final_url="https://example.com",
+        status_code=403,
+        https=True,
+        content_type="text/html",
+        html="<html><body>Access denied</body></html>",
+    )
+    findings = build_findings(http_result, HtmlScanResult(), SeoScanResult(robots_found=True, sitemap_found=True))
+    status_finding = next(item for item in findings if item.code == "HTTP_ERROR_STATUS")
+    assert status_finding.severity == "medium"
+    assert "blocco anti-bot" in status_finding.description
+
+
+def test_500_status_stays_critical() -> None:
+    http_result = HttpScanResult(
+        ok=True,
+        final_url="https://example.com",
+        status_code=500,
+        https=True,
+        content_type="text/html",
+        html="<html><body>error</body></html>",
+    )
+    findings = build_findings(http_result, HtmlScanResult(), SeoScanResult(robots_found=True, sitemap_found=True))
+    status_finding = next(item for item in findings if item.code == "HTTP_ERROR_STATUS")
+    assert status_finding.severity == "critical"
+
+
 def test_findings_for_weak_page() -> None:
     http_result = HttpScanResult(
         ok=True,

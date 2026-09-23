@@ -8,7 +8,14 @@ from app.ai.provider import get_ai_provider
 from app.config import Settings
 from app.proposals.builder import ProposalDraft
 from app.proposals.prompt_v1 import SYSTEM_PROMPT
-from app.proposals.sender import SenderProfileView, email_leaks_price, email_proposes_time_slot, ensure_signature
+from app.proposals.sender import (
+    SenderProfileView,
+    email_claims_lost_business,
+    email_leaks_price,
+    email_leaks_score,
+    email_proposes_time_slot,
+    ensure_signature,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +51,10 @@ def polish_proposal(
             "spiega solo la conseguenza pratica per il cliente.",
             "In email_body non proporre orari o durate specifiche per una chiamata/incontro "
             "(niente '10 minuti', 'un quarto d'ora'...): chiusura aperta, senza impegnare un tempo.",
+            "Non citare punteggi numerici (Website Score, Opportunity Score, Growth Potential Score) "
+            "in email_subject o email_body: sono strumenti di valutazione interna, non per il destinatario.",
+            "Non affermare che il sito attuale sta facendo perdere clienti, fatturato o vendite: "
+            "un problema tecnico o grafico è un possibile margine di miglioramento, non una perdita dimostrata.",
         ],
     }
     try:
@@ -57,9 +68,12 @@ def polish_proposal(
         logger.warning("Proposal AI polish failed: %s", exc)
         return None
     email_body = str(parsed.get("email_body") or draft.email_body)
-    if email_leaks_price(email_body, draft.range_min, draft.range_max):
-        email_body = draft.email_body
-    elif email_proposes_time_slot(email_body):
+    if (
+        email_leaks_price(email_body, draft.range_min, draft.range_max)
+        or email_proposes_time_slot(email_body)
+        or email_leaks_score(email_body)
+        or email_claims_lost_business(email_body)
+    ):
         email_body = draft.email_body
     email_body = ensure_signature(email_body, sender)
     return ProposalDraft(

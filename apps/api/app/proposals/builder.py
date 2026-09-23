@@ -58,7 +58,7 @@ def build_proposal_draft(
     strategy = _strategy(service, problems, website_overall)
     brief = _brief(name, url, domain, website_overall, opportunity_value, service, problems, range_min, range_max)
     email_subject = f"{name}: un'idea concreta per il sito"
-    email_body = _email(name, place, domain, sender or DEFAULT_SENDER, email_template)
+    email_body = _email(name, place, domain, sender or DEFAULT_SENDER, email_template, problems)
     return ProposalDraft(
         summary=summary,
         priority_problems=problems,
@@ -90,7 +90,9 @@ def build_greenfield_proposal_draft(
     summary = _greenfield_summary(company_name, category, growth_score, service)
     strategy = _greenfield_strategy(service, growth_score)
     brief = _greenfield_brief(company_name, category, city, growth_score, service, range_min, range_max)
-    email_subject = f"{company_name}: vi manca ancora un sito web"
+    # Nei dati OSM non risulta un sito, ma non è una verifica: l'oggetto non deve
+    # presentarlo come un fatto accertato al destinatario (vedi anche AGENTS.md §2.1).
+    email_subject = f"{company_name}: un'idea per la vostra presenza online"
     email_body = _greenfield_email(company_name, place, sender or DEFAULT_SENDER, email_template)
     return ProposalDraft(
         summary=summary,
@@ -149,9 +151,9 @@ def _greenfield_summary(name: str, category: str | None, growth_score, service: 
     cat_bit = f" ({category})" if category else ""
     top = growth_score.top_reasons[0] if growth_score.top_reasons else "manca ancora un sito web"
     return (
-        f"{name}{cat_bit} non ha un sito web. Growth Potential Score {growth_score.score}/100 "
-        f"({growth_score.priority}). Il punto principale è: {top}. "
-        f"Il servizio più coerente è: {service}."
+        f"{name}{cat_bit}: nessun sito web nei dati raccolti (non una verifica accertata). "
+        f"Growth Potential Score {growth_score.score}/100 ({growth_score.priority}). "
+        f"Il punto principale è: {top}. Il servizio più coerente è: {service}."
     )
 
 
@@ -326,6 +328,7 @@ def _email(
     domain: str,
     sender: SenderProfileView,
     template: str | None,
+    problems: list[dict],
 ) -> str:
     context = {
         "nome_mittente": sender.display_name,
@@ -333,5 +336,42 @@ def _email(
         "luogo": place,
         "dominio": domain,
         "firma": format_signature(sender),
+        "osservazione": _pick_observation(problems),
     }
     return render_email_template(template or DEFAULT_REFACTOR_EMAIL_TEMPLATE, context)
+
+
+# Solo problemi verificati dallo scanner, tradotti in linguaggio non tecnico e rilevanti
+# per chi non è del mestiere: mai gergo (viewport, HTTPS, CTA...), sempre la conseguenza
+# pratica. Un solo elemento per email (mai un elenco di errori tecnici), il più rilevante
+# tra quelli trovati, in ordine di priorità commerciale.
+_OBSERVATION_PRIORITY: tuple[str, ...] = (
+    "HTML_MISSING_VIEWPORT",
+    "HTML_WEAK_CTA",
+    "HTTP_NO_HTTPS",
+    "HTTP_SLOW_RESPONSE",
+    "HTML_MISSING_H1",
+    "HTML_MISSING_TITLE",
+)
+_OBSERVATION_BY_CODE: dict[str, str] = {
+    "HTML_MISSING_VIEWPORT": (
+        "il sito non sembra ottimizzato per chi naviga da smartphone, che oggi sono la maggior parte dei visitatori"
+    ),
+    "HTML_WEAK_CTA": "non è subito chiaro come contattarvi o prenotare direttamente dal sito",
+    "HTTP_NO_HTTPS": (
+        "il sito non ha ancora un collegamento protetto (HTTPS), che alcuni browser segnalano a chi naviga"
+    ),
+    "HTTP_SLOW_RESPONSE": (
+        "il sito impiega diversi secondi a caricarsi, e questo può far perdere pazienza a chi lo visita"
+    ),
+    "HTML_MISSING_H1": "la pagina principale non comunica subito, in poche parole, chi siete e cosa offrite",
+    "HTML_MISSING_TITLE": "la pagina principale non comunica subito, in poche parole, chi siete e cosa offrite",
+}
+
+
+def _pick_observation(problems: list[dict]) -> str:
+    codes_present = {item.get("code") for item in problems}
+    for code in _OBSERVATION_PRIORITY:
+        if code in codes_present:
+            return f" Ho notato in particolare che {_OBSERVATION_BY_CODE[code]}."
+    return ""

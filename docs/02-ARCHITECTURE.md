@@ -190,12 +190,13 @@ L'architettura deve comunque consentire in futuro code per:
 
 ## Sicurezza
 
-- API key mai nel frontend;
-- segreti via env/storage sicuro;
+- API key mai nel frontend (eccetto le chiavi AI in Impostazioni, scelta esplicita per un'app locale senza autenticazione: vedi 12-CHANGELOG);
+- segreti via env/storage sicuro; gli errori restituiti da provider esterni (es. PageSpeed) non riportano mai l'URL con la chiave;
 - input web esterni non affidabili;
 - timeout e limiti sulle richieste;
 - sanitizzazione dei dati;
-- nessuna esecuzione arbitraria proveniente dai siti analizzati.
+- nessuna esecuzione arbitraria proveniente dai siti analizzati;
+- lo scanner rifiuta indirizzi di rete privati/locali (IP letterali e domini che vi risolvono, anche nei redirect) per evitare richieste verso servizi interni.
 
 ## Principio architetturale
 

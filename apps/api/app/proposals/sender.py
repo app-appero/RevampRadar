@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 
@@ -82,6 +83,30 @@ def email_proposes_time_slot(body: str) -> bool:
         "10 minuti", "15 minuti", "20 minuti", "30 minuti",
         "un quarto d'ora", "quarto d'ora", "mezz'ora", "mezzora",
         "dieci minuti", "quindici minuti", "venti minuti", "trenta minuti",
+    )
+    return any(marker in text for marker in markers)
+
+
+def email_leaks_score(body: str) -> bool:
+    """Vero se l'email cita un punteggio interno (Website/Opportunity/Growth Potential Score).
+
+    Questi punteggi sono strumenti di valutazione interna e non vanno mostrati al destinatario.
+    """
+    text = body.lower()
+    markers = ("website score", "opportunity score", "growth potential score", "growth score")
+    if any(marker in text for marker in markers):
+        return True
+    return bool(re.search(r"\b\d{1,3}\s*/\s*100\b", text))
+
+
+def email_claims_lost_business(body: str) -> bool:
+    """Vero se l'email afferma che l'azienda sta perdendo clienti/fatturato senza averlo verificato."""
+    text = body.lower()
+    markers = (
+        "vi fa perdere clienti", "vi sta facendo perdere clienti", "state perdendo clienti",
+        "perdete clienti", "perdita di clienti", "perdita di fatturato", "perdita di vendite",
+        "vi fa perdere vendite", "vi fa perdere fatturato", "sta facendo perdere vendite",
+        "sta facendo perdere fatturato", "state perdendo vendite", "state perdendo fatturato",
     )
     return any(marker in text for marker in markers)
 
