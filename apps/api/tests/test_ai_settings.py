@@ -4,15 +4,8 @@ from app.config import Settings
 from app.services.ai_settings import (
     effective_settings,
     is_ai_available,
-    key_preview,
     update_ai_credentials,
 )
-
-
-def test_key_preview_masks_value() -> None:
-    assert key_preview("sk-ant-1234567890") == "••••7890"
-    assert key_preview(None) is None
-    assert key_preview("") is None
 
 
 def test_effective_settings_overrides_env_with_db_credentials(db_session) -> None:
@@ -49,7 +42,7 @@ def test_empty_string_clears_a_stored_key(db_session) -> None:
 def test_ai_credentials_api_roundtrip(client) -> None:
     first = client.get("/settings/ai")
     assert first.status_code == 200
-    assert first.json()["has_anthropic_key"] is False
+    assert first.json()["anthropic_api_key"] is None
     assert first.json()["ai_available"] is False
 
     updated = client.put(
@@ -58,8 +51,7 @@ def test_ai_credentials_api_roundtrip(client) -> None:
     )
     assert updated.status_code == 200
     body = updated.json()
-    assert body["has_anthropic_key"] is True
-    assert body["anthropic_key_preview"] == "••••1234"
+    assert body["anthropic_api_key"] == "sk-ant-abcd1234"
     assert body["ai_available"] is True
 
     switched = client.put("/settings/ai", json={"provider": "openai"})

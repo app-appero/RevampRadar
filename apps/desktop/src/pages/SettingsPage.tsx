@@ -140,6 +140,44 @@ export function SettingsPage() {
   );
 }
 
+function ApiKeyField({
+  label,
+  value,
+  onChange,
+  visible,
+  onToggleVisible,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (next: string) => void;
+  visible: boolean;
+  onToggleVisible: () => void;
+  placeholder: string;
+}) {
+  return (
+    <label className="block space-y-1">
+      <span className="text-sm font-medium text-stone-700">{label}</span>
+      <div className="flex gap-2">
+        <input
+          type={visible ? "text" : "password"}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder={placeholder}
+          className="w-full rounded-lg border border-stone-300 px-3 py-2 font-mono text-sm outline-none focus:border-stone-900"
+        />
+        <button
+          type="button"
+          onClick={onToggleVisible}
+          className="shrink-0 rounded-lg border border-stone-300 px-3 py-2 text-sm text-stone-700 hover:bg-stone-50"
+        >
+          {visible ? "Nascondi" : "Mostra"}
+        </button>
+      </div>
+    </label>
+  );
+}
+
 function AiCredentialsEditor() {
   const aiQuery = useQuery({
     queryKey: ["ai-settings"],
@@ -148,23 +186,25 @@ function AiCredentialsEditor() {
   const [provider, setProvider] = useState<string>("claude");
   const [anthropicKey, setAnthropicKey] = useState("");
   const [openaiKey, setOpenaiKey] = useState("");
+  const [showAnthropic, setShowAnthropic] = useState(false);
+  const [showOpenai, setShowOpenai] = useState(false);
 
   useEffect(() => {
     const data = aiQuery.data;
     if (!data) return;
     setProvider(data.provider);
+    setAnthropicKey(data.anthropic_api_key ?? "");
+    setOpenaiKey(data.openai_api_key ?? "");
   }, [aiQuery.data]);
 
   const save = useMutation({
     mutationFn: () =>
       saveAiSettings({
         provider,
-        anthropic_api_key: anthropicKey.trim() ? anthropicKey.trim() : undefined,
-        openai_api_key: openaiKey.trim() ? openaiKey.trim() : undefined,
+        anthropic_api_key: anthropicKey.trim(),
+        openai_api_key: openaiKey.trim(),
       }),
     onSuccess: () => {
-      setAnthropicKey("");
-      setOpenaiKey("");
       void aiQuery.refetch();
     },
   });
@@ -217,37 +257,23 @@ function AiCredentialsEditor() {
             </select>
           </label>
 
-          <label className="block space-y-1">
-            <span className="text-sm font-medium text-stone-700">
-              Chiave Anthropic (Claude){" "}
-              {data.has_anthropic_key ? (
-                <span className="text-xs font-normal text-stone-500">— attuale: {data.anthropic_key_preview}</span>
-              ) : null}
-            </span>
-            <input
-              type="password"
-              value={anthropicKey}
-              onChange={(event) => setAnthropicKey(event.target.value)}
-              placeholder={data.has_anthropic_key ? "Lascia vuoto per non cambiarla" : "sk-ant-…"}
-              className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-stone-900"
-            />
-          </label>
+          <ApiKeyField
+            label="Chiave Anthropic (Claude)"
+            value={anthropicKey}
+            onChange={setAnthropicKey}
+            visible={showAnthropic}
+            onToggleVisible={() => setShowAnthropic((prev) => !prev)}
+            placeholder="sk-ant-…"
+          />
 
-          <label className="block space-y-1">
-            <span className="text-sm font-medium text-stone-700">
-              Chiave OpenAI{" "}
-              {data.has_openai_key ? (
-                <span className="text-xs font-normal text-stone-500">— attuale: {data.openai_key_preview}</span>
-              ) : null}
-            </span>
-            <input
-              type="password"
-              value={openaiKey}
-              onChange={(event) => setOpenaiKey(event.target.value)}
-              placeholder={data.has_openai_key ? "Lascia vuoto per non cambiarla" : "sk-…"}
-              className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-stone-900"
-            />
-          </label>
+          <ApiKeyField
+            label="Chiave OpenAI"
+            value={openaiKey}
+            onChange={setOpenaiKey}
+            visible={showOpenai}
+            onToggleVisible={() => setShowOpenai((prev) => !prev)}
+            placeholder="sk-…"
+          />
 
           {save.isError ? (
             <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">

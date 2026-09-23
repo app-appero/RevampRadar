@@ -9,6 +9,7 @@ import {
   fetchOpportunities,
   type OpportunityFilters,
 } from "../api/crm";
+import { fetchCompanyCategories } from "../api/discovery";
 
 const PRIORITIES = ["VERY_HIGH", "HIGH", "MEDIUM", "LOW"] as const;
 
@@ -55,6 +56,10 @@ export function PipelinePage() {
   const listQuery = useQuery({
     queryKey: ["opportunities", filters],
     queryFn: () => fetchOpportunities(filters),
+  });
+  const categoriesQuery = useQuery({
+    queryKey: ["company-categories"],
+    queryFn: fetchCompanyCategories,
   });
   const dash = dashboardQuery.data;
 
@@ -169,12 +174,18 @@ export function PipelinePage() {
             placeholder="Città"
             className="rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-stone-900"
           />
-          <input
+          <select
             value={category}
             onChange={(event) => setCategory(event.target.value)}
-            placeholder="Settore"
             className="rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-stone-900"
-          />
+          >
+            <option value="">Settore (tutti)</option>
+            {(categoriesQuery.data ?? []).map((item) => (
+              <option key={item} value={item}>
+                {item}
+              </option>
+            ))}
+          </select>
           <input
             value={tag}
             onChange={(event) => setTag(event.target.value)}

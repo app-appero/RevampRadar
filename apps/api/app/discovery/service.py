@@ -106,6 +106,16 @@ def list_companies(session: Session) -> list[Company]:
     )
 
 
+def list_company_categories(session: Session) -> list[str]:
+    rows = (
+        session.query(Company.category)
+        .filter(Company.category.isnot(None), Company.category != "")
+        .distinct()
+        .all()
+    )
+    return sorted({row[0] for row in rows}, key=str.lower)
+
+
 def get_company(session: Session, company_id: UUID) -> Company | None:
     return (
         session.query(Company)

@@ -46,6 +46,8 @@
 - Impostazioni: chiavi AI (Claude/OpenAI) modificabili dall'app, salvate nel database e con priorità su quelle di `.env`; usate sia per l'analisi AI degli audit sia per le proposte.
 - Proposte: alla generazione, se una chiave AI è configurata, un popup chiede se vuoi la versione arricchita con AI o quella di default; senza chiave si genera direttamente quella di default, senza chiedere.
 - Prompt AI delle proposte: niente più gergo tecnico nell'email (spiega la conseguenza pratica, non i termini tecnici) e niente più proposte di durata/orario per una chiamata; un controllo lato codice scarta la risposta AI e usa il testo deterministico se lo ignora comunque.
+- Discovery: risultati di una ricerca filtrabili per settore (utile con "tutti i settori", che mischia categorie diverse nello stesso elenco).
+- Pipeline: filtro "Settore" ora è un menù a tendina con i settori realmente presenti in anagrafica, non più testo libero.
 
 ### Changed
 - PageSpeed Insights è opzionale via `PAGESPEED_API_KEY`; Lighthouse nativo è rimandato (M1-014).
