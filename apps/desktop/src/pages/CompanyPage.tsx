@@ -20,6 +20,7 @@ import {
 import { fetchCompanyIntelligence } from "../api/intelligence";
 import { fetchCompanyGrowthScore } from "../api/growth";
 import { generateGreenfieldProposal, generateProposal, fetchCompanyProposal } from "../api/proposals";
+import { fetchAiSettings } from "../api/settings";
 import { IntelligencePanel } from "../components/IntelligencePanel";
 import { fetchCompany, formatOsmTags } from "../api/discovery";
 import { ProposalCard } from "../components/ProposalCard";
@@ -60,6 +61,11 @@ export function CompanyPage() {
     enabled: Boolean(companyId) && query.isSuccess && !query.data?.website_url,
     retry: false,
   });
+  const aiSettingsQuery = useQuery({
+    queryKey: ["ai-settings"],
+    queryFn: fetchAiSettings,
+  });
+  const [aiDialogFor, setAiDialogFor] = useState<"refactor" | "greenfield" | null>(null);
   const analyze = useMutation({
     mutationFn: async () => {
       const company = query.data;
@@ -74,12 +80,12 @@ export function CompanyPage() {
     },
   });
   const generateProposalMut = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (useAi: boolean) => {
       const auditId = crmQuery.data?.latest_audit_id;
       if (!auditId) {
         throw new ApiError("Serve un audit completato per generare la proposta.");
       }
-      return generateProposal(auditId);
+      return generateProposal(auditId, useAi);
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["company-proposal", companyId] });
@@ -89,7 +95,7 @@ export function CompanyPage() {
     },
   });
   const generateGreenfieldMut = useMutation({
-    mutationFn: async () => generateGreenfieldProposal(companyId!),
+    mutationFn: async (useAi: boolean) => generateGreenfieldProposal(companyId!, useAi),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["company-proposal", companyId] });
     },
@@ -97,6 +103,28 @@ export function CompanyPage() {
       setError(err instanceof ApiError ? err.message : "Proposta non generata.");
     },
   });
+
+  function startGenerateProposal(kind: "refactor" | "greenfield") {
+    setError(null);
+    if (aiSettingsQuery.data?.ai_available) {
+      setAiDialogFor(kind);
+      return;
+    }
+    if (kind === "refactor") {
+      generateProposalMut.mutate(false);
+    } else {
+      generateGreenfieldMut.mutate(false);
+    }
+  }
+
+  function chooseAiForDialog(useAi: boolean) {
+    if (aiDialogFor === "refactor") {
+      generateProposalMut.mutate(useAi);
+    } else if (aiDialogFor === "greenfield") {
+      generateGreenfieldMut.mutate(useAi);
+    }
+    setAiDialogFor(null);
+  }
   const company = query.data;
   const opportunity = crmQuery.data;
 
@@ -199,10 +227,7 @@ export function CompanyPage() {
                 <button
                   type="button"
                   disabled={generateProposalMut.isPending}
-                  onClick={() => {
-                    setError(null);
-                    generateProposalMut.mutate();
-                  }}
+                  onClick={() => startGenerateProposal("refactor")}
                   className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-800 hover:bg-stone-50 disabled:opacity-50"
                 >
                   {generateProposalMut.isPending ? "Generazione…" : "Genera proposta"}
@@ -212,16 +237,48 @@ export function CompanyPage() {
                 <button
                   type="button"
                   disabled={generateGreenfieldMut.isPending}
-                  onClick={() => {
-                    setError(null);
-                    generateGreenfieldMut.mutate();
-                  }}
+                  onClick={() => startGenerateProposal("greenfield")}
                   className="rounded-lg bg-amber-700 px-4 py-2 text-sm font-medium text-white hover:bg-amber-800 disabled:opacity-50"
                 >
                   {generateGreenfieldMut.isPending ? "Generazione…" : "Genera proposta di creazione sito"}
                 </button>
               ) : null}
             </div>
+
+            {aiDialogFor ? (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+                <div className="w-full max-w-sm space-y-4 rounded-2xl bg-white p-6 shadow-lg">
+                  <h2 className="text-lg font-semibold">Come vuoi generare la proposta?</h2>
+                  <p className="text-sm text-stone-600">
+                    La versione con AI parte dal testo di default e lo arricchisce sui finding
+                    specifici di questa azienda.
+                  </p>
+                  <div className="flex flex-col gap-2">
+                    <button
+                      type="button"
+                      onClick={() => chooseAiForDialog(true)}
+                      className="rounded-lg bg-stone-900 px-4 py-2 text-sm font-medium text-white hover:bg-stone-800"
+                    >
+                      Con AI
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => chooseAiForDialog(false)}
+                      className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-800 hover:bg-stone-50"
+                    >
+                      Versione di default
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAiDialogFor(null)}
+                      className="text-sm text-stone-500 underline"
+                    >
+                      Annulla
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
             {!company.website_url ? (
               <p className="text-sm text-stone-500">
                 Nessun sito collegato: non è possibile avviare l'audit. Questa azienda rientra nel segmento

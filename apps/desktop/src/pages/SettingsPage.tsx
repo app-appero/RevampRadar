@@ -3,12 +3,19 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 
 import { ApiError } from "../api/health";
 import {
+  fetchAiSettings,
   fetchEmailTemplates,
   fetchSenderProfile,
+  saveAiSettings,
   saveEmailTemplates,
   saveSenderProfile,
   type ProfileLink,
 } from "../api/settings";
+
+const AI_PROVIDERS = [
+  { value: "claude", label: "Claude (Anthropic)" },
+  { value: "openai", label: "OpenAI" },
+] as const;
 
 export function SettingsPage() {
   const profileQuery = useQuery({
@@ -127,8 +134,138 @@ export function SettingsPage() {
         </button>
       </form>
 
+      <AiCredentialsEditor />
       <EmailTemplatesEditor />
     </main>
+  );
+}
+
+function AiCredentialsEditor() {
+  const aiQuery = useQuery({
+    queryKey: ["ai-settings"],
+    queryFn: fetchAiSettings,
+  });
+  const [provider, setProvider] = useState<string>("claude");
+  const [anthropicKey, setAnthropicKey] = useState("");
+  const [openaiKey, setOpenaiKey] = useState("");
+
+  useEffect(() => {
+    const data = aiQuery.data;
+    if (!data) return;
+    setProvider(data.provider);
+  }, [aiQuery.data]);
+
+  const save = useMutation({
+    mutationFn: () =>
+      saveAiSettings({
+        provider,
+        anthropic_api_key: anthropicKey.trim() ? anthropicKey.trim() : undefined,
+        openai_api_key: openaiKey.trim() ? openaiKey.trim() : undefined,
+      }),
+    onSuccess: () => {
+      setAnthropicKey("");
+      setOpenaiKey("");
+      void aiQuery.refetch();
+    },
+  });
+
+  function onSubmit(event: FormEvent) {
+    event.preventDefault();
+    save.mutate();
+  }
+
+  const data = aiQuery.data;
+
+  return (
+    <section className="space-y-4">
+      <header className="space-y-1">
+        <p className="text-sm font-medium tracking-wide text-stone-500 uppercase">Proposte</p>
+        <h2 className="text-xl font-semibold tracking-tight">Chiavi AI</h2>
+        <p className="max-w-2xl text-stone-600">
+          Per arricchire con l'AI le proposte (e l'analisi qualitativa dei siti) serve una chiave
+          del provider scelto. Senza chiave resta sempre il testo deterministico.
+        </p>
+      </header>
+
+      {aiQuery.isError ? (
+        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">
+          {aiQuery.error instanceof ApiError ? aiQuery.error.message : "Impossibile caricare le chiavi AI."}
+        </p>
+      ) : null}
+
+      {data ? (
+        <form onSubmit={onSubmit} className="space-y-6 rounded-2xl border border-stone-200 bg-white p-6">
+          <p className="text-sm">
+            Provider attivo:{" "}
+            <span className={`font-medium ${data.ai_available ? "text-emerald-700" : "text-amber-700"}`}>
+              {data.ai_available ? "configurato" : "nessuna chiave per questo provider"}
+            </span>
+          </p>
+
+          <label className="block space-y-1">
+            <span className="text-sm font-medium text-stone-700">Provider</span>
+            <select
+              value={provider}
+              onChange={(event) => setProvider(event.target.value)}
+              className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-stone-900"
+            >
+              {AI_PROVIDERS.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="block space-y-1">
+            <span className="text-sm font-medium text-stone-700">
+              Chiave Anthropic (Claude){" "}
+              {data.has_anthropic_key ? (
+                <span className="text-xs font-normal text-stone-500">— attuale: {data.anthropic_key_preview}</span>
+              ) : null}
+            </span>
+            <input
+              type="password"
+              value={anthropicKey}
+              onChange={(event) => setAnthropicKey(event.target.value)}
+              placeholder={data.has_anthropic_key ? "Lascia vuoto per non cambiarla" : "sk-ant-…"}
+              className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-stone-900"
+            />
+          </label>
+
+          <label className="block space-y-1">
+            <span className="text-sm font-medium text-stone-700">
+              Chiave OpenAI{" "}
+              {data.has_openai_key ? (
+                <span className="text-xs font-normal text-stone-500">— attuale: {data.openai_key_preview}</span>
+              ) : null}
+            </span>
+            <input
+              type="password"
+              value={openaiKey}
+              onChange={(event) => setOpenaiKey(event.target.value)}
+              placeholder={data.has_openai_key ? "Lascia vuoto per non cambiarla" : "sk-…"}
+              className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-stone-900"
+            />
+          </label>
+
+          {save.isError ? (
+            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">
+              {save.error instanceof ApiError ? save.error.message : "Salvataggio non riuscito."}
+            </p>
+          ) : null}
+          {save.isSuccess ? <p className="text-sm text-emerald-800">Chiavi salvate.</p> : null}
+
+          <button
+            type="submit"
+            disabled={save.isPending}
+            className="rounded-lg bg-stone-900 px-4 py-2 text-sm font-medium text-white hover:bg-stone-800 disabled:opacity-50"
+          >
+            {save.isPending ? "Salvataggio…" : "Salva chiavi"}
+          </button>
+        </form>
+      ) : null}
+    </section>
   );
 }
 

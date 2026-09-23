@@ -139,6 +139,77 @@ def test_generate_and_replace_proposal(client, db_session, monkeypatch) -> None:
     assert missing.status_code == 404
 
 
+def test_use_ai_false_never_calls_polish_even_if_a_key_is_configured(client, db_session, monkeypatch) -> None:
+    monkeypatch.setattr("app.api.audits.execute_audit", lambda audit_id: None)
+
+    def _boom(*args, **kwargs):
+        raise AssertionError("polish_proposal non deve essere chiamato con use_ai=false")
+
+    monkeypatch.setattr("app.proposals.service.polish_proposal", _boom)
+    client.put("/settings/ai", json={"provider": "claude", "anthropic_api_key": "sk-ant-test"})
+
+    created = client.post("/audits", json={"url": "https://hotelsole.test"})
+    audit_id = created.json()["id"]
+    audit = db_session.get(Audit, UUID(audit_id))
+    audit.status = "completed"
+    db_session.commit()
+
+    response = client.post(f"/audits/{audit_id}/proposal", params={"use_ai": "false"})
+    assert response.status_code == 200
+    assert response.json()["source"] == "deterministic"
+
+
+def test_use_ai_true_falls_back_to_deterministic_without_a_key(client, db_session, monkeypatch) -> None:
+    monkeypatch.setattr("app.api.audits.execute_audit", lambda audit_id: None)
+    created = client.post("/audits", json={"url": "https://hotelsole.test"})
+    audit_id = created.json()["id"]
+    audit = db_session.get(Audit, UUID(audit_id))
+    audit.status = "completed"
+    db_session.commit()
+
+    response = client.post(f"/audits/{audit_id}/proposal", params={"use_ai": "true"})
+    assert response.status_code == 200
+    assert response.json()["source"] == "deterministic"
+
+
+def test_polish_proposal_falls_back_when_ai_proposes_a_time_slot(monkeypatch) -> None:
+    from app.proposals.ai import polish_proposal
+    from app.proposals.sender import DEFAULT_SENDER
+
+    class FakeProvider:
+        name = "fake"
+
+        def complete_json(self, system, user, temperature=0.3):
+            import json as _json
+
+            return _json.dumps(
+                {
+                    "summary": "Riassunto AI",
+                    "strategy": "Strategia AI",
+                    "email_subject": "Oggetto AI",
+                    "email_body": "Ciao, vi va se ci vediamo 10 minuti al telefono?",
+                    "brief": "Brief AI",
+                }
+            )
+
+    monkeypatch.setattr("app.proposals.ai.get_ai_provider", lambda settings: FakeProvider())
+    draft = build_proposal_draft(
+        domain="hotelsole.test",
+        url="https://hotelsole.test",
+        company_name=None,
+        city=None,
+        findings=[],
+        website_score=None,
+        opportunity_score=None,
+    )
+    from app.config import Settings
+
+    polished = polish_proposal(Settings(), draft, {}, DEFAULT_SENDER)
+    assert polished is not None
+    assert polished.email_body == draft.email_body
+    assert "10 minuti" not in polished.email_body
+
+
 def test_service_builds_without_httpx(db_session, monkeypatch) -> None:
     monkeypatch.setattr("app.proposals.service.polish_proposal", lambda *args, **kwargs: None)
     from app.models.entities import Website

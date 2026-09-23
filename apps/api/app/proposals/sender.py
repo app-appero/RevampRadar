@@ -75,6 +75,17 @@ def email_leaks_price(body: str, range_min: int, range_max: int) -> bool:
     return any(marker in text for marker in markers)
 
 
+def email_proposes_time_slot(body: str) -> bool:
+    """Vero se l'email fissa una durata/orario per una chiamata (l'AI non deve farlo)."""
+    text = body.lower()
+    markers = (
+        "10 minuti", "15 minuti", "20 minuti", "30 minuti",
+        "un quarto d'ora", "quarto d'ora", "mezz'ora", "mezzora",
+        "dieci minuti", "quindici minuti", "venti minuti", "trenta minuti",
+    )
+    return any(marker in text for marker in markers)
+
+
 def ensure_signature(body: str, sender: SenderProfileView) -> str:
     if sender.website_url and sender.website_url in body:
         return body.rstrip()
