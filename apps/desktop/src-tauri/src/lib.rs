@@ -4,8 +4,11 @@ fn open_external(url: String) -> Result<(), String> {
         return Err("URL non consentito".into());
     }
 
+    // Non "cmd /c start": cmd.exe reinterpreta "&" (comune nelle query string, es. "?a=1&b=2")
+    // come separatore di comandi anche dentro le virgolette, spezzando l'URL. explorer.exe
+    // apre l'URL con il browser di default senza fare parsing di shell.
     #[cfg(target_os = "windows")]
-    let result = std::process::Command::new("cmd").args(["/c", "start", "", &url]).spawn();
+    let result = std::process::Command::new("explorer").arg(&url).spawn();
 
     #[cfg(target_os = "macos")]
     let result = std::process::Command::new("open").arg(&url).spawn();
