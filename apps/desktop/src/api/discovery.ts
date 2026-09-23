@@ -15,9 +15,17 @@ export type CompanySummary = {
   source: string;
   status: string;
   domain: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   osm_tags?: Record<string, string> | null;
   osm_start_date?: string | null;
   osm_opening_hours?: string | null;
+  social_links?: SocialLink[];
+};
+
+export type SocialLink = {
+  label: string;
+  url: string;
 };
 
 export type CompanyDetail = CompanySummary & {
@@ -106,6 +114,7 @@ export type DiscoveryRun = {
   location: string;
   max_results: number;
   extended?: boolean;
+  require_contactable?: boolean;
   provider: string;
   status: DiscoveryStatus;
   total_found: number;
@@ -206,6 +215,7 @@ export async function createDiscovery(input: {
   city?: string;
   max_results: number;
   extended?: boolean;
+  require_contactable?: boolean;
 }): Promise<DiscoveryRun> {
   let response: Response;
   try {
@@ -260,6 +270,16 @@ export async function fetchCompanies(): Promise<CompanySummary[]> {
     throw new ApiError("Impossibile raggiungere il backend.");
   }
   return parseJson<CompanySummary[]>(response);
+}
+
+export async function fetchCompanyCategories(): Promise<string[]> {
+  let response: Response;
+  try {
+    response = await fetch(`${getApiBaseUrl()}/companies/categories`);
+  } catch {
+    throw new ApiError("Impossibile raggiungere il backend.");
+  }
+  return parseJson<string[]>(response);
 }
 
 export async function fetchCompany(id: string): Promise<CompanyDetail> {

@@ -9,8 +9,9 @@ export type ProposalProblem = {
 
 export type Proposal = {
   id: string;
-  audit_id: string;
+  audit_id: string | null;
   company_id: string | null;
+  kind: string;
   source: string;
   prompt_version: string;
   summary: string;
@@ -55,8 +56,16 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return parseJson<T>(response);
 }
 
-export function generateProposal(auditId: string): Promise<Proposal> {
-  return request(`/audits/${auditId}/proposal`, { method: "POST" });
+function aiQueryString(useAi?: boolean): string {
+  return useAi == null ? "" : `?use_ai=${useAi ? "true" : "false"}`;
+}
+
+export function generateProposal(auditId: string, useAi?: boolean): Promise<Proposal> {
+  return request(`/audits/${auditId}/proposal${aiQueryString(useAi)}`, { method: "POST" });
+}
+
+export function generateGreenfieldProposal(companyId: string, useAi?: boolean): Promise<Proposal> {
+  return request(`/companies/${companyId}/greenfield-proposal${aiQueryString(useAi)}`, { method: "POST" });
 }
 
 export async function fetchAuditProposal(auditId: string): Promise<Proposal | null> {

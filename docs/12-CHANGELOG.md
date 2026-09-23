@@ -37,6 +37,17 @@
 - Discovery: catalogo settori OSM ampliato (meccanico, gommista, mestieri, negozi); `start_date` e `opening_hours` se presenti su OSM.
 - Discovery: menu settore e cascata regione → provincia → città, tutti opzionali (vuoto = Italia / tutti i settori).
 - Agenda CRM: attività pianificate (`due_at`), calendario mensile, sezione in ritardo e completamento da desktop.
+- Growth Potential Score: stima euristica (non ML) per le aziende senza sito, basata su categoria, concorrenza locale con sito già online, contattabilità e reputazione se nota; spiegabile con motivi/fattori come l'Opportunity Score.
+- Proposal Engine "greenfield": proposta dedicata (servizio, range, email, brief) per chi non ha un sito, distinta da quella di refactor legata all'audit.
+- Pipeline: filtro per segmento "da rifare" (con sito) / "da creare" (senza sito); il ranking usa il Growth Score come punteggio quando manca l'Opportunity Score, così i prospect senza sito non finiscono sempre in fondo.
+- Discovery: telefono con fallback su `contact:mobile`/`mobile`; contatto social (WhatsApp/Facebook/Instagram) recuperato dai tag OSM e mostrato in anagrafica come alternativa quando telefono/email mancano.
+- Scheda azienda: link "Cerca su Google Maps" per trovare a mano un contatto quando OSM non ne ha; niente API a pagamento, nessun dato salvato — è solo una ricerca che apri nel browser.
+- Impostazioni: editor dei template email delle proposte (da rifare / da creare), con placeholder ({{nome_mittente}}, {{nome_attivita}}, {{luogo}}, {{dominio}}, {{firma}}) e pulsante per tornare al testo di default; il testo deterministico di partenza resta quello, personalizzabile senza toccare il codice.
+- Impostazioni: chiavi AI (Claude/OpenAI) modificabili dall'app, salvate nel database e con priorità su quelle di `.env`; usate sia per l'analisi AI degli audit sia per le proposte.
+- Proposte: alla generazione, se una chiave AI è configurata, un popup chiede se vuoi la versione arricchita con AI o quella di default; senza chiave si genera direttamente quella di default, senza chiedere.
+- Prompt AI delle proposte: niente più gergo tecnico nell'email (spiega la conseguenza pratica, non i termini tecnici) e niente più proposte di durata/orario per una chiamata; un controllo lato codice scarta la risposta AI e usa il testo deterministico se lo ignora comunque.
+- Discovery: risultati di una ricerca filtrabili per settore (utile con "tutti i settori", che mischia categorie diverse nello stesso elenco).
+- Pipeline: filtro "Settore" ora è un menù a tendina con i settori realmente presenti in anagrafica, non più testo libero.
 
 ### Changed
 - PageSpeed Insights è opzionale via `PAGESPEED_API_KEY`; Lighthouse nativo è rimandato (M1-014).

@@ -24,6 +24,7 @@ from app.scanner.pagespeed import fetch_pagespeed
 from app.scanner.seo import scan_seo
 from app.scanner.url import NormalizedUrl, UrlValidationError, normalize_url
 from app.scoring import FORMULA_VERSION, compute_business_score, compute_opportunity_score, compute_website_score
+from app.services.ai_settings import effective_settings
 
 
 class AuditServiceError(Exception):
@@ -77,7 +78,7 @@ def execute_audit(audit_id: UUID, settings: Settings | None = None) -> None:
 
         website = session.get(Website, audit.website_id)
         assert website is not None
-        _run_scan(session, audit, website, resolved)
+        _run_scan(session, audit, website, effective_settings(session, resolved))
         session.commit()
     except Exception as exc:
         session.rollback()

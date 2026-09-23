@@ -84,6 +84,10 @@ class OpportunitySummary(BaseModel):
     opportunity_score: int | None = None
     priority: str | None = None
     latest_audit_id: UUID | None = None
+    has_website: bool = True
+    growth_score: int | None = None
+    growth_priority: str | None = None
+    segment: str = "refactor"
     updated_at: datetime
 
 

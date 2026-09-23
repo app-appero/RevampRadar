@@ -131,6 +131,63 @@ def test_osm_keeps_start_date_and_opening_hours() -> None:
     assert candidate.extra["osm_tags"]["opening_hours"] == "Mo-Fr 08:00-18:00"
 
 
+def test_osm_falls_back_to_mobile_and_keeps_social_tags() -> None:
+    candidate = _from_osm(
+        {
+            "type": "node",
+            "id": 4,
+            "lat": 41.9,
+            "lon": 12.5,
+            "tags": {
+                "name": "Trattoria da Elvira",
+                "amenity": "restaurant",
+                "contact:mobile": "+39 333 1234567",
+                "contact:instagram": "trattoriaelvira",
+            },
+        },
+        "ristorante",
+    )
+    assert candidate is not None
+    assert candidate.phone == "+39 333 1234567"
+    assert candidate.email is None
+    assert candidate.extra["osm_tags"]["contact:instagram"] == "trattoriaelvira"
+
+
+def test_social_contact_links_returns_all_matches_in_order() -> None:
+    from app.discovery.osm import social_contact_links
+
+    assert social_contact_links(None) == []
+    assert social_contact_links({}) == []
+    assert social_contact_links({"contact:whatsapp": "+39 333 1234567"}) == [
+        ("WhatsApp", "https://wa.me/393331234567")
+    ]
+    assert social_contact_links({"contact:facebook": "trattoriaelvira"}) == [
+        ("Facebook", "https://facebook.com/trattoriaelvira"),
+    ]
+    assert social_contact_links({"facebook": "https://facebook.com/pagina"}) == [
+        ("Facebook", "https://facebook.com/pagina"),
+    ]
+    assert social_contact_links({"instagram": "@trattoriaelvira"}) == [
+        ("Instagram", "https://instagram.com/trattoriaelvira"),
+    ]
+    # Più social insieme: tutti presenti, nell'ordine whatsapp -> facebook -> instagram -> ...
+    assert social_contact_links(
+        {"contact:whatsapp": "+39 333 1234567", "contact:facebook": "x", "contact:instagram": "@y"}
+    ) == [
+        ("WhatsApp", "https://wa.me/393331234567"),
+        ("Facebook", "https://facebook.com/x"),
+        ("Instagram", "https://instagram.com/y"),
+    ]
+    assert social_contact_links({"contact:telegram": "@mario"}) == [("Telegram", "https://t.me/mario")]
+    assert social_contact_links({"contact:tiktok": "mario.rossi"}) == [
+        ("TikTok", "https://tiktok.com/@mario.rossi")
+    ]
+    assert social_contact_links({"contact:twitter": "@mario"}) == [("X", "https://x.com/mario")]
+    assert social_contact_links({"youtube": "https://youtube.com/@mario"}) == [
+        ("YouTube", "https://youtube.com/@mario")
+    ]
+
+
 def test_osm_element_coords_from_node_and_center() -> None:
     assert element_coords({"lat": 38.1, "lon": 13.3}) == (38.1, 13.3)
     assert element_coords({"center": {"lat": 37.5, "lon": 15.1}}) == (37.5, 15.1)
@@ -357,6 +414,47 @@ def test_discovery_persists_dedupes_and_links_website(db_session, monkeypatch) -
     assert get_company(db_session, sole.id) is not None
 
 
+def test_discovery_skips_uncontactable_when_required(db_session, monkeypatch) -> None:
+    class Fake:
+        name = "fake"
+
+        def search_businesses(self, query):
+            return [
+                DiscoveryCandidate(
+                    name="Bar Con Telefono",
+                    city="Palermo",
+                    phone="0911234567",
+                    source="fake",
+                    external_id="n/10",
+                ),
+                DiscoveryCandidate(
+                    name="Bar Senza Niente",
+                    city="Palermo",
+                    source="fake",
+                    external_id="n/11",
+                ),
+                DiscoveryCandidate(
+                    name="Bar Con Instagram",
+                    city="Palermo",
+                    source="fake",
+                    external_id="n/12",
+                    extra={"osm_tags": {"contact:instagram": "barconinstagram"}},
+                ),
+            ]
+
+    monkeypatch.setattr("app.discovery.service.get_discovery_provider", lambda settings: Fake())
+    run = create_discovery_run(
+        db_session, industry="Bar", location="Palermo", max_results=20, require_contactable=True
+    )
+    _run_discovery(db_session, run, Settings())
+    db_session.commit()
+
+    assert run.total_found == 2
+    assert "1 escluse (incontattabili)" in run.progress_label
+    names = sorted(item.name for item in list_companies(db_session))
+    assert names == ["Bar Con Instagram", "Bar Con Telefono"]
+
+
 def test_create_discovery_api_queues_job(client, monkeypatch) -> None:
     monkeypatch.setattr("app.api.discovery.execute_discovery", lambda run_id: None)
     created = client.post(
@@ -369,9 +467,20 @@ def test_create_discovery_api_queues_job(client, monkeypatch) -> None:
     assert payload["industry"] == "Hotel"
     assert payload["progress_percent"] == 0
     assert payload["progress_label"] == "In coda"
+    assert payload["require_contactable"] is False
     fetched = client.get(f"/discoveries/{payload['id']}")
     assert fetched.status_code == 200
     assert fetched.json()["companies"] == []
+
+
+def test_create_discovery_api_require_contactable(client, monkeypatch) -> None:
+    monkeypatch.setattr("app.api.discovery.execute_discovery", lambda run_id: None)
+    created = client.post(
+        "/discoveries",
+        json={"industry": "Hotel", "location": "Sicilia", "max_results": 5, "require_contactable": True},
+    )
+    assert created.status_code == 202
+    assert created.json()["require_contactable"] is True
 
 
 def test_list_recent_discoveries(client, monkeypatch) -> None:
@@ -391,6 +500,30 @@ def test_companies_empty_and_missing(client) -> None:
     assert response.status_code == 404
 
 
+def test_company_categories_are_distinct_and_sorted(client, db_session) -> None:
+    assert client.get("/companies/categories").json() == []
+    for name, category in [
+        ("Hotel Sole", "Hotel"),
+        ("Hotel Luna", "Hotel"),
+        ("Bar Blu", "bar"),
+        ("Senza categoria", None),
+    ]:
+        db_session.add(
+            Company(
+                name=name,
+                category=category,
+                source="fake",
+                external_id=name.lower().replace(" ", "-"),
+                status="discovered",
+            )
+        )
+    db_session.commit()
+
+    response = client.get("/companies/categories")
+    assert response.status_code == 200
+    assert response.json() == ["bar", "Hotel"]
+
+
 def test_company_detail_after_persist(client, db_session) -> None:
     company = Company(
         name="Hotel Test",
@@ -406,3 +539,36 @@ def test_company_detail_after_persist(client, db_session) -> None:
     response = client.get(f"/companies/{company.id}")
     assert response.status_code == 200
     assert response.json()["name"] == "Hotel Test"
+
+
+def test_company_summary_exposes_social_fallback(client, db_session) -> None:
+    company = Company(
+        name="Trattoria Senza Sito",
+        category="Ristorante",
+        city="Palermo",
+        source="fake",
+        external_id="x/2",
+        status="discovered",
+        phone=None,
+        email=None,
+        latitude=38.1157,
+        longitude=13.3615,
+        extra={
+            "osm_tags": {
+                "contact:instagram": "trattoriasenzasito",
+                "contact:facebook": "trattoriasenzasito",
+            }
+        },
+    )
+    db_session.add(company)
+    db_session.commit()
+    response = client.get(f"/companies/{company.id}")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["phone"] is None
+    assert body["social_links"] == [
+        {"label": "Facebook", "url": "https://facebook.com/trattoriasenzasito"},
+        {"label": "Instagram", "url": "https://instagram.com/trattoriasenzasito"},
+    ]
+    assert body["latitude"] == 38.1157
+    assert body["longitude"] == 13.3615

@@ -13,7 +13,7 @@ export function ExternalLink({
 }) {
   const onClick = (event: MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
-    void openExternal(href);
+    openExternal(href);
   };
 
   return (

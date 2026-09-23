@@ -3,10 +3,19 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 
 import { ApiError } from "../api/health";
 import {
+  fetchAiSettings,
+  fetchEmailTemplates,
   fetchSenderProfile,
+  saveAiSettings,
+  saveEmailTemplates,
   saveSenderProfile,
   type ProfileLink,
 } from "../api/settings";
+
+const AI_PROVIDERS = [
+  { value: "claude", label: "Claude (Anthropic)" },
+  { value: "openai", label: "OpenAI" },
+] as const;
 
 export function SettingsPage() {
   const profileQuery = useQuery({
@@ -124,7 +133,293 @@ export function SettingsPage() {
           {save.isPending ? "Salvataggio…" : "Salva"}
         </button>
       </form>
+
+      <AiCredentialsEditor />
+      <EmailTemplatesEditor />
     </main>
+  );
+}
+
+function ApiKeyField({
+  label,
+  value,
+  onChange,
+  visible,
+  onToggleVisible,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (next: string) => void;
+  visible: boolean;
+  onToggleVisible: () => void;
+  placeholder: string;
+}) {
+  return (
+    <label className="block space-y-1">
+      <span className="text-sm font-medium text-stone-700">{label}</span>
+      <div className="flex gap-2">
+        <input
+          type={visible ? "text" : "password"}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder={placeholder}
+          className="w-full rounded-lg border border-stone-300 px-3 py-2 font-mono text-sm outline-none focus:border-stone-900"
+        />
+        <button
+          type="button"
+          onClick={onToggleVisible}
+          className="shrink-0 rounded-lg border border-stone-300 px-3 py-2 text-sm text-stone-700 hover:bg-stone-50"
+        >
+          {visible ? "Nascondi" : "Mostra"}
+        </button>
+      </div>
+    </label>
+  );
+}
+
+function AiCredentialsEditor() {
+  const aiQuery = useQuery({
+    queryKey: ["ai-settings"],
+    queryFn: fetchAiSettings,
+  });
+  const [provider, setProvider] = useState<string>("claude");
+  const [anthropicKey, setAnthropicKey] = useState("");
+  const [openaiKey, setOpenaiKey] = useState("");
+  const [showAnthropic, setShowAnthropic] = useState(false);
+  const [showOpenai, setShowOpenai] = useState(false);
+
+  useEffect(() => {
+    const data = aiQuery.data;
+    if (!data) return;
+    setProvider(data.provider);
+    setAnthropicKey(data.anthropic_api_key ?? "");
+    setOpenaiKey(data.openai_api_key ?? "");
+  }, [aiQuery.data]);
+
+  const save = useMutation({
+    mutationFn: () =>
+      saveAiSettings({
+        provider,
+        anthropic_api_key: anthropicKey.trim(),
+        openai_api_key: openaiKey.trim(),
+      }),
+    onSuccess: () => {
+      void aiQuery.refetch();
+    },
+  });
+
+  function onSubmit(event: FormEvent) {
+    event.preventDefault();
+    save.mutate();
+  }
+
+  const data = aiQuery.data;
+
+  return (
+    <section className="space-y-4">
+      <header className="space-y-1">
+        <p className="text-sm font-medium tracking-wide text-stone-500 uppercase">Proposte</p>
+        <h2 className="text-xl font-semibold tracking-tight">Chiavi AI</h2>
+        <p className="max-w-2xl text-stone-600">
+          Per arricchire con l'AI le proposte (e l'analisi qualitativa dei siti) serve una chiave
+          del provider scelto. Senza chiave resta sempre il testo deterministico.
+        </p>
+      </header>
+
+      {aiQuery.isError ? (
+        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">
+          {aiQuery.error instanceof ApiError ? aiQuery.error.message : "Impossibile caricare le chiavi AI."}
+        </p>
+      ) : null}
+
+      {data ? (
+        <form onSubmit={onSubmit} className="space-y-6 rounded-2xl border border-stone-200 bg-white p-6">
+          <p className="text-sm">
+            Provider attivo:{" "}
+            <span className={`font-medium ${data.ai_available ? "text-emerald-700" : "text-amber-700"}`}>
+              {data.ai_available ? "configurato" : "nessuna chiave per questo provider"}
+            </span>
+          </p>
+
+          <label className="block space-y-1">
+            <span className="text-sm font-medium text-stone-700">Provider</span>
+            <select
+              value={provider}
+              onChange={(event) => setProvider(event.target.value)}
+              className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-stone-900"
+            >
+              {AI_PROVIDERS.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <ApiKeyField
+            label="Chiave Anthropic (Claude)"
+            value={anthropicKey}
+            onChange={setAnthropicKey}
+            visible={showAnthropic}
+            onToggleVisible={() => setShowAnthropic((prev) => !prev)}
+            placeholder="sk-ant-…"
+          />
+
+          <ApiKeyField
+            label="Chiave OpenAI"
+            value={openaiKey}
+            onChange={setOpenaiKey}
+            visible={showOpenai}
+            onToggleVisible={() => setShowOpenai((prev) => !prev)}
+            placeholder="sk-…"
+          />
+
+          {save.isError ? (
+            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">
+              {save.error instanceof ApiError ? save.error.message : "Salvataggio non riuscito."}
+            </p>
+          ) : null}
+          {save.isSuccess ? <p className="text-sm text-emerald-800">Chiavi salvate.</p> : null}
+
+          <button
+            type="submit"
+            disabled={save.isPending}
+            className="rounded-lg bg-stone-900 px-4 py-2 text-sm font-medium text-white hover:bg-stone-800 disabled:opacity-50"
+          >
+            {save.isPending ? "Salvataggio…" : "Salva chiavi"}
+          </button>
+        </form>
+      ) : null}
+    </section>
+  );
+}
+
+function EmailTemplatesEditor() {
+  const templatesQuery = useQuery({
+    queryKey: ["email-templates"],
+    queryFn: fetchEmailTemplates,
+  });
+  const [refactorBody, setRefactorBody] = useState("");
+  const [greenfieldBody, setGreenfieldBody] = useState("");
+
+  useEffect(() => {
+    const data = templatesQuery.data;
+    if (!data) return;
+    setRefactorBody(data.refactor_body ?? data.refactor_default);
+    setGreenfieldBody(data.greenfield_body ?? data.greenfield_default);
+  }, [templatesQuery.data]);
+
+  const save = useMutation({
+    mutationFn: () =>
+      saveEmailTemplates({
+        refactor_body: refactorBody.trim() || null,
+        greenfield_body: greenfieldBody.trim() || null,
+      }),
+    onSuccess: () => {
+      void templatesQuery.refetch();
+    },
+  });
+
+  function onSubmit(event: FormEvent) {
+    event.preventDefault();
+    save.mutate();
+  }
+
+  const data = templatesQuery.data;
+
+  return (
+    <section className="space-y-4">
+      <header className="space-y-1">
+        <p className="text-sm font-medium tracking-wide text-stone-500 uppercase">Proposte</p>
+        <h2 className="text-xl font-semibold tracking-tight">Template email</h2>
+        <p className="max-w-2xl text-stone-600">
+          Il testo che finisce nelle email generate per le proposte. Usa i placeholder tra doppie
+          parentesi graffe: vengono sostituiti con i dati dell'azienda e i tuoi dati da qui sopra
+          quando generi una proposta.
+        </p>
+      </header>
+
+      {templatesQuery.isError ? (
+        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">
+          {templatesQuery.error instanceof ApiError
+            ? templatesQuery.error.message
+            : "Impossibile caricare i template."}
+        </p>
+      ) : null}
+
+      {data ? (
+        <form onSubmit={onSubmit} className="space-y-6 rounded-2xl border border-stone-200 bg-white p-6">
+          <TemplateField
+            label="Email — azienda con sito (da rifare)"
+            value={refactorBody}
+            onChange={setRefactorBody}
+            tokens={data.refactor_tokens}
+            onReset={() => setRefactorBody(data.refactor_default)}
+          />
+          <TemplateField
+            label="Email — azienda senza sito (da creare)"
+            value={greenfieldBody}
+            onChange={setGreenfieldBody}
+            tokens={data.greenfield_tokens}
+            onReset={() => setGreenfieldBody(data.greenfield_default)}
+          />
+
+          {save.isError ? (
+            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">
+              {save.error instanceof ApiError ? save.error.message : "Salvataggio non riuscito."}
+            </p>
+          ) : null}
+          {save.isSuccess ? (
+            <p className="text-sm text-emerald-800">
+              Template salvati. Le proposte già generate non cambiano; rigenerale per usare il nuovo testo.
+            </p>
+          ) : null}
+
+          <button
+            type="submit"
+            disabled={save.isPending}
+            className="rounded-lg bg-stone-900 px-4 py-2 text-sm font-medium text-white hover:bg-stone-800 disabled:opacity-50"
+          >
+            {save.isPending ? "Salvataggio…" : "Salva template"}
+          </button>
+        </form>
+      ) : null}
+    </section>
+  );
+}
+
+function TemplateField({
+  label,
+  value,
+  onChange,
+  tokens,
+  onReset,
+}: {
+  label: string;
+  value: string;
+  onChange: (next: string) => void;
+  tokens: string[];
+  onReset: () => void;
+}) {
+  return (
+    <label className="block space-y-1">
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-medium text-stone-700">{label}</span>
+        <button type="button" onClick={onReset} className="text-xs text-stone-500 underline">
+          Ripristina il default
+        </button>
+      </div>
+      <textarea
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        rows={12}
+        className="w-full rounded-lg border border-stone-300 px-3 py-2 font-mono text-sm outline-none focus:border-stone-900"
+      />
+      <p className="text-xs text-stone-500">
+        Placeholder disponibili: {tokens.map((token) => `{{${token}}}`).join(", ")}
+      </p>
+    </label>
   );
 }
 

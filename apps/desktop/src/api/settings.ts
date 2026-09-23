@@ -14,10 +14,28 @@ export type SenderProfile = {
   updated_at: string;
 };
 
-async function parseProfile(response: Response): Promise<SenderProfile> {
-  let payload: SenderProfile | { detail?: string };
+export type EmailTemplates = {
+  refactor_body: string | null;
+  greenfield_body: string | null;
+  refactor_default: string;
+  greenfield_default: string;
+  refactor_tokens: string[];
+  greenfield_tokens: string[];
+  updated_at: string;
+};
+
+export type AiSettings = {
+  provider: string;
+  anthropic_api_key: string | null;
+  openai_api_key: string | null;
+  ai_available: boolean;
+  updated_at: string;
+};
+
+async function parseJson<T>(response: Response): Promise<T> {
+  let payload: T | { detail?: string };
   try {
-    payload = (await response.json()) as SenderProfile;
+    payload = (await response.json()) as T;
   } catch {
     throw new ApiError("Risposta del backend non valida.", response.status);
   }
@@ -28,7 +46,7 @@ async function parseProfile(response: Response): Promise<SenderProfile> {
         : `Errore ${response.status}`;
     throw new ApiError(detail, response.status);
   }
-  return payload as SenderProfile;
+  return payload as T;
 }
 
 export async function fetchSenderProfile(): Promise<SenderProfile> {
@@ -38,7 +56,7 @@ export async function fetchSenderProfile(): Promise<SenderProfile> {
   } catch {
     throw new ApiError("Impossibile raggiungere il backend.");
   }
-  return parseProfile(response);
+  return parseJson<SenderProfile>(response);
 }
 
 export async function saveSenderProfile(
@@ -54,5 +72,60 @@ export async function saveSenderProfile(
   } catch {
     throw new ApiError("Impossibile raggiungere il backend.");
   }
-  return parseProfile(response);
+  return parseJson<SenderProfile>(response);
+}
+
+export async function fetchEmailTemplates(): Promise<EmailTemplates> {
+  let response: Response;
+  try {
+    response = await fetch(`${getApiBaseUrl()}/settings/email-templates`);
+  } catch {
+    throw new ApiError("Impossibile raggiungere il backend.");
+  }
+  return parseJson<EmailTemplates>(response);
+}
+
+export async function saveEmailTemplates(payload: {
+  refactor_body: string | null;
+  greenfield_body: string | null;
+}): Promise<EmailTemplates> {
+  let response: Response;
+  try {
+    response = await fetch(`${getApiBaseUrl()}/settings/email-templates`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  } catch {
+    throw new ApiError("Impossibile raggiungere il backend.");
+  }
+  return parseJson<EmailTemplates>(response);
+}
+
+export async function fetchAiSettings(): Promise<AiSettings> {
+  let response: Response;
+  try {
+    response = await fetch(`${getApiBaseUrl()}/settings/ai`);
+  } catch {
+    throw new ApiError("Impossibile raggiungere il backend.");
+  }
+  return parseJson<AiSettings>(response);
+}
+
+export async function saveAiSettings(payload: {
+  provider?: string;
+  anthropic_api_key?: string | null;
+  openai_api_key?: string | null;
+}): Promise<AiSettings> {
+  let response: Response;
+  try {
+    response = await fetch(`${getApiBaseUrl()}/settings/ai`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  } catch {
+    throw new ApiError("Impossibile raggiungere il backend.");
+  }
+  return parseJson<AiSettings>(response);
 }

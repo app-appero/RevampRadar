@@ -20,6 +20,7 @@ export function MapPage() {
   const autoBackfill = useRef(false);
   const [selectedCluster, setSelectedCluster] = useState<number | null>(null);
   const [filter, setFilter] = useState<MapFilter>("all");
+  const [hideUncontactable, setHideUncontactable] = useState(false);
   const query = useQuery({
     queryKey: ["map"],
     queryFn: fetchMap,
@@ -55,11 +56,14 @@ export function MapPage() {
     } else if (filter === "with_app") {
       points = points.filter((item) => item.has_app);
     }
+    if (hideUncontactable) {
+      points = points.filter((item) => item.is_contactable);
+    }
     if (selectedCluster === null) {
       return points;
     }
     return points.filter((item) => item.cluster_id === selectedCluster);
-  }, [query.data, selectedCluster, filter]);
+  }, [query.data, selectedCluster, filter, hideUncontactable]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -196,6 +200,14 @@ export function MapPage() {
                 </button>
               ))}
             </div>
+            <label className="mt-2 flex items-center gap-2 text-xs text-stone-700">
+              <input
+                type="checkbox"
+                checked={hideUncontactable}
+                onChange={(event) => setHideUncontactable(event.target.checked)}
+              />
+              Nascondi incontattabili (niente sito, telefono, email o social)
+            </label>
             <ul className="mt-3 space-y-1 text-stone-600">
               <li>
                 <span className="mr-2 inline-block h-2.5 w-2.5 rounded-full bg-red-700" />

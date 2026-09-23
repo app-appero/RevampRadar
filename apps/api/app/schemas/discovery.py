@@ -39,6 +39,12 @@ class CreateDiscoveryRequest(BaseModel):
     city: str = Field(default="", max_length=128)
     max_results: int = Field(default=20, ge=1, le=MAX_RESULTS_EXTENDED)
     extended: bool = False
+    require_contactable: bool = False
+
+
+class SocialLink(BaseModel):
+    label: str
+    url: str
 
 
 class CompanySummary(BaseModel):
@@ -54,9 +60,12 @@ class CompanySummary(BaseModel):
     source: str
     status: str
     domain: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
     osm_tags: dict[str, str] | None = None
     osm_start_date: str | None = None
     osm_opening_hours: str | None = None
+    social_links: list[SocialLink] = Field(default_factory=list)
 
 
 class CompanyDetail(CompanySummary):
@@ -83,6 +92,7 @@ class DiscoveryRunResponse(BaseModel):
     location: str
     max_results: int
     extended: bool = False
+    require_contactable: bool = False
     provider: str
     status: str
     total_found: int

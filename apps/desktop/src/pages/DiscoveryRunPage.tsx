@@ -238,26 +238,60 @@ export function CompaniesPage() {
 
 function CompanyTable({ companies, empty }: { companies: CompanySummary[]; empty: boolean }) {
   const [page, setPage] = useState(1);
-  const totalPages = Math.max(1, Math.ceil(companies.length / PAGE_SIZE));
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const categories = useMemo(
+    () =>
+      Array.from(new Set(companies.map((item) => item.category).filter((item): item is string => Boolean(item)))).sort(
+        (a, b) => a.localeCompare(b, "it"),
+      ),
+    [companies],
+  );
+  const filtered = useMemo(
+    () => (categoryFilter ? companies.filter((item) => item.category === categoryFilter) : companies),
+    [companies, categoryFilter],
+  );
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const current = Math.min(page, totalPages);
   const slice = useMemo(() => {
     const start = (current - 1) * PAGE_SIZE;
-    return companies.slice(start, start + PAGE_SIZE);
-  }, [companies, current]);
-  const withoutSite = companies.filter((item) => !item.website_url && !item.domain).length;
+    return filtered.slice(start, start + PAGE_SIZE);
+  }, [filtered, current]);
+  const withoutSite = filtered.filter((item) => !item.website_url && !item.domain).length;
 
   if (companies.length === 0 && empty) {
     return <p className="text-sm text-stone-500">Nessuna azienda trovata per questo settore.</p>;
   }
   return (
     <div className="space-y-3">
-      {companies.length > 0 ? (
-        <p className="text-xs text-stone-500">
-          {companies.length} aziend{companies.length === 1 ? "a" : "e"}
-          {withoutSite ? ` · ${withoutSite} senza sito` : ""}
-          {companies.length > PAGE_SIZE ? ` · pagina ${current}/${totalPages}` : ""}
-        </p>
+      {categories.length > 1 ? (
+        <label className="flex items-center gap-2 text-sm text-stone-700">
+          <span className="text-xs font-medium tracking-wide text-stone-500 uppercase">Settore</span>
+          <select
+            value={categoryFilter}
+            onChange={(event) => {
+              setCategoryFilter(event.target.value);
+              setPage(1);
+            }}
+            className="rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-stone-900"
+          >
+            <option value="">Tutti i settori ({companies.length})</option>
+            {categories.map((item) => (
+              <option key={item} value={item}>
+                {item} ({companies.filter((company) => company.category === item).length})
+              </option>
+            ))}
+          </select>
+        </label>
       ) : null}
+      {filtered.length > 0 ? (
+        <p className="text-xs text-stone-500">
+          {filtered.length} aziend{filtered.length === 1 ? "a" : "e"}
+          {withoutSite ? ` · ${withoutSite} senza sito` : ""}
+          {filtered.length > PAGE_SIZE ? ` · pagina ${current}/${totalPages}` : ""}
+        </p>
+      ) : (
+        <p className="text-xs text-stone-500">Nessuna azienda per questo settore.</p>
+      )}
       <div className="overflow-hidden rounded-2xl border border-stone-200 bg-white">
         <table className="w-full text-left text-sm">
           <thead className="bg-stone-50 text-xs tracking-wide text-stone-500 uppercase">

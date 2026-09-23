@@ -29,6 +29,7 @@ def create_discovery_run(
     max_results: int,
     provider_name: str = "openstreetmap",
     extended: bool = False,
+    require_contactable: bool = False,
 ) -> DiscoveryRun:
     industry_value = industry.strip() or "tutti"
     location_value = location.strip() or "Italia"
@@ -44,6 +45,7 @@ def create_discovery_run(
         location=location_value,
         max_results=max_results,
         extended=extended,
+        require_contactable=require_contactable,
         provider=provider_name,
         status="queued",
         total_found=0,
@@ -104,6 +106,16 @@ def list_companies(session: Session) -> list[Company]:
     )
 
 
+def list_company_categories(session: Session) -> list[str]:
+    rows = (
+        session.query(Company.category)
+        .filter(Company.category.isnot(None), Company.category != "")
+        .distinct()
+        .all()
+    )
+    return sorted({row[0] for row in rows}, key=str.lower)
+
+
 def get_company(session: Session, company_id: UUID) -> Company | None:
     return (
         session.query(Company)
@@ -143,10 +155,14 @@ def _run_discovery(session: Session, run: DiscoveryRun, settings: Settings) -> N
 
     _set_progress(session, run, 55, "Normalizzazione risultati")
     persisted = 0
+    skipped_uncontactable = 0
     seen_company_ids: set[UUID] = set()
     for raw in raw_candidates:
         candidate = normalize_candidate(raw)
         if candidate is None:
+            continue
+        if run.require_contactable and not _is_contactable(candidate):
+            skipped_uncontactable += 1
             continue
         company = _upsert_company(session, candidate)
         if company.id in seen_company_ids:
@@ -162,7 +178,10 @@ def _run_discovery(session: Session, run: DiscoveryRun, settings: Settings) -> N
         seen_company_ids.add(company.id)
         cap = max(run.max_results, 1)
         percent = 55 + int(40 * min(persisted, cap) / cap)
-        _set_progress(session, run, percent, f"Aziende trovate · {persisted}")
+        label = f"Aziende trovate · {persisted}"
+        if skipped_uncontactable:
+            label += f" · {skipped_uncontactable} escluse (incontattabili)"
+        _set_progress(session, run, percent, label)
         if persisted >= run.max_results:
             break
     run.total_found = persisted
@@ -175,7 +194,18 @@ def _run_discovery(session: Session, run: DiscoveryRun, settings: Settings) -> N
         run.progress_label = "Nessun risultato"
     else:
         run.progress_label = "Completata"
+        if skipped_uncontactable:
+            run.progress_label += f" · {skipped_uncontactable} escluse (incontattabili)"
     run.completed_at = datetime.now(UTC)
+
+
+def _is_contactable(candidate: DiscoveryCandidate) -> bool:
+    if candidate.website_url or candidate.phone or candidate.email:
+        return True
+    from app.discovery.osm import social_contact_links
+
+    tags = (candidate.extra or {}).get("osm_tags") if candidate.extra else None
+    return bool(social_contact_links(tags))
 
 
 def _upsert_company(session: Session, candidate: DiscoveryCandidate) -> Company:
@@ -206,6 +236,10 @@ def _upsert_company(session: Session, candidate: DiscoveryCandidate) -> Company:
         _fill_missing(company, candidate)
     if candidate.website_url:
         _link_website(session, company, candidate.website_url)
+    if not company.website_url:
+        from app.services.growth_service import compute_and_store_growth_score
+
+        compute_and_store_growth_score(session, company)
     return company
 
 

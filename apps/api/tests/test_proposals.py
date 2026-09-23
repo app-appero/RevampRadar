@@ -1,8 +1,9 @@
 from uuid import UUID
 
-from app.models.entities import Audit, AuditFinding, OpportunityScore, WebsiteScore
+from app.models.entities import Audit, AuditFinding, Company, OpportunityScore, WebsiteScore
 from app.proposals.builder import build_proposal_draft, estimate_range
 from app.proposals.service import create_or_replace_proposal
+from app.proposals.templates import render_email_template
 
 
 def test_range_follows_service_and_does_not_invent_company() -> None:
@@ -120,7 +121,7 @@ def test_generate_and_replace_proposal(client, db_session, monkeypatch) -> None:
     assert body["source"] == "deterministic"
     assert body["recommended_service"].startswith("Messa in sicurezza")
     assert body["range_min"] == 1500
-    assert "HTTPS" in body["email_body"]
+    assert "hotelsole.test" in body["email_body"]
     assert "1500" not in body["email_body"]
     assert "Luca Bianchi" in body["email_body"]
     assert body["priority_problems"][0]["code"] == "HTTP_NO_HTTPS"
@@ -136,6 +137,77 @@ def test_generate_and_replace_proposal(client, db_session, monkeypatch) -> None:
 
     missing = client.get("/audits/11111111-1111-1111-1111-111111111111/proposal")
     assert missing.status_code == 404
+
+
+def test_use_ai_false_never_calls_polish_even_if_a_key_is_configured(client, db_session, monkeypatch) -> None:
+    monkeypatch.setattr("app.api.audits.execute_audit", lambda audit_id: None)
+
+    def _boom(*args, **kwargs):
+        raise AssertionError("polish_proposal non deve essere chiamato con use_ai=false")
+
+    monkeypatch.setattr("app.proposals.service.polish_proposal", _boom)
+    client.put("/settings/ai", json={"provider": "claude", "anthropic_api_key": "sk-ant-test"})
+
+    created = client.post("/audits", json={"url": "https://hotelsole.test"})
+    audit_id = created.json()["id"]
+    audit = db_session.get(Audit, UUID(audit_id))
+    audit.status = "completed"
+    db_session.commit()
+
+    response = client.post(f"/audits/{audit_id}/proposal", params={"use_ai": "false"})
+    assert response.status_code == 200
+    assert response.json()["source"] == "deterministic"
+
+
+def test_use_ai_true_falls_back_to_deterministic_without_a_key(client, db_session, monkeypatch) -> None:
+    monkeypatch.setattr("app.api.audits.execute_audit", lambda audit_id: None)
+    created = client.post("/audits", json={"url": "https://hotelsole.test"})
+    audit_id = created.json()["id"]
+    audit = db_session.get(Audit, UUID(audit_id))
+    audit.status = "completed"
+    db_session.commit()
+
+    response = client.post(f"/audits/{audit_id}/proposal", params={"use_ai": "true"})
+    assert response.status_code == 200
+    assert response.json()["source"] == "deterministic"
+
+
+def test_polish_proposal_falls_back_when_ai_proposes_a_time_slot(monkeypatch) -> None:
+    from app.proposals.ai import polish_proposal
+    from app.proposals.sender import DEFAULT_SENDER
+
+    class FakeProvider:
+        name = "fake"
+
+        def complete_json(self, system, user, temperature=0.3):
+            import json as _json
+
+            return _json.dumps(
+                {
+                    "summary": "Riassunto AI",
+                    "strategy": "Strategia AI",
+                    "email_subject": "Oggetto AI",
+                    "email_body": "Ciao, vi va se ci vediamo 10 minuti al telefono?",
+                    "brief": "Brief AI",
+                }
+            )
+
+    monkeypatch.setattr("app.proposals.ai.get_ai_provider", lambda settings: FakeProvider())
+    draft = build_proposal_draft(
+        domain="hotelsole.test",
+        url="https://hotelsole.test",
+        company_name=None,
+        city=None,
+        findings=[],
+        website_score=None,
+        opportunity_score=None,
+    )
+    from app.config import Settings
+
+    polished = polish_proposal(Settings(), draft, {}, DEFAULT_SENDER)
+    assert polished is not None
+    assert polished.email_body == draft.email_body
+    assert "10 minuti" not in polished.email_body
 
 
 def test_service_builds_without_httpx(db_session, monkeypatch) -> None:
@@ -164,6 +236,55 @@ def test_service_builds_without_httpx(db_session, monkeypatch) -> None:
     assert "luna.test" in proposal.summary
 
 
+def test_greenfield_proposal_for_company_without_website(client, db_session, monkeypatch) -> None:
+    monkeypatch.setattr("app.proposals.service.polish_proposal", lambda *args, **kwargs: None)
+    company = Company(
+        name="Trattoria da Mario",
+        category="Ristorante",
+        city="Palermo",
+        region="Sicilia",
+        country="Italia",
+        website_url=None,
+        phone="0911234567",
+        source="osm",
+        status="discovered",
+    )
+    db_session.add(company)
+    db_session.commit()
+
+    generated = client.post(f"/companies/{company.id}/greenfield-proposal")
+    assert generated.status_code == 200
+    body = generated.json()
+    assert body["kind"] == "greenfield"
+    assert body["audit_id"] is None
+    assert "vostra attività" in body["email_body"]
+    assert "sito web" in body["email_body"]
+    assert "Trattoria da Mario" in body["summary"]
+
+    fetched = client.get(f"/companies/{company.id}/proposal")
+    assert fetched.status_code == 200
+    assert fetched.json()["id"] == body["id"]
+
+    growth = client.get(f"/companies/{company.id}/growth-score")
+    assert growth.status_code == 200
+    assert growth.json()["score"] >= 0
+
+
+def test_greenfield_proposal_rejected_when_company_has_website(client, db_session) -> None:
+    company = Company(
+        name="Hotel Sole",
+        category="Hotel",
+        website_url="https://hotelsole.test",
+        source="osm",
+        status="discovered",
+    )
+    db_session.add(company)
+    db_session.commit()
+
+    response = client.post(f"/companies/{company.id}/greenfield-proposal")
+    assert response.status_code == 409
+
+
 def test_sender_profile_defaults_and_update(client) -> None:
     first = client.get("/settings/profile")
     assert first.status_code == 200
@@ -187,4 +308,56 @@ def test_sender_profile_defaults_and_update(client) -> None:
     fetched = client.get("/settings/profile")
     assert fetched.json()["intro"].startswith("Realizzo siti")
     assert fetched.json()["freelancer_links"][0]["label"] == "Malt"
+
+
+def test_render_email_template_replaces_known_tokens_and_leaves_rest_untouched() -> None:
+    rendered = render_email_template(
+        "Ciao {{nome_attivita}}, saluti da {{nome_mittente}}. {{non_esiste}}",
+        {"nome_attivita": "Bar Blu", "nome_mittente": "Luca"},
+    )
+    assert rendered == "Ciao Bar Blu, saluti da Luca. {{non_esiste}}"
+
+
+def test_email_templates_default_then_update(client) -> None:
+    first = client.get("/settings/email-templates")
+    assert first.status_code == 200
+    body = first.json()
+    assert body["refactor_body"] is None
+    assert body["greenfield_body"] is None
+    assert "{{nome_mittente}}" in body["refactor_default"]
+    assert "nome_mittente" in body["refactor_tokens"]
+    assert "dominio" not in body["greenfield_tokens"]
+
+    updated = client.put(
+        "/settings/email-templates",
+        json={
+            "refactor_body": "Ciao {{nome_attivita}}, ho visto il vostro sito. {{firma}}",
+            "greenfield_body": None,
+        },
+    )
+    assert updated.status_code == 200
+    assert updated.json()["refactor_body"].startswith("Ciao {{nome_attivita}}")
+    assert updated.json()["greenfield_body"] is None
+
+    fetched = client.get("/settings/email-templates")
+    assert fetched.json()["refactor_body"] == "Ciao {{nome_attivita}}, ho visto il vostro sito. {{firma}}"
+
+
+def test_custom_refactor_template_is_used_when_generating_a_proposal(client, db_session, monkeypatch) -> None:
+    monkeypatch.setattr("app.api.audits.execute_audit", lambda audit_id: None)
+    monkeypatch.setattr("app.proposals.service.polish_proposal", lambda *args, **kwargs: None)
+    client.put(
+        "/settings/email-templates",
+        json={"refactor_body": "Salve {{nome_attivita}}! Un saluto, {{firma}}", "greenfield_body": None},
+    )
+    created = client.post("/audits", json={"url": "https://hotelsole.test"})
+    audit_id = UUID(created.json()["id"])
+    audit = db_session.get(Audit, audit_id)
+    assert audit is not None
+    audit.status = "completed"
+    db_session.commit()
+
+    generated = client.post(f"/audits/{audit_id}/proposal")
+    assert generated.status_code == 200
+    assert generated.json()["email_body"].startswith("Salve hotelsole.test!")
 

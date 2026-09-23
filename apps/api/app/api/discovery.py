@@ -5,13 +5,14 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.discovery.italy_geo import compose_location, italy_geo
-from app.discovery.osm import format_industry_tags, listed_sectors, preview_industry
+from app.discovery.osm import format_industry_tags, listed_sectors, preview_industry, social_contact_links
 from app.discovery.service import (
     DiscoveryServiceError,
     create_discovery_run,
     execute_discovery,
     get_company,
     list_companies,
+    list_company_categories,
     load_discovery_run,
 )
 from app.jobs.bulk_scan import latest_bulk_scan
@@ -26,6 +27,7 @@ from app.schemas.discovery import (
     ItalyProvince,
     ItalyRegion,
     OsmIndustryPreview,
+    SocialLink,
 )
 
 
@@ -77,6 +79,7 @@ def post_discovery(
             location=_request_location(payload),
             max_results=payload.max_results,
             extended=payload.extended,
+            require_contactable=payload.require_contactable,
         )
     except DiscoveryServiceError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
@@ -121,6 +124,11 @@ def get_companies(db: Session = Depends(get_db)) -> list[CompanySummary]:
     return [_company_summary(item) for item in list_companies(db)]
 
 
+@router.get("/companies/categories", response_model=list[str])
+def get_company_categories(db: Session = Depends(get_db)) -> list[str]:
+    return list_company_categories(db)
+
+
 @router.get("/companies/{company_id}", response_model=CompanyDetail)
 def get_company_detail(company_id: UUID, db: Session = Depends(get_db)) -> CompanyDetail:
     company = get_company(db, company_id)
@@ -138,6 +146,7 @@ def _run_response(db: Session, run: DiscoveryRun) -> DiscoveryRunResponse:
         location=run.location,
         max_results=run.max_results,
         extended=run.extended,
+        require_contactable=run.require_contactable,
         provider=run.provider,
         status=run.status,
         total_found=run.total_found,
@@ -159,6 +168,7 @@ def _website(company: Company):
 def _company_summary(company: Company) -> CompanySummary:
     website = _website(company)
     tags = _company_osm_tags(company)
+    social = social_contact_links(tags)
     return CompanySummary(
         id=company.id,
         name=company.name,
@@ -172,9 +182,12 @@ def _company_summary(company: Company) -> CompanySummary:
         source=company.source,
         status=company.status,
         domain=website.domain if website else None,
+        latitude=company.latitude,
+        longitude=company.longitude,
         osm_tags=tags,
         osm_start_date=tags.get("start_date") if tags else None,
         osm_opening_hours=tags.get("opening_hours") if tags else None,
+        social_links=[SocialLink(label=label, url=url) for label, url in social],
     )
 
 

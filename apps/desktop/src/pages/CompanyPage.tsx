@@ -18,7 +18,9 @@ import {
   type OpportunityDetail,
 } from "../api/crm";
 import { fetchCompanyIntelligence } from "../api/intelligence";
-import { generateProposal, fetchCompanyProposal } from "../api/proposals";
+import { fetchCompanyGrowthScore } from "../api/growth";
+import { generateGreenfieldProposal, generateProposal, fetchCompanyProposal } from "../api/proposals";
+import { fetchAiSettings } from "../api/settings";
 import { IntelligencePanel } from "../components/IntelligencePanel";
 import { fetchCompany, formatOsmTags } from "../api/discovery";
 import { ProposalCard } from "../components/ProposalCard";
@@ -53,6 +55,17 @@ export function CompanyPage() {
     enabled: Boolean(companyId),
     retry: false,
   });
+  const growthQuery = useQuery({
+    queryKey: ["company-growth", companyId],
+    queryFn: () => fetchCompanyGrowthScore(companyId!),
+    enabled: Boolean(companyId) && query.isSuccess && !query.data?.website_url,
+    retry: false,
+  });
+  const aiSettingsQuery = useQuery({
+    queryKey: ["ai-settings"],
+    queryFn: fetchAiSettings,
+  });
+  const [aiDialogFor, setAiDialogFor] = useState<"refactor" | "greenfield" | null>(null);
   const analyze = useMutation({
     mutationFn: async () => {
       const company = query.data;
@@ -67,12 +80,12 @@ export function CompanyPage() {
     },
   });
   const generateProposalMut = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (useAi: boolean) => {
       const auditId = crmQuery.data?.latest_audit_id;
       if (!auditId) {
         throw new ApiError("Serve un audit completato per generare la proposta.");
       }
-      return generateProposal(auditId);
+      return generateProposal(auditId, useAi);
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["company-proposal", companyId] });
@@ -81,6 +94,37 @@ export function CompanyPage() {
       setError(err instanceof ApiError ? err.message : "Proposta non generata.");
     },
   });
+  const generateGreenfieldMut = useMutation({
+    mutationFn: async (useAi: boolean) => generateGreenfieldProposal(companyId!, useAi),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["company-proposal", companyId] });
+    },
+    onError: (err) => {
+      setError(err instanceof ApiError ? err.message : "Proposta non generata.");
+    },
+  });
+
+  function startGenerateProposal(kind: "refactor" | "greenfield") {
+    setError(null);
+    if (aiSettingsQuery.data?.ai_available) {
+      setAiDialogFor(kind);
+      return;
+    }
+    if (kind === "refactor") {
+      generateProposalMut.mutate(false);
+    } else {
+      generateGreenfieldMut.mutate(false);
+    }
+  }
+
+  function chooseAiForDialog(useAi: boolean) {
+    if (aiDialogFor === "refactor") {
+      generateProposalMut.mutate(useAi);
+    } else if (aiDialogFor === "greenfield") {
+      generateGreenfieldMut.mutate(useAi);
+    }
+    setAiDialogFor(null);
+  }
   const company = query.data;
   const opportunity = crmQuery.data;
 
@@ -124,10 +168,17 @@ export function CompanyPage() {
               <Field label="Orari (OSM)" value={company.osm_opening_hours} />
               <Field label="Telefono" value={company.phone} />
               <Field label="Email" value={company.email} />
+              <SocialLinksField links={company.social_links} />
               <Field label="Fonte" value={`${company.source}${company.external_id ? ` · ${company.external_id}` : ""}`} />
               <Field label="Sito" value={company.website_url} href={company.website_url} />
               <Field label="Dominio" value={company.domain} />
             </section>
+            {!company.phone && !company.email && (company.social_links?.length ?? 0) > 0 ? (
+              <p className="text-sm text-stone-500">
+                Nessun telefono/email su OSM: come contatto alternativo{" "}
+                {(company.social_links ?? []).length > 1 ? "ci sono queste pagine" : "c'è questa pagina"}.
+              </p>
+            ) : null}
 
             {opportunity ? (
               <section className="grid gap-4 sm:grid-cols-3">
@@ -147,6 +198,12 @@ export function CompanyPage() {
             {error ? <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{error}</p> : null}
 
             <div className="flex flex-wrap gap-3">
+              <ExternalLink
+                href={googleMapsSearchUrl(company.name, company.city, company.latitude, company.longitude)}
+                className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-800 hover:bg-stone-50"
+              >
+                Cerca su Google Maps
+              </ExternalLink>
               <button
                 type="button"
                 disabled={!company.website_url || analyze.isPending}
@@ -170,18 +227,91 @@ export function CompanyPage() {
                 <button
                   type="button"
                   disabled={generateProposalMut.isPending}
-                  onClick={() => {
-                    setError(null);
-                    generateProposalMut.mutate();
-                  }}
+                  onClick={() => startGenerateProposal("refactor")}
                   className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-800 hover:bg-stone-50 disabled:opacity-50"
                 >
                   {generateProposalMut.isPending ? "Generazione…" : "Genera proposta"}
                 </button>
               ) : null}
+              {!company.website_url ? (
+                <button
+                  type="button"
+                  disabled={generateGreenfieldMut.isPending}
+                  onClick={() => startGenerateProposal("greenfield")}
+                  className="rounded-lg bg-amber-700 px-4 py-2 text-sm font-medium text-white hover:bg-amber-800 disabled:opacity-50"
+                >
+                  {generateGreenfieldMut.isPending ? "Generazione…" : "Genera proposta di creazione sito"}
+                </button>
+              ) : null}
             </div>
+
+            {aiDialogFor ? (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+                <div className="w-full max-w-sm space-y-4 rounded-2xl bg-white p-6 shadow-lg">
+                  <h2 className="text-lg font-semibold">Come vuoi generare la proposta?</h2>
+                  <p className="text-sm text-stone-600">
+                    La versione con AI parte dal testo di default e lo arricchisce sui finding
+                    specifici di questa azienda.
+                  </p>
+                  <div className="flex flex-col gap-2">
+                    <button
+                      type="button"
+                      onClick={() => chooseAiForDialog(true)}
+                      className="rounded-lg bg-stone-900 px-4 py-2 text-sm font-medium text-white hover:bg-stone-800"
+                    >
+                      Con AI
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => chooseAiForDialog(false)}
+                      className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-800 hover:bg-stone-50"
+                    >
+                      Versione di default
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAiDialogFor(null)}
+                      className="text-sm text-stone-500 underline"
+                    >
+                      Annulla
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
             {!company.website_url ? (
-              <p className="text-sm text-stone-500">Nessun sito collegato: non è possibile avviare l’audit.</p>
+              <p className="text-sm text-stone-500">
+                Nessun sito collegato: non è possibile avviare l'audit. Questa azienda rientra nel segmento
+                "da creare".
+              </p>
+            ) : null}
+
+            {!company.website_url && growthQuery.data ? (
+              <section className="space-y-3 rounded-2xl border border-amber-200 bg-amber-50 p-5">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-medium">Growth Potential Score</h2>
+                  <p className="text-2xl font-semibold">
+                    {growthQuery.data.score}/100{" "}
+                    <span className="text-sm font-normal text-stone-600">({growthQuery.data.priority})</span>
+                  </p>
+                </div>
+                <p className="text-sm text-stone-700">{growthQuery.data.explanation}</p>
+                <p className="text-sm font-medium">Servizio indicato: {growthQuery.data.recommended_service}</p>
+                {growthQuery.data.top_reasons.length > 0 ? (
+                  <div>
+                    <h3 className="text-xs tracking-wide text-stone-500 uppercase">Motivi principali</h3>
+                    <ul className="mt-2 list-disc space-y-1 pl-4 text-sm text-stone-700">
+                      {growthQuery.data.top_reasons.map((reason, index) => (
+                        <li key={index}>{reason}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+                <p className="text-xs text-stone-500">
+                  Stima euristica basata su categoria, concorrenza locale con sito e contattabilità (campione:{" "}
+                  {growthQuery.data.peer_sample_size} attività simili) — non è un'analisi di un sito esistente.
+                </p>
+              </section>
             ) : null}
 
             {intelligenceQuery.data ? <IntelligencePanel data={intelligenceQuery.data} /> : null}
@@ -455,6 +585,19 @@ function CrmPanel({
   );
 }
 
+function googleMapsSearchUrl(
+  name: string,
+  city: string | null,
+  latitude?: number | null,
+  longitude?: number | null,
+): string {
+  if (latitude != null && longitude != null) {
+    return `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
+  }
+  const query = [name, city].filter(Boolean).join(" ");
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+}
+
 function defaultDueAtLocal(): string {
   const date = new Date();
   date.setDate(date.getDate() + 1);
@@ -481,6 +624,25 @@ function Field({
         </ExternalLink>
       ) : (
         <p className="mt-1 text-sm font-medium break-all">{value || "—"}</p>
+      )}
+    </div>
+  );
+}
+
+function SocialLinksField({ links }: { links?: { label: string; url: string }[] }) {
+  return (
+    <div className="rounded-2xl border border-stone-200 bg-white px-4 py-3">
+      <p className="text-xs tracking-wide text-stone-500 uppercase">Contatto social</p>
+      {links && links.length > 0 ? (
+        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+          {links.map((item) => (
+            <ExternalLink key={item.url} href={item.url} className="text-sm font-medium underline">
+              {item.label}
+            </ExternalLink>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-1 text-sm font-medium">—</p>
       )}
     </div>
   );

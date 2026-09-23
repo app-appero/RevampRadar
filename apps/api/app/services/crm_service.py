@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.models.entities import (
     Activity,
     Company,
+    GrowthScore,
     Opportunity,
     OpportunityNote,
     OpportunityScore,
@@ -17,6 +18,7 @@ from app.models.entities import (
     Website,
 )
 from app.schemas.crm import ACTIVITY_TYPES, CRM_STATUSES, SCHEDULED_ACTIVITY_TYPES
+from app.services.contactability import is_contactable
 
 
 class CrmServiceError(Exception):
@@ -73,6 +75,8 @@ def list_opportunities(
     tag: str | None = None,
     min_score: int | None = None,
     priority: str | None = None,
+    segment: str | None = None,
+    contactable: bool | None = None,
 ) -> list[Opportunity]:
     backfill_opportunities(session)
     q = (
@@ -99,19 +103,27 @@ def list_opportunities(
         q = q.filter(func.lower(Company.city).like(f"%{city.strip().lower()}%"))
     if tag:
         q = q.join(Opportunity.tag_links).join(OpportunityTag.tag).filter(Tag.name == _normalize_tag(tag))
+    if segment not in (None, "all", "refactor", "greenfield"):
+        raise CrmServiceError("Segmento non valido.", status_code=422)
     opportunities = q.order_by(Opportunity.updated_at.desc()).all()
-    scores = _latest_scores(session, [item.company_id for item in opportunities])
+    if segment in ("refactor", "greenfield"):
+        opportunities = [item for item in opportunities if (_has_website(item.company) == (segment == "refactor"))]
+    if contactable is True:
+        opportunities = [item for item in opportunities if is_contactable(item.company)]
+    company_ids = [item.company_id for item in opportunities]
+    scores = _latest_scores(session, company_ids)
+    growth_scores = _latest_growth_scores(session, company_ids)
     if min_score is not None or priority:
         filtered: list[Opportunity] = []
         for item in opportunities:
-            score = scores.get(item.company_id)
-            if min_score is not None and (score is None or score.opportunity_score < min_score):
+            value, item_priority = _effective_score(item.company_id, scores, growth_scores)
+            if min_score is not None and value < min_score:
                 continue
-            if priority and (score is None or score.priority != priority):
+            if priority and item_priority != priority:
                 continue
             filtered.append(item)
         opportunities = filtered
-    return _sorted_by_score(opportunities, scores)
+    return _sorted_by_score(opportunities, scores, growth_scores)
 
 
 def dashboard(session: Session) -> dict:
@@ -127,11 +139,15 @@ def dashboard(session: Session) -> dict:
         or 0
     )
     to_contact = counts.get("to_contact", 0)
-    scores = _latest_scores(
-        session,
-        [row[0] for row in session.query(Opportunity.company_id).all()],
-    )
+    company_ids = [row[0] for row in session.query(Opportunity.company_id).all()]
+    scores = _latest_scores(session, company_ids)
+    growth_scores = _latest_growth_scores(session, company_ids)
     high_priority = sum(1 for score in scores.values() if score.priority in {"HIGH", "VERY_HIGH"})
+    high_priority += sum(
+        1
+        for company_id, score in growth_scores.items()
+        if company_id not in scores and score.priority in {"HIGH", "VERY_HIGH"}
+    )
     return {
         "total": sum(counts.values()),
         "favorites": favorites,
@@ -402,6 +418,10 @@ def latest_scores_map(session: Session, company_ids: list[UUID]) -> dict[UUID, O
     return _latest_scores(session, company_ids)
 
 
+def latest_growth_scores_map(session: Session, company_ids: list[UUID]) -> dict[UUID, GrowthScore]:
+    return _latest_growth_scores(session, company_ids)
+
+
 def _require(session: Session, opportunity_id: UUID) -> Opportunity:
     opportunity = session.get(Opportunity, opportunity_id)
     if opportunity is None:
@@ -429,13 +449,36 @@ def _latest_scores(session: Session, company_ids: list[UUID]) -> dict[UUID, Oppo
     return latest
 
 
+def _latest_growth_scores(session: Session, company_ids: list[UUID]) -> dict[UUID, GrowthScore]:
+    if not company_ids:
+        return {}
+    rows = session.query(GrowthScore).filter(GrowthScore.company_id.in_(company_ids)).all()
+    return {row.company_id: row for row in rows}
+
+
+def _effective_score(
+    company_id: UUID,
+    scores: dict[UUID, OpportunityScore],
+    growth_scores: dict[UUID, GrowthScore],
+) -> tuple[int, str | None]:
+    score = scores.get(company_id)
+    if score is not None:
+        return (score.opportunity_score, score.priority)
+    growth = growth_scores.get(company_id)
+    if growth is not None:
+        return (growth.score, growth.priority)
+    return (-1, None)
+
+
 def _sorted_by_score(
     opportunities: list[Opportunity],
     scores: dict[UUID, OpportunityScore],
+    growth_scores: dict[UUID, GrowthScore] | None = None,
 ) -> list[Opportunity]:
+    growth_scores = growth_scores or {}
+
     def key(item: Opportunity) -> tuple[int, int, datetime]:
-        score = scores.get(item.company_id)
-        value = score.opportunity_score if score else -1
+        value, _ = _effective_score(item.company_id, scores, growth_scores)
         return (0 if item.is_favorite else 1, -value, item.updated_at)
 
     return sorted(opportunities, key=key)
@@ -443,3 +486,7 @@ def _sorted_by_score(
 
 def website_for(company: Company) -> Website | None:
     return company.websites[0] if company.websites else None
+
+
+def _has_website(company: Company | None) -> bool:
+    return bool(company and (company.website_url or company.websites))

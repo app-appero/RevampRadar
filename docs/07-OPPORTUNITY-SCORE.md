@@ -85,3 +85,20 @@ Ogni Opportunity Score deve fornire:
 Non usare un solo score opaco.
 
 Il sistema deve spiegare perché un'azienda è stata classificata come opportunità.
+
+## Growth Potential Score (aziende senza sito)
+
+L'Opportunity Score sopra richiede un audit su un sito esistente. Per le aziende
+scoperte senza sito (discovery estesa) non c'è nulla da analizzare, quindi si usa
+un punteggio euristico separato, il **Growth Potential Score**, calcolato da:
+
+- categoria (quanto quel tipo di attività dipende dalla scoperta online);
+- competition gap (quota di attività simili nella stessa zona che hanno già un sito);
+- contattabilità (telefono/email noti);
+- reputazione, se nota da OSM (stelle/rating).
+
+Non è un modello allenato (nessun dato di fatturato/clienti è disponibile): è una
+stima esplicativa, stessa logica dell'Opportunity Score (score 0–100, priority,
+top reasons, fattori positivi/negativi, servizio consigliato). Serve a non far
+sparire in fondo alla pipeline i prospect senza sito, che spesso sono i più
+interessanti, e ad alimentare la proposta "creazione sito da zero".
