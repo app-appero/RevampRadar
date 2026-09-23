@@ -125,6 +125,7 @@ export type OpportunityFilters = {
   min_score?: number;
   priority?: string;
   segment?: "refactor" | "greenfield";
+  contactable?: boolean;
 };
 
 async function parseJson<T>(response: Response): Promise<T> {
@@ -170,6 +171,7 @@ export function fetchOpportunities(filters: OpportunityFilters = {}): Promise<Op
   if (filters.min_score != null) params.set("min_score", String(filters.min_score));
   if (filters.priority) params.set("priority", filters.priority);
   if (filters.segment) params.set("segment", filters.segment);
+  if (filters.contactable) params.set("contactable", "true");
   const query = params.toString();
   return request(`/opportunities${query ? `?${query}` : ""}`);
 }

@@ -18,6 +18,7 @@ from app.models.entities import (
     Website,
 )
 from app.schemas.crm import ACTIVITY_TYPES, CRM_STATUSES, SCHEDULED_ACTIVITY_TYPES
+from app.services.contactability import is_contactable
 
 
 class CrmServiceError(Exception):
@@ -75,6 +76,7 @@ def list_opportunities(
     min_score: int | None = None,
     priority: str | None = None,
     segment: str | None = None,
+    contactable: bool | None = None,
 ) -> list[Opportunity]:
     backfill_opportunities(session)
     q = (
@@ -106,6 +108,8 @@ def list_opportunities(
     opportunities = q.order_by(Opportunity.updated_at.desc()).all()
     if segment in ("refactor", "greenfield"):
         opportunities = [item for item in opportunities if (_has_website(item.company) == (segment == "refactor"))]
+    if contactable is True:
+        opportunities = [item for item in opportunities if is_contactable(item.company)]
     company_ids = [item.company_id for item in opportunities]
     scores = _latest_scores(session, company_ids)
     growth_scores = _latest_growth_scores(session, company_ids)

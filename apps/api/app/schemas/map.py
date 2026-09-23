@@ -16,6 +16,7 @@ class MapPoint(BaseModel):
     priority: str | None
     has_app: bool
     has_website: bool
+    is_contactable: bool
     cluster_id: int
     audit_id: UUID | None = None
 

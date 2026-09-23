@@ -121,6 +121,7 @@ def get_opportunities(
     min_score: int | None = Query(default=None, ge=0, le=100),
     priority: str | None = None,
     segment: str | None = None,
+    contactable: bool | None = None,
 ) -> list[OpportunitySummary]:
     try:
         items = list_opportunities(
@@ -135,6 +136,7 @@ def get_opportunities(
             min_score=min_score,
             priority=priority,
             segment=segment,
+            contactable=contactable,
         )
     except CrmServiceError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc

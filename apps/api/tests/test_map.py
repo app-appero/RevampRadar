@@ -47,11 +47,25 @@ def test_map_clusters_scored_points(client, db_session) -> None:
     assert baia["has_website"] is False
     assert baia["has_app"] is False
     assert baia["opportunity_score"] is None
+    assert baia["is_contactable"] is False
+    assert sole["is_contactable"] is True
     assert len(payload["clusters"]) >= 1
     assert all("P(accett" not in cluster["label"] for cluster in payload["clusters"])
     baia_cluster = next(item for item in payload["clusters"] if item["id"] == baia["cluster_id"])
     assert baia_cluster["no_site_share"] > 0
     assert "senza sito" in baia_cluster["label"]
+
+
+def test_map_contactable_via_social_even_without_website(client, db_session) -> None:
+    company = _company(db_session, "Trattoria Social", "Palermo", 38.1157, 13.3615, website=False)
+    company.extra = {"osm_tags": {"contact:whatsapp": "+39 333 1234567"}}
+    db_session.commit()
+
+    response = client.get("/map")
+    assert response.status_code == 200
+    point = next(item for item in response.json()["points"] if item["name"] == "Trattoria Social")
+    assert point["has_website"] is False
+    assert point["is_contactable"] is True
 
 
 def test_map_backfill_sets_coords_from_osm_id(client, db_session, monkeypatch) -> None:

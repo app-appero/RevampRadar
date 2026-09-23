@@ -10,6 +10,7 @@ from app.config import Settings, get_settings
 from app.discovery.osm import fetch_coords_for_external_ids
 from app.models.entities import Audit, Company
 from app.schemas.map import BackfillResponse, MapCluster, MapPoint, MapResponse
+from app.services.contactability import is_contactable
 from app.services.geo_cluster import GeoMember, cluster_members
 
 
@@ -75,6 +76,7 @@ def build_map_payload(session: Session) -> MapResponse:
                 priority=member.priority,
                 has_app=member.has_app,
                 has_website=member.has_website,
+                is_contactable=is_contactable(company),
                 cluster_id=cluster_by_company.get(company.id, 0),
                 audit_id=audit.id if audit else None,
             )
