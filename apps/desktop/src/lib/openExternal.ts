@@ -4,7 +4,12 @@ function isTauri(): boolean {
 
 export function openExternal(url: string): void {
   if (isTauri()) {
-    void import("@tauri-apps/api/core").then(({ invoke }) => invoke("open_external", { url }));
+    void import("@tauri-apps/api/core")
+      .then(({ invoke }) => invoke("open_external", { url }))
+      .catch((err) => {
+        console.error("open_external fallito, provo window.open come ripiego:", err);
+        window.open(url, "_blank", "noopener,noreferrer");
+      });
     return;
   }
   // Nel browser (npm run dev) window.open deve restare sincrono nel click handler,
