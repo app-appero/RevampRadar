@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-REFACTOR_TOKENS = ("nome_mittente", "nome_attivita", "luogo", "dominio", "firma")
+REFACTOR_TOKENS = ("nome_mittente", "nome_attivita", "luogo", "dominio", "firma", "osservazione")
 GREENFIELD_TOKENS = ("nome_mittente", "nome_attivita", "luogo", "firma")
 
 DEFAULT_REFACTOR_EMAIL_TEMPLATE = """Buongiorno,
 
 mi chiamo {{nome_mittente}} e sono uno sviluppatore web freelance. Aiuto le attività a migliorare la propria presenza online, rendendo i loro siti web più moderni, funzionali e semplici da utilizzare per i clienti.
 
-Ho avuto modo di visitare il sito di {{nome_attivita}}{{luogo}} ({{dominio}}) e credo ci siano delle interessanti opportunità per valorizzare ulteriormente la vostra attività online.
+Ho avuto modo di visitare il sito di {{nome_attivita}}{{luogo}} ({{dominio}}) e credo ci siano delle interessanti opportunità per valorizzare ulteriormente la vostra attività online.{{osservazione}}
 
 Mi piacerebbe proporvi alcune soluzioni per migliorare l'esperienza di chi visita il vostro sito, facilitare il contatto con i potenziali clienti e rendere la vostra presenza digitale ancora più efficace.
 

@@ -1,7 +1,7 @@
 from uuid import UUID
 
 from app.models.entities import Audit, AuditFinding, Company, OpportunityScore, WebsiteScore
-from app.proposals.builder import build_proposal_draft, estimate_range
+from app.proposals.builder import build_greenfield_proposal_draft, build_proposal_draft, estimate_range
 from app.proposals.service import create_or_replace_proposal
 from app.proposals.templates import render_email_template
 
@@ -208,6 +208,135 @@ def test_polish_proposal_falls_back_when_ai_proposes_a_time_slot(monkeypatch) ->
     assert polished is not None
     assert polished.email_body == draft.email_body
     assert "10 minuti" not in polished.email_body
+
+
+def test_polish_proposal_falls_back_when_ai_cites_an_internal_score(monkeypatch) -> None:
+    from app.proposals.ai import polish_proposal
+    from app.proposals.sender import DEFAULT_SENDER
+
+    class FakeProvider:
+        name = "fake"
+
+        def complete_json(self, system, user, temperature=0.3):
+            import json as _json
+
+            return _json.dumps(
+                {
+                    "summary": "Riassunto AI",
+                    "strategy": "Strategia AI",
+                    "email_subject": "Oggetto AI",
+                    "email_body": "Ciao, il vostro Opportunity Score è 72/100, molto interessante.",
+                    "brief": "Brief AI",
+                }
+            )
+
+    monkeypatch.setattr("app.proposals.ai.get_ai_provider", lambda settings: FakeProvider())
+    draft = build_proposal_draft(
+        domain="hotelsole.test",
+        url="https://hotelsole.test",
+        company_name=None,
+        city=None,
+        findings=[],
+        website_score=None,
+        opportunity_score=None,
+    )
+    from app.config import Settings
+
+    polished = polish_proposal(Settings(), draft, {}, DEFAULT_SENDER)
+    assert polished is not None
+    assert polished.email_body == draft.email_body
+    assert "opportunity score" not in polished.email_body.lower()
+
+
+def test_polish_proposal_falls_back_when_ai_claims_lost_business(monkeypatch) -> None:
+    from app.proposals.ai import polish_proposal
+    from app.proposals.sender import DEFAULT_SENDER
+
+    class FakeProvider:
+        name = "fake"
+
+        def complete_json(self, system, user, temperature=0.3):
+            import json as _json
+
+            return _json.dumps(
+                {
+                    "summary": "Riassunto AI",
+                    "strategy": "Strategia AI",
+                    "email_subject": "Oggetto AI",
+                    "email_body": "Il vostro sito vi sta facendo perdere clienti ogni giorno.",
+                    "brief": "Brief AI",
+                }
+            )
+
+    monkeypatch.setattr("app.proposals.ai.get_ai_provider", lambda settings: FakeProvider())
+    draft = build_proposal_draft(
+        domain="hotelsole.test",
+        url="https://hotelsole.test",
+        company_name=None,
+        city=None,
+        findings=[],
+        website_score=None,
+        opportunity_score=None,
+    )
+    from app.config import Settings
+
+    polished = polish_proposal(Settings(), draft, {}, DEFAULT_SENDER)
+    assert polished is not None
+    assert polished.email_body == draft.email_body
+    assert "perdere clienti" not in polished.email_body.lower()
+
+
+def test_email_body_mentions_one_verified_observation_when_relevant() -> None:
+    class ViewportFinding:
+        code = "HTML_MISSING_VIEWPORT"
+        severity = "high"
+        title = "Viewport mobile assente"
+        recommendation = "Aggiungi il meta viewport."
+
+    draft = build_proposal_draft(
+        domain="hotelsole.test",
+        url="https://hotelsole.test",
+        company_name="Hotel Sole",
+        city="Rimini",
+        findings=[ViewportFinding()],
+        website_score=None,
+        opportunity_score=None,
+    )
+    assert "smartphone" in draft.email_body
+    # Un solo elemento citato, non un elenco di problemi tecnici.
+    assert draft.email_body.count("Ho notato in particolare") == 1
+
+
+def test_email_body_has_no_dangling_placeholder_when_no_relevant_finding() -> None:
+    draft = build_proposal_draft(
+        domain="hotelsole.test",
+        url="https://hotelsole.test",
+        company_name="Hotel Sole",
+        city="Rimini",
+        findings=[],
+        website_score=None,
+        opportunity_score=None,
+    )
+    assert "{{osservazione}}" not in draft.email_body
+    assert "Ho notato in particolare" not in draft.email_body
+
+
+def test_greenfield_email_subject_does_not_assert_unverified_absence() -> None:
+    class Score:
+        score = 60
+        priority = "HIGH"
+        top_reasons = ["Nessun competitor comparabile trovato nella stessa zona."]
+        positive_factors: list[str] = []
+        recommended_service = "Creazione sito vetrina con scheda attività e contatti"
+
+    draft = build_greenfield_proposal_draft(
+        company_name="Bottega del Gusto",
+        category="Alimentari",
+        city="Lecce",
+        growth_score=Score(),
+    )
+    assert "non ha un sito" not in draft.email_subject.lower()
+    assert "vi manca" not in draft.email_subject.lower()
 
 
 def test_service_builds_without_httpx(db_session, monkeypatch) -> None:

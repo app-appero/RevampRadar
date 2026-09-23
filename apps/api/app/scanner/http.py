@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 import httpx
 
 from app.config import Settings
+from app.scanner.ssrf_guard import SSRFBlockedError, is_public_hostname
 
 MAX_REDIRECTS = 8
 
@@ -34,6 +35,13 @@ class HttpScanResult:
         }
 
 
+def _reject_private_targets(request: httpx.Request) -> None:
+    """Event hook httpx: valida anche ogni hop di redirect, non solo l'URL iniziale."""
+    hostname = request.url.host
+    if not hostname or not is_public_hostname(hostname):
+        raise SSRFBlockedError(hostname or "")
+
+
 def scan_http(url: str, settings: Settings, client: httpx.Client | None = None) -> HttpScanResult:
     headers = {"User-Agent": settings.scanner_user_agent, "Accept": "text/html,application/xhtml+xml"}
     timeout = httpx.Timeout(settings.request_timeout_seconds)
@@ -43,7 +51,13 @@ def scan_http(url: str, settings: Settings, client: httpx.Client | None = None) 
         timeout=timeout,
         headers=headers,
         max_redirects=MAX_REDIRECTS,
+        event_hooks={"request": [_reject_private_targets]},
     )
+    hostname = httpx.URL(url).host
+    if not hostname or not is_public_hostname(hostname):
+        if own_client:
+            http_client.close()
+        return HttpScanResult(ok=False, error="blocked_private_target")
     try:
         response = http_client.get(url)
         chain = [str(item.url) for item in response.history] + [str(response.url)]
@@ -64,6 +78,8 @@ def scan_http(url: str, settings: Settings, client: httpx.Client | None = None) 
             page_size_bytes=len(response.content),
             html=html,
         )
+    except SSRFBlockedError:
+        return HttpScanResult(ok=False, error="blocked_private_target")
     except httpx.TooManyRedirects:
         return HttpScanResult(ok=False, error="redirect_loop")
     except httpx.ConnectError as exc:

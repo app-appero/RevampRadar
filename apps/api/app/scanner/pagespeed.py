@@ -16,10 +16,16 @@ def fetch_pagespeed(url: str, settings: Settings) -> dict | None:
     }
     try:
         response = httpx.get(endpoint, params=params, timeout=30.0)
-        response.raise_for_status()
+    except httpx.HTTPError:
+        # Niente str(exc): httpx la costruisce includendo l'URL della richiesta,
+        # che qui contiene la chiave PageSpeed nella query string.
+        return {"ok": False, "error": "pagespeed_network_error"}
+    if response.status_code >= 400:
+        return {"ok": False, "error": f"pagespeed_http_{response.status_code}"}
+    try:
         payload = response.json()
-    except httpx.HTTPError as exc:
-        return {"ok": False, "error": str(exc)}
+    except ValueError:
+        return {"ok": False, "error": "pagespeed_invalid_response"}
 
     categories = payload.get("lighthouseResult", {}).get("categories", {})
     audits = payload.get("lighthouseResult", {}).get("audits", {})

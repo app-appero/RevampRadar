@@ -88,14 +88,23 @@ def compute_growth_score(
 
     if peer_total > 0:
         peer_ratio_pct = round(100 * peer_with_website / peer_total)
+        # Il confronto riguarda solo le attività già presenti nel database di RevampRadar
+        # (discovery precedenti), non un dato di mercato o di settore verificato altrove.
         if competition_gap >= 60:
             reasons.append(
-                f"{peer_ratio_pct}% delle attività simili trovate nella stessa zona ha già un sito: "
-                f"{name} rischia di essere invisibile a chi cerca online."
+                f"{peer_with_website} attività su {peer_total} simili già trovate da RevampRadar nella "
+                f"stessa zona ({peer_ratio_pct}%) hanno già un sito: {name} rischia di essere meno "
+                "visibile di loro a chi cerca online."
             )
-            positive.append(f"gap competitivo netto: {peer_ratio_pct}% dei simili nella zona ha un sito")
+            positive.append(
+                f"gap competitivo netto tra le attività già trovate: {peer_ratio_pct}% "
+                f"({peer_with_website}/{peer_total}) ha un sito"
+            )
         elif competition_gap <= 25:
-            negative.append(f"anche i competitor vicini sono poco digitalizzati ({peer_ratio_pct}% con sito)")
+            negative.append(
+                f"anche le {peer_total} attività simili già trovate nella zona sono poco digitalizzate "
+                f"({peer_ratio_pct}% con sito)"
+            )
     else:
         reasons.append("Nessun competitor comparabile trovato nella stessa zona: stima basata solo sulla categoria.")
 
