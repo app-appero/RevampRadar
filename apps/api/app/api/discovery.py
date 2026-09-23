@@ -12,6 +12,7 @@ from app.discovery.service import (
     execute_discovery,
     get_company,
     list_companies,
+    list_company_categories,
     load_discovery_run,
 )
 from app.jobs.bulk_scan import latest_bulk_scan
@@ -121,6 +122,11 @@ def get_discovery(run_id: UUID, db: Session = Depends(get_db)) -> DiscoveryRunRe
 @router.get("/companies", response_model=list[CompanySummary])
 def get_companies(db: Session = Depends(get_db)) -> list[CompanySummary]:
     return [_company_summary(item) for item in list_companies(db)]
+
+
+@router.get("/companies/categories", response_model=list[str])
+def get_company_categories(db: Session = Depends(get_db)) -> list[str]:
+    return list_company_categories(db)
 
 
 @router.get("/companies/{company_id}", response_model=CompanyDetail)

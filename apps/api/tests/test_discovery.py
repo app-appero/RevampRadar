@@ -500,6 +500,30 @@ def test_companies_empty_and_missing(client) -> None:
     assert response.status_code == 404
 
 
+def test_company_categories_are_distinct_and_sorted(client, db_session) -> None:
+    assert client.get("/companies/categories").json() == []
+    for name, category in [
+        ("Hotel Sole", "Hotel"),
+        ("Hotel Luna", "Hotel"),
+        ("Bar Blu", "bar"),
+        ("Senza categoria", None),
+    ]:
+        db_session.add(
+            Company(
+                name=name,
+                category=category,
+                source="fake",
+                external_id=name.lower().replace(" ", "-"),
+                status="discovered",
+            )
+        )
+    db_session.commit()
+
+    response = client.get("/companies/categories")
+    assert response.status_code == 200
+    assert response.json() == ["bar", "Hotel"]
+
+
 def test_company_detail_after_persist(client, db_session) -> None:
     company = Company(
         name="Hotel Test",

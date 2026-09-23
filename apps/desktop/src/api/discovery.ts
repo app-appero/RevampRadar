@@ -272,6 +272,16 @@ export async function fetchCompanies(): Promise<CompanySummary[]> {
   return parseJson<CompanySummary[]>(response);
 }
 
+export async function fetchCompanyCategories(): Promise<string[]> {
+  let response: Response;
+  try {
+    response = await fetch(`${getApiBaseUrl()}/companies/categories`);
+  } catch {
+    throw new ApiError("Impossibile raggiungere il backend.");
+  }
+  return parseJson<string[]>(response);
+}
+
 export async function fetchCompany(id: string): Promise<CompanyDetail> {
   let response: Response;
   try {
