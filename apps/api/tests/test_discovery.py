@@ -217,6 +217,90 @@ def test_parse_osm_external_id_and_overpass_error_hides_html() -> None:
     assert "timeout" in message.lower() or "sovraccarico" in message.lower()
 
 
+def test_overpass_respects_configured_timeout_instead_of_hardcoded_25s(monkeypatch) -> None:
+    import app.discovery.osm as osm_module
+
+    captured: dict = {}
+
+    class _FakeResponse:
+        status_code = 200
+        text = "{}"
+
+        def json(self):
+            return {"elements": [{"type": "node", "id": 1, "lat": 45.0, "lon": 11.0, "tags": {"name": "X"}}]}
+
+    class _FakeClient:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def post(self, url, data=None):
+            captured["query"] = data["data"]
+            return _FakeResponse()
+
+    monkeypatch.setattr(osm_module.httpx, "Client", lambda *a, **k: _FakeClient())
+    provider = OpenStreetMapProvider(Settings(discovery_timeout_seconds=60.0))
+    provider._overpass({"bbox": ["36", "38", "12", "15"]}, [("amenity", "*")], 25)
+    assert "[timeout:55]" in captured["query"]
+
+
+def test_overpass_timeout_remark_raises_actionable_error_instead_of_silent_zero(monkeypatch) -> None:
+    import pytest
+
+    import app.discovery.osm as osm_module
+
+    class _FakeResponse:
+        status_code = 200
+        text = "{}"
+
+        def json(self):
+            return {"elements": [], "remark": 'runtime error: Query timed out in "query" datasource.'}
+
+    class _FakeClient:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def post(self, url, data=None):
+            return _FakeResponse()
+
+    monkeypatch.setattr(osm_module.httpx, "Client", lambda *a, **k: _FakeClient())
+    provider = OpenStreetMapProvider(Settings())
+    with pytest.raises(RuntimeError) as exc_info:
+        provider._overpass({"bbox": ["36", "38", "12", "15"]}, [("amenity", "*")], 25)
+    message = str(exc_info.value).lower()
+    assert "riprova" in message or "ampia" in message
+
+
+def test_overpass_genuine_zero_results_stays_a_silent_empty_list(monkeypatch) -> None:
+    import app.discovery.osm as osm_module
+
+    class _FakeResponse:
+        status_code = 200
+        text = "{}"
+
+        def json(self):
+            return {"elements": []}
+
+    class _FakeClient:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def post(self, url, data=None):
+            return _FakeResponse()
+
+    monkeypatch.setattr(osm_module.httpx, "Client", lambda *a, **k: _FakeClient())
+    provider = OpenStreetMapProvider(Settings())
+    assert provider._overpass({"bbox": ["36", "38", "12", "15"]}, [("amenity", "*")], 25) == []
+
+
 def test_from_nominatim_keeps_coords() -> None:
     candidate = _from_nominatim(
         {
