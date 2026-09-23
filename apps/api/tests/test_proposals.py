@@ -1,7 +1,7 @@
 from uuid import UUID
 
 from app.models.entities import Audit, AuditFinding, Company, OpportunityScore, WebsiteScore
-from app.proposals.builder import build_proposal_draft, estimate_range
+from app.proposals.builder import _greenfield_pitch, build_proposal_draft, estimate_range
 from app.proposals.service import create_or_replace_proposal
 
 
@@ -120,7 +120,7 @@ def test_generate_and_replace_proposal(client, db_session, monkeypatch) -> None:
     assert body["source"] == "deterministic"
     assert body["recommended_service"].startswith("Messa in sicurezza")
     assert body["range_min"] == 1500
-    assert "HTTPS" in body["email_body"]
+    assert "hotelsole.test" in body["email_body"]
     assert "1500" not in body["email_body"]
     assert "Luca Bianchi" in body["email_body"]
     assert body["priority_problems"][0]["code"] == "HTTP_NO_HTTPS"
@@ -185,7 +185,8 @@ def test_greenfield_proposal_for_company_without_website(client, db_session, mon
     body = generated.json()
     assert body["kind"] == "greenfield"
     assert body["audit_id"] is None
-    assert "non ha ancora un sito" in body["email_body"]
+    assert "Trattoria da Mario" in body["email_body"]
+    assert "prenotare direttamente online" in body["email_body"]
     assert "Trattoria da Mario" in body["summary"]
 
     fetched = client.get(f"/companies/{company.id}/proposal")
@@ -195,6 +196,17 @@ def test_greenfield_proposal_for_company_without_website(client, db_session, mon
     growth = client.get(f"/companies/{company.id}/growth-score")
     assert growth.status_code == 200
     assert growth.json()["score"] >= 0
+
+
+def test_greenfield_pitch_does_not_leak_restaurant_wording_to_other_categories() -> None:
+    booking = _greenfield_pitch("Creazione sito vetrina con prenotazione online")
+    catalog = _greenfield_pitch("Creazione sito vetrina con catalogo prodotti")
+    generic = _greenfield_pitch("Creazione sito vetrina con scheda attività e contatti")
+    for pitch in (booking, catalog, generic):
+        assert "piatti" not in pitch
+        assert "menù" not in pitch
+    assert "prenotare direttamente online" in booking
+    assert "prodotti" in catalog
 
 
 def test_greenfield_proposal_rejected_when_company_has_website(client, db_session) -> None:

@@ -191,16 +191,41 @@ def _greenfield_email(
     service: str,
     sender: SenderProfileView,
 ) -> str:
-    reason = growth_score.top_reasons[0] if growth_score.top_reasons else "chi vi cerca online oggi fatica a trovarvi"
+    pitch = _greenfield_pitch(service)
     return (
         f"Buongiorno,\n\n"
-        f"mi chiamo {sender.display_name}. {sender.intro}\n\n"
-        f"Vi scrivo perché ho notato che {name}{place} non ha ancora un sito web. "
-        f"Non è una vendita a freddo: {reason}\n\n"
-        f"Un intervento utile sarebbe: {service}. "
-        f"Se vi interessa, vi mando un brief di una pagina e ci sentiamo 15 minuti, senza impegno.\n\n"
+        f"mi chiamo {sender.display_name} e sono uno sviluppatore web freelance. Aiuto le attività a "
+        f"migliorare la propria presenza online, rendendo più semplice per i clienti scoprirle, "
+        f"conoscerle e mettersi in contatto con loro.\n\n"
+        f"Ho avuto modo di conoscere {name}{place} e credo ci siano delle interessanti opportunità "
+        f"per valorizzare ulteriormente la vostra attività attraverso una presenza online dedicata.\n\n"
+        f"Mi piacerebbe proporvi la realizzazione di un sito web moderno e semplice da utilizzare, "
+        f"{pitch}\n\n"
+        f"Un sito web dedicato potrebbe aiutarvi a raggiungere nuovi clienti e offrire un punto di "
+        f"riferimento a chi desidera conoscere meglio la vostra attività.\n\n"
+        f"Se vi fa piacere, possiamo approfondire insieme questa possibilità e valutare una soluzione "
+        f"adatta alle vostre esigenze.\n\n"
+        f"Resto a disposizione per qualsiasi informazione.\n\n"
         f"Un saluto,\n"
         f"{format_signature(sender)}"
+    )
+
+
+def _greenfield_pitch(service: str) -> str:
+    text = service.lower()
+    if "prenotazione" in text:
+        return (
+            "che permetta di presentare al meglio la vostra attività e offrire ai clienti la "
+            "possibilità di conoscere quello che offrite e prenotare direttamente online."
+        )
+    if "catalogo" in text:
+        return (
+            "che permetta di presentare al meglio i vostri prodotti e offrire ai clienti la "
+            "possibilità di scoprirli e contattarvi facilmente."
+        )
+    return (
+        "che permetta di presentare al meglio la vostra attività e offrire ai clienti un modo "
+        "semplice per conoscervi e contattarvi."
     )
 
 
@@ -326,19 +351,19 @@ def _email(
     problems: list[dict],
     sender: SenderProfileView,
 ) -> str:
-    issue = problems[0]["title"] if problems else "alcuni limiti sul sito"
-    extra = ""
-    if len(problems) > 1:
-        extra = " Tra gli altri punti: " + "; ".join(item["title"] for item in problems[1:3]) + "."
     return (
         f"Buongiorno,\n\n"
-        f"mi chiamo {sender.display_name}. {sender.intro}\n\n"
-        f"Vi scrivo perché ho analizzato il sito di {name}{place} ({domain}) "
-        f"e ho visto dove la presenza digitale può funzionare meglio per chi vi cerca. "
-        f"Non è una vendita a freddo: è un'occhiata concreta a quello che c'è oggi. "
-        f"Il punto più evidente è: {issue}.{extra}\n\n"
-        f"Un intervento utile sarebbe: {service}. "
-        f"Se vi interessa, vi mando un brief di una pagina e ci sentiamo 15 minuti, senza impegno.\n\n"
+        f"mi chiamo {sender.display_name} e sono uno sviluppatore web freelance. Aiuto le attività a "
+        f"migliorare la propria presenza online, rendendo i loro siti web più moderni, funzionali e "
+        f"semplici da utilizzare per i clienti.\n\n"
+        f"Ho avuto modo di visitare il sito di {name}{place} ({domain}) e credo ci siano delle "
+        f"interessanti opportunità per valorizzare ulteriormente la vostra attività online.\n\n"
+        f"Mi piacerebbe proporvi alcune soluzioni per migliorare l'esperienza di chi visita il vostro "
+        f"sito, facilitare il contatto con i potenziali clienti e rendere la vostra presenza digitale "
+        f"ancora più efficace.\n\n"
+        f"Se vi fa piacere, possiamo approfondire insieme le possibilità di miglioramento e capire "
+        f"quali interventi potrebbero essere più utili per la vostra struttura.\n\n"
+        f"Resto a disposizione per qualsiasi informazione.\n\n"
         f"Un saluto,\n"
         f"{format_signature(sender)}"
     )
