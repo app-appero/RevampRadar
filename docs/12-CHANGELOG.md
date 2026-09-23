@@ -56,6 +56,7 @@
   - Proposte "da rifare": l'email può ora citare **un solo** problema verificato e tradotto in linguaggio semplice (es. sito poco leggibile da smartphone, contatto poco chiaro) quando l'audit ne ha trovato uno rilevante nella lista già filtrata; resta generica quando non c'è nulla di sufficientemente rilevante, senza elencare più problemi insieme.
   - Proposte "da creare": l'oggetto dell'email non afferma più come fatto accertato che l'azienda non ha un sito ("vi manca ancora un sito web") — nei dati OSM può solo non risultare, non è una verifica.
   - Growth Potential Score: il confronto con le attività simili ora indica anche quante sono state effettivamente trovate (es. "6 su 10"), non solo la percentuale, ed è più chiaro che il confronto riguarda solo le attività già presenti nel database di RevampRadar.
+  - Discovery: una ricerca su un'area ampia (regione intera, specialmente con "tutti i settori") poteva mandare in timeout Overpass e tornare "nessun risultato" senza che fosse vero — il timeout della query ora rispetta quello configurato (era fissato a 25s a prescindere) e, se Overpass segnala comunque di non aver fatto in tempo, la discovery risulta "fallita" con un messaggio chiaro invece di sembrare "completata, zero aziende".
 
 ### Changed
 - PageSpeed Insights è opzionale via `PAGESPEED_API_KEY`; Lighthouse nativo è rimandato (M1-014).

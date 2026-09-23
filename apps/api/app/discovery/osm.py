@@ -375,11 +375,16 @@ class OpenStreetMapProvider:
         *,
         name_regex: str | None = None,
     ) -> list[dict]:
-        timeout_s = min(25, int(self._settings.discovery_timeout_seconds))
+        # Prima era fissato a min(25, ...): su un'area grande (regione, "tutti i settori") Overpass
+        # spesso non fa in tempo e risponde con un "remark" di timeout ed elements vuoto, che veniva
+        # interpretato come "zero risultati" invece che come ricerca non completata. Ora si rispetta
+        # il timeout configurato (fino a un tetto ragionevole per un uso interattivo) e si distingue
+        # il timeout server-side da uno zero risultati genuino.
+        timeout_s = min(55, max(20, int(self._settings.discovery_timeout_seconds)))
         query = _build_overpass_query(area, tags, limit, timeout_s, name_regex=name_regex)
         last_error: RuntimeError | None = None
         empty_ok = False
-        http_timeout = httpx.Timeout(connect=10.0, read=float(timeout_s + 10), write=10.0, pool=10.0)
+        http_timeout = httpx.Timeout(connect=10.0, read=float(timeout_s + 15), write=10.0, pool=10.0)
         headers = {"User-Agent": self._settings.scanner_user_agent}
         for url in overpass_endpoints(self._settings):
             try:
@@ -399,6 +404,14 @@ class OpenStreetMapProvider:
             elements = payload.get("elements") or []
             if elements:
                 return elements
+            remark = str(payload.get("remark") or "").lower()
+            if "timed out" in remark or "timeout" in remark:
+                last_error = RuntimeError(
+                    "La ricerca su un'area così ampia non è riuscita a completarsi nel tempo "
+                    "disponibile su Overpass (non è detto che non ci siano risultati). Riprova, "
+                    "oppure restringi a provincia/città o a un settore specifico."
+                )
+                continue
             empty_ok = True
         if empty_ok:
             return []
