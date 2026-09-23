@@ -4,10 +4,10 @@ function isTauri(): boolean {
 
 export function openExternal(url: string): void {
   if (isTauri()) {
-    void import("@tauri-apps/api/core")
-      .then(({ invoke }) => invoke("open_external", { url }))
+    void import("@tauri-apps/plugin-opener")
+      .then(({ openUrl }) => openUrl(url))
       .catch((err) => {
-        console.error("open_external fallito, provo window.open come ripiego:", err);
+        console.error("openUrl fallito, provo window.open come ripiego:", err);
         window.open(url, "_blank", "noopener,noreferrer");
       });
     return;

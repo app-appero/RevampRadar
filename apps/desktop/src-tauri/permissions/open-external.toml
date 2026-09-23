@@ -1,4 +1,0 @@
-[[permission]]
-identifier = "allow-open-external"
-description = "Apre URL http(s) nel browser di sistema"
-commands.allow = ["open_external"]
