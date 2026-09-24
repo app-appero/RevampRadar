@@ -125,6 +125,50 @@ def get_company(session: Session, company_id: UUID) -> Company | None:
     )
 
 
+def resolve_company_location(session: Session, company: Company, settings: Settings) -> Company:
+    """Riempie città/regione mancanti da Nominatim, usando le coordinate già note.
+
+    Non sovrascrive città/regione già presenti (potrebbero venire da OSM e non è
+    detto che il dato di Nominatim sia più preciso). Ricalcola il Growth Score se
+    l'azienda non ha sito: il confronto "stessa zona" dipende da città/regione.
+    """
+    if company.latitude is None or company.longitude is None:
+        raise DiscoveryServiceError("Nessuna coordinata nota per questa azienda.", status_code=422)
+    from app.discovery.osm import reverse_geocode
+
+    try:
+        found = reverse_geocode(settings, company.latitude, company.longitude)
+    except RuntimeError as exc:
+        raise DiscoveryServiceError(str(exc), status_code=502) from exc
+    if not found:
+        raise DiscoveryServiceError(
+            "Nominatim non ha restituito un indirizzo per queste coordinate.", status_code=404
+        )
+    changed = False
+    if not company.city and found.get("city"):
+        company.city = found["city"]
+        changed = True
+    if not company.region and found.get("region"):
+        company.region = found["region"]
+        changed = True
+    if not company.country and found.get("country"):
+        company.country = found["country"]
+        changed = True
+    if not changed:
+        raise DiscoveryServiceError(
+            "Nominatim non ha aggiunto nulla di nuovo (città/regione già presenti o non trovate).",
+            status_code=404,
+        )
+    session.flush()
+    if not company.website_url:
+        from app.services.growth_service import compute_and_store_growth_score
+
+        compute_and_store_growth_score(session, company)
+    session.commit()
+    session.refresh(company)
+    return company
+
+
 def _set_progress(session: Session, run: DiscoveryRun, percent: int, label: str) -> None:
     run.progress_percent = max(0, min(100, percent))
     run.progress_label = label

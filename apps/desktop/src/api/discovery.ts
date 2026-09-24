@@ -291,3 +291,13 @@ export async function fetchCompany(id: string): Promise<CompanyDetail> {
   }
   return parseJson<CompanyDetail>(response);
 }
+
+export async function geocodeCompany(id: string): Promise<CompanyDetail> {
+  let response: Response;
+  try {
+    response = await fetch(`${getApiBaseUrl()}/companies/${id}/geocode`, { method: "POST" });
+  } catch {
+    throw new ApiError("Impossibile raggiungere il backend.");
+  }
+  return parseJson<CompanyDetail>(response);
+}

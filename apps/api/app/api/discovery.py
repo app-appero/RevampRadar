@@ -3,6 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
+from app.config import get_settings
 from app.db import get_db
 from app.discovery.italy_geo import compose_location, italy_geo
 from app.discovery.osm import format_industry_tags, listed_sectors, preview_industry, social_contact_links
@@ -14,6 +15,7 @@ from app.discovery.service import (
     list_companies,
     list_company_categories,
     load_discovery_run,
+    resolve_company_location,
 )
 from app.jobs.bulk_scan import latest_bulk_scan
 from app.models.entities import Company, DiscoveryRun
@@ -134,6 +136,18 @@ def get_company_detail(company_id: UUID, db: Session = Depends(get_db)) -> Compa
     company = get_company(db, company_id)
     if company is None:
         raise HTTPException(status_code=404, detail="Azienda non trovata.")
+    return _company_detail(company)
+
+
+@router.post("/companies/{company_id}/geocode", response_model=CompanyDetail)
+def post_company_geocode(company_id: UUID, db: Session = Depends(get_db)) -> CompanyDetail:
+    company = get_company(db, company_id)
+    if company is None:
+        raise HTTPException(status_code=404, detail="Azienda non trovata.")
+    try:
+        company = resolve_company_location(db, company, get_settings())
+    except DiscoveryServiceError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return _company_detail(company)
 
 
