@@ -470,6 +470,7 @@ class SenderProfile(Base):
     website_url: Mapped[str] = mapped_column(String(2048), nullable=False)
     freelancer_links: Mapped[list] = mapped_column(JsonType, nullable=False)
     social_links: Mapped[list] = mapped_column(JsonType, nullable=False)
+    other_links: Mapped[list] = mapped_column(JsonType, nullable=False, default=list)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
