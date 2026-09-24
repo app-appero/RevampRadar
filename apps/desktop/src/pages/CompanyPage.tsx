@@ -22,7 +22,7 @@ import { fetchCompanyGrowthScore } from "../api/growth";
 import { generateGreenfieldProposal, generateProposal, fetchCompanyProposal } from "../api/proposals";
 import { fetchAiSettings } from "../api/settings";
 import { IntelligencePanel } from "../components/IntelligencePanel";
-import { fetchCompany, formatOsmTags } from "../api/discovery";
+import { fetchCompany, formatOsmTags, geocodeCompany } from "../api/discovery";
 import { ProposalCard } from "../components/ProposalCard";
 import { ApiError } from "../api/health";
 import { PageBackLink } from "../components/HistoryNav";
@@ -117,6 +117,17 @@ export function CompanyPage() {
     }
   }
 
+  const geocode = useMutation({
+    mutationFn: async () => geocodeCompany(companyId!),
+    onSuccess: (updated) => {
+      queryClient.setQueryData(["company", companyId], updated);
+      void queryClient.invalidateQueries({ queryKey: ["company-growth", companyId] });
+    },
+    onError: (err) => {
+      setError(err instanceof ApiError ? err.message : "Recupero città non riuscito.");
+    },
+  });
+
   function chooseAiForDialog(useAi: boolean) {
     if (aiDialogFor === "refactor") {
       generateProposalMut.mutate(useAi);
@@ -204,6 +215,20 @@ export function CompanyPage() {
               >
                 Cerca su Google Maps
               </ExternalLink>
+              {!company.city && company.latitude != null && company.longitude != null ? (
+                <button
+                  type="button"
+                  disabled={geocode.isPending}
+                  onClick={() => {
+                    setError(null);
+                    geocode.mutate();
+                  }}
+                  title="Chiede a OpenStreetMap la città a partire dalle coordinate già note"
+                  className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-800 hover:bg-stone-50 disabled:opacity-50"
+                >
+                  {geocode.isPending ? "Recupero…" : "Recupera città"}
+                </button>
+              ) : null}
               <button
                 type="button"
                 disabled={!company.website_url || analyze.isPending}

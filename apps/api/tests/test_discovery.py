@@ -656,3 +656,110 @@ def test_company_summary_exposes_social_fallback(client, db_session) -> None:
     ]
     assert body["latitude"] == 38.1157
     assert body["longitude"] == 13.3615
+
+
+def test_resolve_company_location_fills_missing_city_from_coords(db_session, monkeypatch) -> None:
+    import app.discovery.osm as osm_module
+    from app.discovery.service import resolve_company_location
+
+    company = Company(
+        name="Antico Frantoio",
+        category="b&b",
+        source="fake",
+        external_id="x/10",
+        status="discovered",
+        latitude=45.4,
+        longitude=10.9,
+    )
+    db_session.add(company)
+    db_session.commit()
+
+    monkeypatch.setattr(
+        osm_module,
+        "reverse_geocode",
+        lambda settings, lat, lon: {"city": "Verona", "region": "Veneto", "country": "IT"},
+    )
+    updated = resolve_company_location(db_session, company, Settings())
+    assert updated.city == "Verona"
+    assert updated.region == "Veneto"
+
+
+def test_resolve_company_location_never_overwrites_existing_city(db_session, monkeypatch) -> None:
+    import pytest
+
+    import app.discovery.osm as osm_module
+    from app.discovery.service import resolve_company_location
+
+    company = Company(
+        name="Bar Certo",
+        category="bar",
+        source="fake",
+        external_id="x/11",
+        status="discovered",
+        city="Rimini",
+        region="Emilia-Romagna",
+        country="IT",
+        latitude=44.06,
+        longitude=12.57,
+    )
+    db_session.add(company)
+    db_session.commit()
+
+    monkeypatch.setattr(
+        osm_module,
+        "reverse_geocode",
+        lambda settings, lat, lon: {"city": "Cesenatico", "region": "Emilia-Romagna", "country": "IT"},
+    )
+    from app.discovery.service import DiscoveryServiceError
+
+    with pytest.raises(DiscoveryServiceError):
+        resolve_company_location(db_session, company, Settings())
+    assert company.city == "Rimini"
+
+
+def test_resolve_company_location_requires_coordinates(db_session) -> None:
+    import pytest
+
+    from app.discovery.service import DiscoveryServiceError, resolve_company_location
+
+    company = Company(name="Senza Coordinate", source="fake", external_id="x/12", status="discovered")
+    db_session.add(company)
+    db_session.commit()
+    with pytest.raises(DiscoveryServiceError):
+        resolve_company_location(db_session, company, Settings())
+
+
+def test_geocode_endpoint_updates_company_and_recomputes_growth_score(client, db_session, monkeypatch) -> None:
+    import app.discovery.osm as osm_module
+
+    company = Company(
+        name="Antico Frantoio",
+        category="b&b",
+        source="fake",
+        external_id="x/13",
+        status="discovered",
+        latitude=45.4,
+        longitude=10.9,
+    )
+    db_session.add(company)
+    db_session.commit()
+    company_id = company.id
+
+    monkeypatch.setattr(
+        osm_module,
+        "reverse_geocode",
+        lambda settings, lat, lon: {"city": "Verona", "region": "Veneto", "country": "IT"},
+    )
+    response = client.post(f"/companies/{company_id}/geocode")
+    assert response.status_code == 200
+    assert response.json()["city"] == "Verona"
+
+    growth = client.get(f"/companies/{company_id}/growth-score")
+    assert growth.status_code == 200
+
+
+def test_geocode_endpoint_404_for_unknown_company(client) -> None:
+    from uuid import UUID
+
+    response = client.post(f"/companies/{UUID(int=0)}/geocode")
+    assert response.status_code == 404

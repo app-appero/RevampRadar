@@ -59,6 +59,7 @@
   - Discovery: una ricerca su un'area ampia (regione intera, specialmente con "tutti i settori") poteva mandare in timeout Overpass e tornare "nessun risultato" senza che fosse vero — il timeout della query ora rispetta quello configurato (era fissato a 25s a prescindere) e, se Overpass segnala comunque di non aver fatto in tempo, la discovery risulta "fallita" con un messaggio chiaro invece di sembrare "completata, zero aziende".
 - Discovery: "ricerca estesa" ed "escludi attività incontattabili" partono già spuntate su una nuova ricerca, e "Max risultati" parte sempre al tetto della modalità corrente (200 estesa, 50 standard) invece che fisso a 20.
 - Impostazioni profilo: aggiunta una terza sezione "Altro" per i link che non sono né una piattaforma freelance né un social (es. GitHub, portfolio, Calendly), separata da "Social" in firma email.
+- Scheda azienda: quando manca la città (spesso per attività rurali/piccole senza tag `addr:*` su OSM) ma le coordinate sono note, un pulsante "Recupera città" chiede a Nominatim l'indirizzo di quel punto — su richiesta, azienda per azienda, non durante la discovery (rallenterebbe troppo una ricerca ampia). Non sovrascrive mai una città già presente; se l'azienda non ha sito, ricalcola anche il Growth Potential Score così il confronto "stessa zona" torna corretto.
 
 ### Changed
 - PageSpeed Insights è opzionale via `PAGESPEED_API_KEY`; Lighthouse nativo è rimandato (M1-014).

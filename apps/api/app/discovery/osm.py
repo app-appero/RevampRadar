@@ -451,6 +451,37 @@ class OpenStreetMapProvider:
         return [item for item in found if item is not None]
 
 
+def reverse_geocode(settings: Settings, latitude: float, longitude: float) -> dict[str, str | None] | None:
+    """Chiede a Nominatim città/regione/paese per delle coordinate note.
+
+    Usata su richiesta esplicita per una singola azienda (bottone "Recupera città"),
+    non durante la discovery: Nominatim ammette ~1 richiesta/secondo, farlo per ogni
+    azienda senza indirizzo in una ricerca estesa rallenterebbe troppo la ricerca.
+    """
+    url = settings.nominatim_url.rstrip("/") + "/reverse"
+    headers = {"User-Agent": settings.scanner_user_agent, "Accept": "application/json"}
+    timeout = httpx.Timeout(settings.discovery_timeout_seconds)
+    with httpx.Client(timeout=timeout, headers=headers) as client:
+        response = client.get(
+            url,
+            params={"lat": latitude, "lon": longitude, "format": "jsonv2", "addressdetails": 1, "zoom": 14},
+        )
+    if response.status_code >= 400:
+        raise RuntimeError(f"Nominatim HTTP {response.status_code}")
+    payload = response.json()
+    if not isinstance(payload, dict):
+        return None
+    address = payload.get("address")
+    if not isinstance(address, dict):
+        return None
+    city = address.get("city") or address.get("town") or address.get("village") or address.get("municipality")
+    region = address.get("state") or address.get("province")
+    country = address.get("country_code", "").upper() or None
+    if not city and not region:
+        return None
+    return {"city": city, "region": region, "country": country}
+
+
 def fetch_coords_for_external_ids(settings: Settings, external_ids: list[str]) -> dict[str, tuple[float, float]]:
     parsed: list[tuple[str, str, int]] = []
     for external_id in external_ids:
