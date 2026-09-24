@@ -24,9 +24,9 @@ export function DiscoveryPage() {
   const [region, setRegion] = useState("");
   const [province, setProvince] = useState("");
   const [city, setCity] = useState("");
-  const [maxResults, setMaxResults] = useState(20);
-  const [extended, setExtended] = useState(false);
-  const [requireContactable, setRequireContactable] = useState(false);
+  const [maxResults, setMaxResults] = useState(EXTENDED_MAX);
+  const [extended, setExtended] = useState(true);
+  const [requireContactable, setRequireContactable] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const sectorRef = useRef<HTMLDivElement | null>(null);
@@ -102,12 +102,7 @@ export function DiscoveryPage() {
 
   function onExtendedChange(checked: boolean) {
     setExtended(checked);
-    if (checked && maxResults <= 20) {
-      setMaxResults(100);
-    }
-    if (!checked && maxResults > STANDARD_MAX) {
-      setMaxResults(STANDARD_MAX);
-    }
+    setMaxResults(checked ? EXTENDED_MAX : STANDARD_MAX);
   }
 
   function onRegionChange(value: string) {
