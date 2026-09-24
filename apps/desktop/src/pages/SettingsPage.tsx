@@ -27,6 +27,7 @@ export function SettingsPage() {
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [freelancerLinks, setFreelancerLinks] = useState<ProfileLink[]>([]);
   const [socialLinks, setSocialLinks] = useState<ProfileLink[]>([]);
+  const [otherLinks, setOtherLinks] = useState<ProfileLink[]>([]);
 
   useEffect(() => {
     const profile = profileQuery.data;
@@ -36,6 +37,7 @@ export function SettingsPage() {
     setWebsiteUrl(profile.website_url);
     setFreelancerLinks(profile.freelancer_links);
     setSocialLinks(profile.social_links);
+    setOtherLinks(profile.other_links);
   }, [profileQuery.data]);
 
   const save = useMutation({
@@ -46,6 +48,7 @@ export function SettingsPage() {
         website_url: websiteUrl.trim(),
         freelancer_links: freelancerLinks.filter((item) => item.label.trim() && item.url.trim()),
         social_links: socialLinks.filter((item) => item.label.trim() && item.url.trim()),
+        other_links: otherLinks.filter((item) => item.label.trim() && item.url.trim()),
       }),
     onSuccess: () => {
       void profileQuery.refetch();
@@ -115,6 +118,12 @@ export function SettingsPage() {
           onChange={setFreelancerLinks}
         />
         <LinkList title="Social" links={socialLinks} onChange={setSocialLinks} />
+        <LinkList
+          title="Altro"
+          hint="Link generici che non sono né una piattaforma freelance né un social: GitHub, portfolio, Calendly…"
+          links={otherLinks}
+          onChange={setOtherLinks}
+        />
 
         {save.isError ? (
           <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">
@@ -432,16 +441,19 @@ function TemplateField({
 
 function LinkList({
   title,
+  hint,
   links,
   onChange,
 }: {
   title: string;
+  hint?: string;
   links: ProfileLink[];
   onChange: (next: ProfileLink[]) => void;
 }) {
   return (
     <fieldset className="space-y-3">
       <legend className="text-sm font-medium text-stone-700">{title}</legend>
+      {hint ? <p className="-mt-2 text-xs text-stone-500">{hint}</p> : null}
       {links.map((item, index) => (
         <div key={`${title}-${index}`} className="flex flex-col gap-2 sm:flex-row">
           <input

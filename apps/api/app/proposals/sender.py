@@ -17,6 +17,7 @@ class SenderProfileView:
     website_url: str
     freelancer_links: tuple[SenderLink, ...]
     social_links: tuple[SenderLink, ...]
+    other_links: tuple[SenderLink, ...] = ()
 
 
 DEFAULT_SENDER = SenderProfileView(
@@ -34,6 +35,7 @@ DEFAULT_SENDER = SenderProfileView(
         SenderLink(label="LinkedIn", url="https://www.linkedin.com/in/luca-bianchi-esempio"),
         SenderLink(label="Instagram", url="https://www.instagram.com/lucabianchi.dev"),
     ),
+    other_links=(),
 )
 
 
@@ -59,12 +61,16 @@ def format_signature(sender: SenderProfileView) -> str:
         lines.append(sender.website_url)
     freelancer = _format_link_block("Piattaforme", sender.freelancer_links)
     socials = _format_link_block("Social", sender.social_links)
+    other = _format_link_block("Altro", sender.other_links)
     if freelancer:
         lines.append("")
         lines.append(freelancer)
     if socials:
         lines.append("")
         lines.append(socials)
+    if other:
+        lines.append("")
+        lines.append(other)
     return "\n".join(lines).strip()
 
 

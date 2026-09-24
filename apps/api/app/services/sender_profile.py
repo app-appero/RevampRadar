@@ -20,6 +20,7 @@ def get_or_create_sender_profile(session: Session) -> SenderProfile:
         website_url=DEFAULT_SENDER.website_url,
         freelancer_links=links_to_payload(DEFAULT_SENDER.freelancer_links),
         social_links=links_to_payload(DEFAULT_SENDER.social_links),
+        other_links=links_to_payload(DEFAULT_SENDER.other_links),
     )
     session.add(profile)
     session.commit()
@@ -34,6 +35,7 @@ def update_sender_profile(session: Session, payload: SenderProfileUpdate) -> Sen
     profile.website_url = payload.website_url.strip()
     profile.freelancer_links = [item.model_dump() for item in payload.freelancer_links]
     profile.social_links = [item.model_dump() for item in payload.social_links]
+    profile.other_links = [item.model_dump() for item in payload.other_links]
     session.commit()
     session.refresh(profile)
     return profile
@@ -46,4 +48,5 @@ def profile_view(profile: SenderProfile) -> SenderProfileView:
         website_url=profile.website_url,
         freelancer_links=links_from_payload(profile.freelancer_links),
         social_links=links_from_payload(profile.social_links),
+        other_links=links_from_payload(profile.other_links),
     )

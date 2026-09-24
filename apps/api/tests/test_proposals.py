@@ -430,13 +430,36 @@ def test_sender_profile_defaults_and_update(client) -> None:
             "website_url": "https://saraverdi.test",
             "freelancer_links": [{"label": "Malt", "url": "https://www.malt.fr/profile/sara"}],
             "social_links": [{"label": "LinkedIn", "url": "https://www.linkedin.com/in/saraverdi"}],
+            "other_links": [{"label": "GitHub", "url": "https://github.com/saraverdi"}],
         },
     )
     assert updated.status_code == 200
     assert updated.json()["display_name"] == "Sara Verdi"
+    assert updated.json()["other_links"][0]["label"] == "GitHub"
     fetched = client.get("/settings/profile")
     assert fetched.json()["intro"].startswith("Realizzo siti")
     assert fetched.json()["freelancer_links"][0]["label"] == "Malt"
+    assert fetched.json()["other_links"][0]["url"] == "https://github.com/saraverdi"
+
+
+def test_signature_includes_other_links_under_their_own_heading() -> None:
+    from app.proposals.sender import SenderLink, SenderProfileView, format_signature
+
+    sender = SenderProfileView(
+        display_name="Sara Verdi",
+        intro="Realizzo siti.",
+        website_url="https://saraverdi.test",
+        freelancer_links=(),
+        social_links=(SenderLink(label="LinkedIn", url="https://linkedin.test/saraverdi"),),
+        other_links=(SenderLink(label="GitHub", url="https://github.com/saraverdi"),),
+    )
+    signature = format_signature(sender)
+    assert "Altro:" in signature
+    assert "https://github.com/saraverdi" in signature
+    # GitHub non finisce più sotto "Social".
+    social_block_start = signature.index("Social:")
+    other_block_start = signature.index("Altro:")
+    assert "github.com" not in signature[social_block_start:other_block_start]
 
 
 def test_render_email_template_replaces_known_tokens_and_leaves_rest_untouched() -> None:

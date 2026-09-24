@@ -80,6 +80,7 @@ def _to_response(profile: SenderProfile) -> SenderProfileResponse:
         website_url=profile.website_url,
         freelancer_links=profile.freelancer_links or [],
         social_links=profile.social_links or [],
+        other_links=profile.other_links or [],
         updated_at=profile.updated_at,
     )
 

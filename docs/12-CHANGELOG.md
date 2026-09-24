@@ -57,6 +57,8 @@
   - Proposte "da creare": l'oggetto dell'email non afferma più come fatto accertato che l'azienda non ha un sito ("vi manca ancora un sito web") — nei dati OSM può solo non risultare, non è una verifica.
   - Growth Potential Score: il confronto con le attività simili ora indica anche quante sono state effettivamente trovate (es. "6 su 10"), non solo la percentuale, ed è più chiaro che il confronto riguarda solo le attività già presenti nel database di RevampRadar.
   - Discovery: una ricerca su un'area ampia (regione intera, specialmente con "tutti i settori") poteva mandare in timeout Overpass e tornare "nessun risultato" senza che fosse vero — il timeout della query ora rispetta quello configurato (era fissato a 25s a prescindere) e, se Overpass segnala comunque di non aver fatto in tempo, la discovery risulta "fallita" con un messaggio chiaro invece di sembrare "completata, zero aziende".
+- Discovery: "ricerca estesa" ed "escludi attività incontattabili" partono già spuntate su una nuova ricerca, e "Max risultati" parte sempre al tetto della modalità corrente (200 estesa, 50 standard) invece che fisso a 20.
+- Impostazioni profilo: aggiunta una terza sezione "Altro" per i link che non sono né una piattaforma freelance né un social (es. GitHub, portfolio, Calendly), separata da "Social" in firma email.
 
 ### Changed
 - PageSpeed Insights è opzionale via `PAGESPEED_API_KEY`; Lighthouse nativo è rimandato (M1-014).

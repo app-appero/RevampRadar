@@ -11,6 +11,7 @@ export type SenderProfile = {
   website_url: string;
   freelancer_links: ProfileLink[];
   social_links: ProfileLink[];
+  other_links: ProfileLink[];
   updated_at: string;
 };
 

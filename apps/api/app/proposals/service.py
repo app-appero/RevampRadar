@@ -231,6 +231,7 @@ def _facts(audit: Audit, company: Company | None, draft: ProposalDraft, sender) 
             "website_url": sender.website_url,
             "freelancer_links": [{"label": item.label, "url": item.url} for item in sender.freelancer_links],
             "social_links": [{"label": item.label, "url": item.url} for item in sender.social_links],
+            "other_links": [{"label": item.label, "url": item.url} for item in sender.other_links],
         },
         "known_fields_only": True,
     }
@@ -255,6 +256,7 @@ def _greenfield_facts(company: Company, score, draft: ProposalDraft, sender) -> 
             "website_url": sender.website_url,
             "freelancer_links": [{"label": item.label, "url": item.url} for item in sender.freelancer_links],
             "social_links": [{"label": item.label, "url": item.url} for item in sender.social_links],
+            "other_links": [{"label": item.label, "url": item.url} for item in sender.other_links],
         },
         "known_fields_only": True,
     }
