@@ -4,8 +4,6 @@ import { createPortal } from "react-dom";
 import { screenshotSrc, type AuditScreenshot } from "../api/audits";
 
 export function ScreenshotGallery({ shots }: { shots: AuditScreenshot[] }) {
-  const current = shots.filter((shot) => !isPreview(shot));
-  const previews = shots.filter((shot) => isPreview(shot));
   const [lightbox, setLightbox] = useState<{ shots: AuditScreenshot[]; index: number } | null>(null);
 
   return (
@@ -16,33 +14,11 @@ export function ScreenshotGallery({ shots }: { shots: AuditScreenshot[] }) {
           Clicca per ingrandire. Scorri in orizzontale: inizio pagina, contenuto e footer, desktop e mobile.
         </p>
       </div>
-      {current.length > 0 ? (
+      {shots.length > 0 ? (
         <div className="flex gap-4 overflow-x-auto pb-2">
-          {current.map((shot, index) => (
-            <ShotCard key={shot.id} shot={shot} onOpen={() => setLightbox({ shots: current, index })} />
+          {shots.map((shot, index) => (
+            <ShotCard key={shot.id} shot={shot} onOpen={() => setLightbox({ shots, index })} />
           ))}
-        </div>
-      ) : null}
-
-      {previews.length > 0 ? (
-        <div className="space-y-3">
-          <div>
-            <h3 className="text-sm font-medium">Come potrebbe migliorare</h3>
-            <p className="text-sm text-stone-500">
-              Più viewport (inizio, contenuto, footer, mobile) con overlay indicativo: testo più
-              leggibile, CTA visibile, banner cookie nascosti. Non è il restyling finale.
-            </p>
-          </div>
-          <div className="flex gap-4 overflow-x-auto pb-2">
-            {previews.map((shot, index) => (
-              <ShotCard
-                key={shot.id}
-                shot={shot}
-                caption="Dopo (indicativo)"
-                onOpen={() => setLightbox({ shots: previews, index })}
-              />
-            ))}
-          </div>
         </div>
       ) : null}
 
@@ -58,30 +34,17 @@ export function ScreenshotGallery({ shots }: { shots: AuditScreenshot[] }) {
   );
 }
 
-function isPreview(shot: AuditScreenshot): boolean {
-  return shot.preview ?? shot.device.startsWith("preview_");
-}
-
-function ShotCard({
-  shot,
-  caption,
-  onOpen,
-}: {
-  shot: AuditScreenshot;
-  caption?: string;
-  onOpen: () => void;
-}) {
+function ShotCard({ shot, onOpen }: { shot: AuditScreenshot; onOpen: () => void }) {
   return (
     <figure className="w-72 shrink-0 overflow-hidden rounded-2xl border border-stone-200 bg-white">
       <button type="button" onClick={onOpen} className="block w-full cursor-zoom-in text-left">
         <img
           src={screenshotSrc(shot.url)}
-          alt={caption ?? shot.label ?? shot.device}
+          alt={shot.label ?? shot.device}
           className="h-80 w-full object-cover object-top"
         />
       </button>
       <figcaption className="px-4 py-2 text-sm text-stone-500">
-        {caption ? `${caption} · ` : null}
         {shot.label ?? shot.device} · {shot.viewport_width}×{shot.viewport_height}
       </figcaption>
     </figure>

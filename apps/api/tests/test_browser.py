@@ -1,4 +1,4 @@
-from app.scanner.browser import is_preview_shot, shot_label, viewport_scroll_offsets
+from app.scanner.browser import shot_label, viewport_scroll_offsets
 
 
 def test_viewport_scroll_offsets_short_page() -> None:
@@ -19,6 +19,4 @@ def test_viewport_scroll_offsets_long_page() -> None:
 
 def test_shot_labels() -> None:
     assert shot_label("desktop_hero") == "Desktop · inizio"
-    assert shot_label("preview_desktop_hero") == "Dopo · desktop inizio"
-    assert is_preview_shot("preview_desktop_hero")
-    assert not is_preview_shot("desktop_hero")
+    assert shot_label("mobile_mid") == "Mobile · contenuto"

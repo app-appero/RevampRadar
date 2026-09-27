@@ -77,9 +77,11 @@ La proposta commerciale si genera da audit/finding/score già persistiti. L'AI p
 
 M7 usa solo dati già misurati (HTML, audit precedenti, tag OSM). Niente competitor crawl, ads o recensioni inventate. Il confronto storico è tra audit persistiti dello stesso website.
 
-## ADR-015 — Anteprima visiva indicativa, non mockup di restyling
+## ADR-015 — Screenshot solo reali; il "dopo" è un Concept HTML on-demand
 
-Gli screenshot extra sono catture reali (viewport desktop/mobile a quote diverse). L'anteprima "dopo" applica solo overlay deterministici (testo più leggibile, CTA, nascondere cookie banner) e va etichettata come indicativa. Non si generano immagini di restyling con AI: sarebbero inventate e fuorvianti in sede commerciale.
+Gli screenshot restano esclusivamente catture reali del sito attuale (viewport desktop/mobile a quote diverse): documentano lo stato presente, senza overlay o modifiche artificiali del DOM. Non esiste più un'anteprima visiva indicativa del "dopo" generata automaticamente per ogni audit.
+
+Il "dopo" è invece una vera homepage HTML/CSS (Concept), generata **on-demand** soltanto sui prospect selezionati dopo un "Approfondisci prospect" (vedi docs/13-DEEP-RESEARCH.md), a partire da dati realmente raccolti (Company Brief, Design Brief). Non si inventano contenuti, testimonianze o statistiche: dove un dato manca si usa copy neutro o placeholder chiaramente identificabile.
 
 ## ADR-016 — M8 parte dai link store già sul sito
 

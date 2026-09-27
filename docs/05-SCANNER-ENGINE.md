@@ -73,8 +73,7 @@ Viewport standard desktop: inizio pagina, contenuto (se la pagina è lunga) e fo
 ### Mobile
 Viewport smartphone: inizio pagina e contenuto.
 
-### Anteprima visiva
-Uno screenshot per viewport già catturato (desktop inizio/contenuto/footer, mobile inizio/contenuto), etichettato come indicativo: testo più leggibile, CTA visibile, banner cookie nascosti. Non è un mockup di restyling né una promessa pixel-perfect.
+Gli screenshot sono sempre e soltanto catture reali del sito attuale: documentano lo stato presente, servono da confronto storico tra audit e da riferimento visivo per il Concept Homepage HTML (vedi docs/13-DEEP-RESEARCH.md). Non viene generata alcuna anteprima artificiale del "dopo": quella direzione è affidata esclusivamente al Concept HTML generato on-demand sui prospect approfonditi.
 
 ## Performance
 

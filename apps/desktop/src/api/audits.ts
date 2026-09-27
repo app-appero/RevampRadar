@@ -21,7 +21,6 @@ export type AuditScreenshot = {
   viewport_height: number;
   url: string;
   label?: string;
-  preview?: boolean;
 };
 
 export type WebsiteScore = {
