@@ -25,6 +25,7 @@ class Settings(BaseSettings):
         "tauri://localhost,http://tauri.localhost"
     )
     screenshot_dir: str = str(_REPO_ROOT / "data" / "screenshots")
+    concept_dir: str = str(_REPO_ROOT / "data" / "concepts")
     request_timeout_seconds: float = 15.0
     browser_timeout_ms: int = 20000
     scanner_user_agent: str = "RevampRadar/1.0 (+https://revampradar.local)"

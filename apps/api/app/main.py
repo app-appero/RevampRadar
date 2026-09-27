@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.audits import router as audits_router
 from app.api.bulk_scans import router as bulk_scans_router
+from app.api.concept import router as concept_router
 from app.api.crm import router as crm_router
 from app.api.deep_research import router as deep_research_router
 from app.api.discovery import router as discovery_router
@@ -46,6 +47,7 @@ def create_app() -> FastAPI:
     app.include_router(map_router)
     app.include_router(growth_router)
     app.include_router(deep_research_router)
+    app.include_router(concept_router)
     return app
 
 

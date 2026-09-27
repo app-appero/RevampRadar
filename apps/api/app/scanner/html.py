@@ -23,6 +23,7 @@ class HtmlScanResult:
     viewport: str | None = None
     lang: str | None = None
     favicon: str | None = None
+    theme_color: str | None = None
     structured_data_count: int = 0
     analytics: list[str] = field(default_factory=list)
     technologies: list[str] = field(default_factory=list)
@@ -43,6 +44,7 @@ class HtmlScanResult:
             "viewport": self.viewport,
             "lang": self.lang,
             "favicon": self.favicon,
+            "theme_color": self.theme_color,
             "structured_data_count": self.structured_data_count,
             "analytics": self.analytics,
             "technologies": self.technologies,
@@ -70,6 +72,8 @@ def scan_html(html: str, page_url: str) -> HtmlScanResult:
     lang = html_tag.get("lang") if html_tag else None
     icon_tag = soup.find("link", rel=lambda value: value and "icon" in value)
     favicon = icon_tag.get("href") if icon_tag else None
+    theme_color_tag = soup.find("meta", attrs={"name": re.compile("^theme-color$", re.I)})
+    theme_color = theme_color_tag.get("content", "").strip() if theme_color_tag else None
 
     structured_data_count = 0
     for script in soup.find_all("script", attrs={"type": "application/ld+json"}):
@@ -138,6 +142,7 @@ def scan_html(html: str, page_url: str) -> HtmlScanResult:
         viewport=viewport,
         lang=lang,
         favicon=favicon,
+        theme_color=theme_color or None,
         structured_data_count=structured_data_count,
         analytics=analytics,
         technologies=technologies,
