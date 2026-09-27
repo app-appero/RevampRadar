@@ -188,3 +188,35 @@ Definition of Done:
 
 Un'azienda scoperta senza sito ha un punteggio spiegabile, compare nel ranking
 della pipeline e può generare una proposta di creazione sito senza passare da un audit.
+
+---
+
+## M10 — Deep Research & Concept Homepage
+
+Obiettivo: un secondo livello di approfondimento, solo su richiesta, per i
+prospect selezionati dopo Discovery/Audit/Opportunity Score — mai automatico
+per ogni azienda trovata (vedi docs/13-DEEP-RESEARCH.md).
+
+Deliverable:
+
+- rimozione dell'anteprima "dopo" artificiale; solo screenshot reali del sito attuale;
+- Company Deep Research on-demand ("Approfondisci prospect"): sito (pagine prioritarie),
+  presenza digitale (estende l'Intelligence esistente), stato/progress come gli audit;
+- Business Signals: fatturato, dipendenti, anno di fondazione, forma societaria,
+  trend — ognuno con valore/fonte/data/affidabilità, inserimento manuale nell'MVP;
+- Company Brief automatico, con sintesi testuale opzionale via AI vincolata a non inventare dati;
+- Design Brief (stile/palette/tipografia/CTA) derivato dalla categoria e dall'identità
+  reale del sito quando rilevabile, modificabile a mano;
+- Concept Homepage HTML/CSS generato deterministicamente da Brief + Design Brief,
+  versionato (V1, V2, …), apribile/rigenerabile/eliminabile dalla scheda azienda;
+- priorità geografica locale (località di riferimento, distanza, ordinamento/filtro);
+- Proposal Engine: menzione del concept solo se esiste davvero, frase "zona" opzionale
+  entro una soglia di distanza configurabile.
+
+Definition of Done:
+
+Su un prospect selezionato a mano, un operatore può avviare l'approfondimento,
+ottenere un Company Brief basato solo su dati verificabili, generare una vera
+homepage HTML di direzione progettuale e usarla per arricchire (senza inventare
+nulla) l'email commerciale — senza che nulla di questo avvenga automaticamente
+sulle altre aziende scoperte.

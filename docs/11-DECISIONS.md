@@ -103,3 +103,19 @@ Il range progetto resta deterministico e visibile solo all'operatore. L'email al
 
 La mappa usa lat/lon persistiti da OpenStreetMap (nodo o `center` Overpass). I punti si colorano con l'Opportunity Score già calcolato. Il clustering è k-means non supervisionato sulle sole coordinate, in Python senza dipendenze ML: descrive gruppi spaziali (città, categoria, score medio, quota app). Non stima la probabilità che un prospect accetti. Le aziende scoperte prima della persistenza coordinate restano senza pin finché non si rilancia una discovery OSM.
 
+## ADR-021 — Deep Research e Concept solo on-demand, mai automatici
+
+Discovery, audit e Opportunity Score restano come oggi: veloci, su tutte le aziende trovate. Il "secondo livello" (Company Deep Research, Company Brief, Concept Homepage HTML) parte solo con un'azione esplicita ("Approfondisci prospect") sulla singola azienda selezionata, mai durante una discovery o un bulk scan. Coerente con il non-goal "generazione completa automatica di nuovi siti" di docs/00-PROJECT.md: qui la generazione è manuale, mirata e sempre a partire da dati verificati.
+
+## ADR-022 — Business Signals: manuale prima del provider a pagamento
+
+I segnali economici (fatturato, dipendenti, forma societaria, trend) hanno un'astrazione provider pronta ma nessun servizio esterno a pagamento collegato nell'MVP. L'inserimento è manuale, con valore/fonte/data/affidabilità espliciti e marcatura "manuale" sempre visibile. Un provider automatico si aggiunge solo quando emerge una necessità concreta d'uso reale (AGENTS.md, principio "ogni nuova dipendenza deve avere una motivazione concreta").
+
+## ADR-023 — Concept HTML: deterministico, mai un'invenzione
+
+Il generatore del Concept (`app/concept/generator.py`) è puro Python, senza AI: costruisce HTML/CSS solo dai dati già raccolti in Company Brief e Design Brief. Dove un contenuto manca, usa copy neutro o placeholder marcato internamente ("Concept dimostrativo", "contenuto di esempio"), mai testimonianze, numeri, clienti o anni inventati. L'AI resta opzionale solo nella fase di Company Brief (riscrittura di sintesi testuali sugli stessi fatti, mai la generazione dell'HTML).
+
+## ADR-024 — Priorità locale descrittiva, nessun automatismo GPS
+
+La località di riferimento è impostata a mano (città o coordinate), mai dedotta da geolocalizzazione automatica del dispositivo. La distanza è un calcolo geometrico (haversine) su coordinate già note, usato solo per ordinare/filtrare e, sotto soglia, per abilitare una frase email opzionale e modificabile. Non è una previsione di vicinanza reale né un fattore nello scoring.
+
