@@ -23,9 +23,10 @@ apps/desktop/src-tauri/gen/
 .env.local
 *.pem
 
-# Data
-data/
-postgres_data/
+# Data (solo le directory di dati runtime alla radice del repo: screenshot, concept, DB locale;
+# non deve intercettare asset di dati statici del codice, es. apps/api/app/discovery/data/*.json)
+/data/
+/postgres_data/
 
 # IDE / OS
 .idea/
