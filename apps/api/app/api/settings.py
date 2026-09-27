@@ -81,6 +81,12 @@ def _to_response(profile: SenderProfile) -> SenderProfileResponse:
         freelancer_links=profile.freelancer_links or [],
         social_links=profile.social_links or [],
         other_links=profile.other_links or [],
+        reference_location=profile.reference_location,
+        reference_latitude=profile.reference_latitude,
+        reference_longitude=profile.reference_longitude,
+        local_radius_km=profile.local_radius_km,
+        local_mention_enabled=profile.local_mention_enabled,
+        local_mention_text=profile.local_mention_text,
         updated_at=profile.updated_at,
     )
 

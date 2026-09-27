@@ -1,13 +1,16 @@
 from __future__ import annotations
 
-REFACTOR_TOKENS = ("nome_mittente", "nome_attivita", "luogo", "dominio", "firma", "osservazione")
-GREENFIELD_TOKENS = ("nome_mittente", "nome_attivita", "luogo", "firma")
+REFACTOR_TOKENS = (
+    "nome_mittente", "nome_attivita", "luogo", "dominio", "firma", "osservazione",
+    "nota_concept", "nota_locale",
+)
+GREENFIELD_TOKENS = ("nome_mittente", "nome_attivita", "luogo", "firma", "nota_concept", "nota_locale")
 
 DEFAULT_REFACTOR_EMAIL_TEMPLATE = """Buongiorno,
 
 mi chiamo {{nome_mittente}} e sono uno sviluppatore web freelance. Aiuto le attività a migliorare la propria presenza online, rendendo i loro siti web più moderni, funzionali e semplici da utilizzare per i clienti.
 
-Ho avuto modo di visitare il sito di {{nome_attivita}}{{luogo}} ({{dominio}}) e credo ci siano delle interessanti opportunità per valorizzare ulteriormente la vostra attività online.{{osservazione}}
+Ho avuto modo di visitare il sito di {{nome_attivita}}{{luogo}} ({{dominio}}) e credo ci siano delle interessanti opportunità per valorizzare ulteriormente la vostra attività online.{{osservazione}}{{nota_concept}}{{nota_locale}}
 
 Mi piacerebbe proporvi alcune soluzioni per migliorare l'esperienza di chi visita il vostro sito, facilitare il contatto con i potenziali clienti e rendere la vostra presenza digitale ancora più efficace.
 
@@ -22,7 +25,7 @@ DEFAULT_GREENFIELD_EMAIL_TEMPLATE = """Buongiorno,
 
 mi chiamo {{nome_mittente}} e sono uno sviluppatore web freelance. Aiuto le attività a migliorare la propria presenza online, rendendo più semplice per i clienti scoprirle, conoscerle e mettersi in contatto con loro.
 
-Ho avuto modo di conoscere la vostra attività e credo ci siano delle interessanti opportunità per valorizzarla ulteriormente attraverso una presenza online dedicata.
+Ho avuto modo di conoscere la vostra attività e credo ci siano delle interessanti opportunità per valorizzarla ulteriormente attraverso una presenza online dedicata.{{nota_concept}}{{nota_locale}}
 
 Mi piacerebbe proporvi la realizzazione di un sito web moderno, professionale e semplice da utilizzare, che permetta di presentare al meglio la vostra attività, valorizzare i vostri servizi e facilitare il contatto con i potenziali clienti.
 

@@ -482,6 +482,27 @@ def reverse_geocode(settings: Settings, latitude: float, longitude: float) -> di
     return {"city": city, "region": region, "country": country}
 
 
+def geocode_point(settings: Settings, location: str) -> tuple[float, float] | None:
+    """Coordinate approssimative di una località testuale (es. "Foggia"), per la
+    priorità locale in Impostazioni. Nessuna richiesta durante la discovery bulk.
+    """
+    url = settings.nominatim_url.rstrip("/") + "/search"
+    headers = {"User-Agent": settings.scanner_user_agent, "Accept": "application/json"}
+    timeout = httpx.Timeout(settings.discovery_timeout_seconds)
+    with httpx.Client(timeout=timeout, headers=headers) as client:
+        response = client.get(url, params={"q": location, "format": "json", "limit": 1})
+    if response.status_code >= 400:
+        return None
+    payload = response.json()
+    if not isinstance(payload, list) or not payload:
+        return None
+    item = payload[0]
+    try:
+        return float(item["lat"]), float(item["lon"])
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
 def fetch_coords_for_external_ids(settings: Settings, external_ids: list[str]) -> dict[str, tuple[float, float]]:
     parsed: list[tuple[str, str, int]] = []
     for external_id in external_ids:

@@ -10,6 +10,7 @@ from app.proposals.builder import ProposalDraft
 from app.proposals.prompt_v1 import SYSTEM_PROMPT
 from app.proposals.sender import (
     SenderProfileView,
+    email_claims_concept_without_evidence,
     email_claims_lost_business,
     email_leaks_price,
     email_leaks_score,
@@ -55,6 +56,7 @@ def polish_proposal(
             "in email_subject o email_body: sono strumenti di valutazione interna, non per il destinatario.",
             "Non affermare che il sito attuale sta facendo perdere clienti, fatturato o vendite: "
             "un problema tecnico o grafico è un possibile margine di miglioramento, non una perdita dimostrata.",
+            "Cita una homepage/concept preparata SOLO se facts.has_concept è true; altrimenti non nominarla.",
         ],
     }
     try:
@@ -68,11 +70,13 @@ def polish_proposal(
         logger.warning("Proposal AI polish failed: %s", exc)
         return None
     email_body = str(parsed.get("email_body") or draft.email_body)
+    has_concept = bool(facts.get("has_concept"))
     if (
         email_leaks_price(email_body, draft.range_min, draft.range_max)
         or email_proposes_time_slot(email_body)
         or email_leaks_score(email_body)
         or email_claims_lost_business(email_body)
+        or email_claims_concept_without_evidence(email_body, has_concept)
     ):
         email_body = draft.email_body
     email_body = ensure_signature(email_body, sender)

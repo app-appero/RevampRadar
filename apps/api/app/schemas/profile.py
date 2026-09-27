@@ -15,9 +15,15 @@ class SenderProfileUpdate(BaseModel):
     freelancer_links: list[ProfileLink] = Field(default_factory=list)
     social_links: list[ProfileLink] = Field(default_factory=list)
     other_links: list[ProfileLink] = Field(default_factory=list)
+    reference_location: str | None = Field(default=None, max_length=255)
+    local_radius_km: float | None = Field(default=None, ge=0, le=500)
+    local_mention_enabled: bool = False
+    local_mention_text: str | None = Field(default=None, max_length=500)
 
 
 class SenderProfileResponse(SenderProfileUpdate):
+    reference_latitude: float | None = None
+    reference_longitude: float | None = None
     updated_at: datetime
 
 
