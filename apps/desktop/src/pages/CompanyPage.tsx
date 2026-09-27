@@ -22,6 +22,8 @@ import { fetchCompanyGrowthScore } from "../api/growth";
 import { generateGreenfieldProposal, generateProposal, fetchCompanyProposal } from "../api/proposals";
 import { fetchAiSettings } from "../api/settings";
 import { IntelligencePanel } from "../components/IntelligencePanel";
+import { DeepResearchPanel } from "../components/DeepResearchPanel";
+import { ConceptPanel } from "../components/ConceptPanel";
 import { fetchCompany, formatOsmTags, geocodeCompany } from "../api/discovery";
 import { ProposalCard } from "../components/ProposalCard";
 import { ApiError } from "../api/health";
@@ -340,6 +342,9 @@ export function CompanyPage() {
             ) : null}
 
             {intelligenceQuery.data ? <IntelligencePanel data={intelligenceQuery.data} /> : null}
+
+            {companyId ? <DeepResearchPanel companyId={companyId} /> : null}
+            {companyId ? <ConceptPanel companyId={companyId} /> : null}
 
             {proposalQuery.data ? (
               <section className="space-y-3">

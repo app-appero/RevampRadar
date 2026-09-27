@@ -12,6 +12,12 @@ export type SenderProfile = {
   freelancer_links: ProfileLink[];
   social_links: ProfileLink[];
   other_links: ProfileLink[];
+  reference_location: string | null;
+  reference_latitude: number | null;
+  reference_longitude: number | null;
+  local_radius_km: number | null;
+  local_mention_enabled: boolean;
+  local_mention_text: string | null;
   updated_at: string;
 };
 
@@ -61,7 +67,7 @@ export async function fetchSenderProfile(): Promise<SenderProfile> {
 }
 
 export async function saveSenderProfile(
-  payload: Omit<SenderProfile, "updated_at">,
+  payload: Omit<SenderProfile, "updated_at" | "reference_latitude" | "reference_longitude">,
 ): Promise<SenderProfile> {
   let response: Response;
   try {

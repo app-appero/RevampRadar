@@ -21,6 +21,7 @@ export type CompanySummary = {
   osm_start_date?: string | null;
   osm_opening_hours?: string | null;
   social_links?: SocialLink[];
+  distance_km?: number | null;
 };
 
 export type SocialLink = {
@@ -262,10 +263,17 @@ export async function fetchDiscovery(id: string): Promise<DiscoveryRun> {
   return parseJson<DiscoveryRun>(response);
 }
 
-export async function fetchCompanies(): Promise<CompanySummary[]> {
+export async function fetchCompanies(options?: {
+  sort?: "recent" | "distance";
+  maxDistanceKm?: number;
+}): Promise<CompanySummary[]> {
+  const params = new URLSearchParams();
+  if (options?.sort) params.set("sort", options.sort);
+  if (options?.maxDistanceKm != null) params.set("max_distance_km", String(options.maxDistanceKm));
+  const query = params.toString();
   let response: Response;
   try {
-    response = await fetch(`${getApiBaseUrl()}/companies`);
+    response = await fetch(`${getApiBaseUrl()}/companies${query ? `?${query}` : ""}`);
   } catch {
     throw new ApiError("Impossibile raggiungere il backend.");
   }
