@@ -162,6 +162,7 @@ def build_company_brief(
                 "title": page.title,
                 "text_excerpt": page.text_excerpt,
                 "items": page.items,
+                "images": page.images,
             }
             for page in pages
         ],

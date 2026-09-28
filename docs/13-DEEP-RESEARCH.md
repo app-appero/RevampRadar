@@ -24,7 +24,10 @@ Raccoglie solo dati realmente osservabili, con fonte:
 
 - **Sito aziendale**: al massimo 5 pagine prioritarie (chi siamo, servizi,
   prodotti, contatti), scelte tra i link interni già noti dall'ultimo audit
-  completato. Nessun crawling illimitato.
+  completato. Nessun crawling illimitato. Per ogni pagina si conservano
+  anche fino a 3 immagini reali (og:image + `<img>` di contenuto, loghi e
+  icone esclusi), URL assoluto, usate solo dal Concept (mai scaricate o
+  modificate).
 - **Presenza digitale**: estende l'Intelligence già esistente (tag OSM +
   link social/app trovati nell'HTML) in una vista per canale (sito,
   Instagram, Facebook, TikTok, YouTube, LinkedIn, App Store, Google Play):
@@ -78,49 +81,61 @@ un pulsante separato la riporta ai default.
 **Genera concept homepage** produce una vera pagina HTML/CSS responsive
 (desktop/mobile), non un'immagine. Sostituisce del tutto la vecchia
 anteprima visiva indicativa (vedi ADR-015): quella applicava overlay
-automatici a screenshot reali senza toccare il resto della pagina; questo
-genera un concept completo, in due modalità:
+automatici a screenshot reali senza toccare il resto della pagina.
 
-### Restyling della homepage reale (modalità primaria, azienda con sito)
+### Generatore da zero (unica modalità)
 
-`app/concept/restyle.py` scarica di nuovo la homepage (stesso scanner
-HTTP con protezione SSRF già usato per audit/Deep Research), e:
+`app/concept/generator.py` costruisce la pagina interamente da Company
+Brief + Design Brief, con markup e CSS sempre propri: non riusa mai l'HTML
+del sito del cliente. Una prima versione ristilizzava l'HTML vero
+scaricato di nuovo (`app/concept/restyle.py`, ora rimosso): su siti reali
+con layout complessi o contenuto reso via JavaScript (rimosso per
+sicurezza) il risultato spesso appariva visibilmente disallineato — un
+rischio non accettabile per un concept pensato per convincere il
+prospect. Avendo piena proprietà del markup, il generatore da zero non
+eredita mai la rottura di un layout altrui (vedi ADR-023).
 
-- rimuove script, gestori di eventi inline (`onclick`, `onload`...), CSS
-  e stylesheet originali — niente codice arbitrario del sito eseguito
-  aprendo il concept, ed è anche la causa più comune del look datato;
-- risolve ogni URL relativo (immagini, link, `srcset`) in assoluto, cosi'
-  le immagini vere del sito restano visibili senza scaricarle o alterarle;
-- applica una nuova veste (palette/tipografia/spaziature dal Design
-  Brief) con selettori generici (titoli, paragrafi, bottoni, sezioni),
-  senza toccare il contenuto, l'ordine o il testo reale della pagina;
-- aggiunge il badge "Concept dimostrativo · restyling di {dominio}".
+Per evitare che concept di aziende diverse sembrino lo stesso template
+con solo colori diversi, ogni concept si differenzia su più assi, sempre
+a partire da dati realmente raccolti:
 
-Contenuti, immagini e struttura restano quelli veri del cliente: è
-letteralmente la sua homepage, con tipografia/colori/spaziature nuovi.
+- **layout strutturale per categoria**: l'hero ha una variante di
+  impaginazione (banner a piena larghezza, due colonne affiancate
+  diritta o invertita, centrato) scelta per categoria aziendale
+  (`design_brief.py::hero_layout_for_group`) — non è modificabile a mano
+  come palette/CTA, perché è struttura di pagina, non stile;
+- **foto reali del sito**: il crawler estrae (`crawler.py::_extract_images`)
+  fino a 3 immagini per pagina (og:image + `<img>` di contenuto, loghi e
+  icone esclusi per euristica), con URL assoluto — mai scaricate o
+  alterate, solo referenziate. Alimentano hero, sezione "Chi siamo" e,
+  se ne restano almeno 3 distinte, una galleria;
+- **"In cifre"**: se esistono Business Signals con un valore, una
+  sezione dedicata li mostra con etichetta di fonte/affidabilità (assente
+  se non c'è nessun segnale, mai un numero stimato o inventato);
+- **"Chi siamo" reale**: se il crawler ha raggiunto una pagina chi-siamo
+  dedicata, il suo testo completo diventa una sezione propria, distinta
+  dal sottotitolo breve dell'hero;
+- **punti di forza con evidenza**: ogni punto di forza mostra la
+  citazione testuale reale trovata sul sito, non solo l'etichetta;
+- **servizi/prodotti reali**: quando il crawler trova voci precise
+  (titolo + testo da h2/h3 delle pagine servizi/prodotti) le usa al
+  posto del testo generico o del placeholder.
 
-### Generatore da zero (azienda senza sito, o homepage irraggiungibile)
-
-`app/concept/generator.py` resta il ripiego per chi non ha un sito
-(segmento "da creare") o quando il restyling fallisce (sito irraggiungibile,
-errore di rete): costruisce una pagina da zero usando solo Company Brief +
-Design Brief.
-
-Regole (valide per entrambe le modalità):
+Regole:
 
 - nessun'invenzione di testimonianze, numeri, clienti, premi, anni o
   certificazioni non presenti nei dati raccolti;
-- dove un contenuto manca (solo modalità da zero): copy neutro o
-  placeholder marcato internamente ("contenuto di esempio · da confermare");
+- dove un contenuto manca: copy neutro o placeholder marcato
+  internamente ("contenuto di esempio · da confermare"), oppure la
+  sezione è semplicemente assente (numeri, galleria, chi-siamo);
 - niente screenshot del sito attuale incollati nel concept: quelli
   restano la documentazione dello stato presente;
-- generazione deterministica in entrambe le modalità; nessuna AI è
-  necessaria per produrre l'HTML.
+- generazione deterministica; nessuna AI è necessaria per produrre
+  l'HTML.
 
-Il concept salvato riporta quale modalità è stata usata
-(`Concept.source`: `restyle` o `template`) e, se il restyling è fallito
-e si è usato il ripiego, il motivo (`Concept.error_message`), visibile
-nella scheda azienda.
+Il concept salvato riporta la fonte (`Concept.source`, sempre
+`deterministic`) e un eventuale messaggio informativo
+(`Concept.error_message`), visibile nella scheda azienda.
 
 Ogni generazione crea una **nuova versione** (V1, V2, …) su filesystem
 (`data/concepts/{company_id}/{concept_id}/index.html` + `styles.css`) e in

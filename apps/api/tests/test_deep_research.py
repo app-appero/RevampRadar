@@ -4,7 +4,7 @@ from bs4 import BeautifulSoup
 
 from app.config import Settings
 from app.deep_research.brief import build_company_brief, extract_value_elements, summarize_business_signals
-from app.deep_research.crawler import ResearchPage, _extract_items, select_priority_pages
+from app.deep_research.crawler import ResearchPage, _extract_images, _extract_items, select_priority_pages
 from app.deep_research.digital_presence import build_digital_presence
 from app.deep_research.service import _homepage_page, _run_research, refresh_stale_status
 from app.models.entities import Audit, BusinessSignal, Company, CompanyResearch, Website
@@ -54,6 +54,26 @@ def test_extract_items_pairs_headings_with_following_text() -> None:
 def test_extract_items_ignores_headings_without_text() -> None:
     soup = BeautifulSoup("<h2></h2><h2>   </h2>", "html.parser")
     assert _extract_items(soup) == []
+
+
+def test_extract_images_resolves_urls_and_skips_logos() -> None:
+    html = """
+    <html><head><meta property="og:image" content="/social-card.jpg" /></head>
+    <body>
+      <header><img src="/assets/logo.svg" alt="Logo" /></header>
+      <img src="/foto/sala.jpg" alt="La sala del ristorante" />
+      <img data-src="/foto/piatto.jpg" alt="Un piatto tipico" />
+      <img src="data:image/png;base64,AAAA" alt="inline" />
+    </body></html>
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    images = _extract_images(soup, "https://example.test/chi-siamo")
+    urls = [image["url"] for image in images]
+    assert "https://example.test/social-card.jpg" in urls
+    assert "https://example.test/foto/sala.jpg" in urls
+    assert "https://example.test/foto/piatto.jpg" in urls
+    assert not any("logo" in url for url in urls)
+    assert not any(url.startswith("data:") for url in urls)
 
 
 def test_homepage_page_grounds_text_in_real_audit_data() -> None:

@@ -181,6 +181,7 @@ def _run_research(session: Session, research: CompanyResearch, company: Company,
                 "title": page.title,
                 "text_excerpt": page.text_excerpt,
                 "items": page.items,
+                "images": page.images,
             }
             for page in pages
         ]

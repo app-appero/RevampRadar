@@ -15,10 +15,9 @@ import {
 import { ApiError } from "../api/health";
 
 const SOURCE_LABELS: Record<string, string> = {
-  restyle: "restyling del sito reale",
-  template: "template generato",
-  deterministic: "template generato",
-  ai: "template generato (AI)",
+  deterministic: "concept generato",
+  template: "concept generato",
+  ai: "concept generato (AI)",
 };
 
 export function ConceptPanel({ companyId }: { companyId: string }) {

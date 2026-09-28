@@ -4,7 +4,6 @@ import pytest
 
 from app.concept.design_brief import build_default_design_brief, category_group
 from app.concept.generator import PLACEHOLDER_MARK, generate_concept
-from app.concept.restyle import RestyleResult
 from app.concept.service import ConceptError, delete_concept, generate_new_concept, list_concepts
 from app.config import Settings
 from app.models.entities import Company, CompanyResearch
@@ -129,6 +128,147 @@ def test_generator_different_companies_produce_different_content() -> None:
     assert "Studio legale specializzato" in output_b.html
 
 
+def test_generator_shows_verified_business_signals_as_numbers() -> None:
+    company = _make_company()
+    design_brief = build_default_design_brief(company)
+    brief = {
+        "value_elements": [],
+        "digital_presence": {"channels": {}},
+        "pages_researched": [],
+        "business_signals": {
+            "revenue_available": True,
+            "revenue_latest": {
+                "value": "850000",
+                "unit": "EUR",
+                "period": "2024",
+                "source": "Visura camerale",
+                "confidence": "verified",
+                "is_manual": False,
+            },
+            "employees": {
+                "value": "12",
+                "unit": None,
+                "period": None,
+                "source": "Inserito a mano",
+                "confidence": "manual",
+                "is_manual": True,
+            },
+            "founding_year": None,
+            "legal_form": None,
+            "revenue_trend": None,
+        },
+    }
+    output = generate_concept(company, brief=brief, design_brief=design_brief)
+    assert "In cifre" in output.html
+    assert "850000" in output.html
+    assert "Fatturato" in output.html
+    assert "fonte: Visura camerale" in output.html
+    assert "dato inserito manualmente" in output.html
+    assert "numbers" in output.sections
+
+
+def test_generator_omits_numbers_section_without_business_signals() -> None:
+    company = _make_company()
+    design_brief = build_default_design_brief(company)
+    output = generate_concept(company, brief=None, design_brief=design_brief)
+    assert "In cifre" not in output.html
+    assert "numbers" not in output.sections
+
+
+def test_generator_builds_about_section_from_real_chi_siamo_page() -> None:
+    company = _make_company()
+    design_brief = build_default_design_brief(company)
+    brief = {
+        "value_elements": [],
+        "digital_presence": {"channels": {}},
+        "pages_researched": [
+            {
+                "kind": "homepage",
+                "url": "https://example.test/",
+                "title": None,
+                "text_excerpt": "",
+                "items": [],
+                "images": [{"url": "https://example.test/foto/hero.jpg", "alt": "Ingresso"}],
+            },
+            {
+                "kind": "chi_siamo",
+                "url": "https://example.test/chi-siamo",
+                "title": "Chi siamo",
+                "text_excerpt": "Siamo una trattoria di famiglia attiva dal 1998 nel centro di Foggia.",
+                "items": [],
+                "images": [{"url": "https://example.test/foto/sala.jpg", "alt": "La sala"}],
+            },
+        ],
+    }
+    output = generate_concept(company, brief=brief, design_brief=design_brief)
+    assert "Siamo una trattoria di famiglia" in output.html
+    assert "https://example.test/foto/sala.jpg" in output.html
+    assert '<section class="about">' in output.html
+    assert "about-media" in output.html
+
+
+def test_generator_strengths_show_real_evidence_quote() -> None:
+    company = _make_company()
+    design_brief = build_default_design_brief(company)
+    brief = {
+        "value_elements": [
+            {
+                "label": "Storia/anzianità dichiarata",
+                "evidence": "la nostra trattoria è aperta dal 1998",
+                "source": "https://example.test/chi-siamo",
+            }
+        ],
+        "digital_presence": {"channels": {}},
+        "pages_researched": [],
+    }
+    output = generate_concept(company, brief=brief, design_brief=design_brief)
+    assert "Storia/anzianità dichiarata" in output.html
+    assert "aperta dal 1998" in output.html
+    assert "strength-card" in output.html
+
+
+def test_generator_hero_layout_varies_by_category_group() -> None:
+    hospitality = _make_company(name="Trattoria Del Borgo", category="ristorante")
+    professional = _make_company(name="Studio Legale Bianchi", category="studio legale")
+    design_hospitality = build_default_design_brief(hospitality)
+    design_professional = build_default_design_brief(professional)
+    output_hospitality = generate_concept(hospitality, brief=None, design_brief=design_hospitality)
+    output_professional = generate_concept(professional, brief=None, design_brief=design_professional)
+    assert "hero--banner" in output_hospitality.html
+    assert "hero--centered" in output_professional.html
+
+
+def test_generator_gallery_only_shown_with_enough_real_images() -> None:
+    company = _make_company()
+    design_brief = build_default_design_brief(company)
+    images = [{"url": f"https://example.test/foto/{i}.jpg", "alt": None} for i in range(5)]
+    brief = {
+        "value_elements": [],
+        "digital_presence": {"channels": {}},
+        "pages_researched": [
+            {
+                "kind": "homepage",
+                "url": "https://example.test/",
+                "title": None,
+                "text_excerpt": "",
+                "items": [],
+                "images": images[:1],
+            },
+            {
+                "kind": "servizi",
+                "url": "https://example.test/servizi",
+                "title": None,
+                "text_excerpt": "",
+                "items": [],
+                "images": images[1:],
+            },
+        ],
+    }
+    output = generate_concept(company, brief=brief, design_brief=design_brief)
+    assert "gallery" in output.sections
+    assert "gallery-grid" in output.html
+
+
 def test_design_brief_manual_update_marks_source_manual(db_session) -> None:
     from app.schemas.concept import DesignBriefUpdate
 
@@ -190,7 +330,7 @@ def test_generate_new_concept_versions_and_delete(db_session, tmp_path: Path) ->
     assert remaining[0].is_current is True
 
 
-def test_generate_new_concept_uses_restyle_when_website_available(db_session, tmp_path: Path, monkeypatch) -> None:
+def test_generate_new_concept_always_uses_deterministic_generator(db_session, tmp_path: Path) -> None:
     company = _make_company(website_url="https://esempio-reale.test")
     db_session.add(company)
     db_session.commit()
@@ -198,42 +338,10 @@ def test_generate_new_concept_uses_restyle_when_website_available(db_session, tm
     db_session.add(CompanyResearch(company_id=company.id, status="completed", research_version="test", brief=None))
     db_session.commit()
 
-    monkeypatch.setattr(
-        "app.concept.service.fetch_and_restyle_homepage",
-        lambda company, website_url, design_brief, settings: RestyleResult(
-            ok=True, html="<html><body>Homepage reale ristilizzata</body></html>", css="body{}", source_url=website_url
-        ),
-    )
-
     concept = generate_new_concept(db_session, company.id, Settings(concept_dir=str(tmp_path)))
-    assert concept.source == "restyle"
+    assert concept.source == "deterministic"
     assert concept.error_message is None
-    assert concept.sections == ["restyle_homepage"]
-    assert "Homepage reale ristilizzata" in Path(concept.html_path).read_text(encoding="utf-8")
-
-
-def test_generate_new_concept_falls_back_to_template_when_restyle_fails(
-    db_session, tmp_path: Path, monkeypatch
-) -> None:
-    company = _make_company(website_url="https://esempio-irraggiungibile.test")
-    db_session.add(company)
-    db_session.commit()
-    db_session.refresh(company)
-    db_session.add(CompanyResearch(company_id=company.id, status="completed", research_version="test", brief=None))
-    db_session.commit()
-
-    monkeypatch.setattr(
-        "app.concept.service.fetch_and_restyle_homepage",
-        lambda company, website_url, design_brief, settings: RestyleResult(
-            ok=False, html=None, css=None, source_url=website_url, error="connection_error"
-        ),
-    )
-
-    concept = generate_new_concept(db_session, company.id, Settings(concept_dir=str(tmp_path)))
-    assert concept.source == "template"
-    assert concept.error_message is not None
-    assert "Restyling" in concept.error_message
-    assert "PLACEHOLDER" not in concept.error_message  # solo un messaggio informativo, non un errore bloccante
+    assert PLACEHOLDER_MARK in Path(concept.html_path).read_text(encoding="utf-8")
 
 
 def test_generate_new_concept_uses_template_without_website(db_session, tmp_path: Path) -> None:
@@ -245,6 +353,6 @@ def test_generate_new_concept_uses_template_without_website(db_session, tmp_path
     db_session.commit()
 
     concept = generate_new_concept(db_session, company.id, Settings(concept_dir=str(tmp_path)))
-    assert concept.source == "template"
+    assert concept.source == "deterministic"
     assert concept.error_message is None
     assert PLACEHOLDER_MARK in Path(concept.html_path).read_text(encoding="utf-8")

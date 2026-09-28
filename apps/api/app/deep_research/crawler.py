@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 from bs4 import BeautifulSoup
 
@@ -18,6 +18,8 @@ from app.scanner.http import scan_http
 
 MAX_PAGES = 5
 MAX_ITEMS_PER_PAGE = 6
+MAX_IMAGES_PER_PAGE = 3
+_SKIP_IMAGE_HINTS = ("logo", "icon", "sprite", "pixel", "avatar", "badge")
 
 _PAGE_KEYWORDS: dict[str, tuple[str, ...]] = {
     "chi_siamo": (
@@ -43,6 +45,7 @@ class ResearchPage:
     title: str | None
     text_excerpt: str
     items: list[dict] = field(default_factory=list)
+    images: list[dict] = field(default_factory=list)
 
 
 def select_priority_pages(internal_links: list[str]) -> list[tuple[str, str]]:
@@ -71,12 +74,48 @@ def fetch_pages(pages: list[tuple[str, str]], settings: Settings) -> list[Resear
             continue
         soup = BeautifulSoup(http_result.html, "html.parser")
         title = soup.title.string.strip() if soup.title and soup.title.string else None
+        base_url = http_result.final_url or url
+        images = _extract_images(soup, base_url)
         for tag in soup(["script", "style", "nav", "footer", "noscript"]):
             tag.decompose()
         items = _extract_items(soup)
         text = re.sub(r"\s+", " ", soup.get_text(" ", strip=True)).strip()[:1500]
-        results.append(ResearchPage(kind=kind, url=url, title=title, text_excerpt=text, items=items))
+        results.append(
+            ResearchPage(kind=kind, url=url, title=title, text_excerpt=text, items=items, images=images)
+        )
     return results
+
+
+def _extract_images(soup: BeautifulSoup, base_url: str) -> list[dict]:
+    """Immagini reali della pagina (og:image + <img> nel contenuto), URL assoluti.
+    Esclude loghi/icone/avatar per euristica sul nome file, mai inventate o scaricate qui:
+    solo referenziate con il loro URL reale, risolto in assoluto.
+    """
+    images: list[dict] = []
+    seen: set[str] = set()
+
+    og_image = soup.find("meta", property="og:image")
+    if og_image and og_image.get("content"):
+        images.append({"url": urljoin(base_url, og_image["content"]), "alt": None})
+        seen.add(images[0]["url"])
+
+    for img in soup.find_all("img"):
+        if len(images) >= MAX_IMAGES_PER_PAGE:
+            break
+        src = img.get("src") or img.get("data-src")
+        if not src or src.startswith("data:"):
+            continue
+        lowered = src.lower()
+        if any(hint in lowered for hint in _SKIP_IMAGE_HINTS):
+            continue
+        resolved = urljoin(base_url, src)
+        if resolved in seen:
+            continue
+        alt = img.get("alt") or None
+        images.append({"url": resolved, "alt": alt.strip() if alt else None})
+        seen.add(resolved)
+
+    return images[:MAX_IMAGES_PER_PAGE]
 
 
 def _extract_items(soup: BeautifulSoup) -> list[dict]:

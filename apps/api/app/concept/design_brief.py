@@ -45,6 +45,7 @@ _GROUP_TOKENS: dict[str, dict] = {
         "border_radius": "morbido (12-16px)",
         "image_treatment": "fotografie a piena larghezza di ambienti e dettagli",
         "primary_cta": "Prenota ora",
+        "hero_layout": "banner",
     },
     "wellness": {
         "style": "pulito e rilassante",
@@ -61,6 +62,7 @@ _GROUP_TOKENS: dict[str, dict] = {
         "border_radius": "arrotondato (16-20px)",
         "image_treatment": "fotografie luminose, dettagli del servizio",
         "primary_cta": "Prenota un appuntamento",
+        "hero_layout": "split",
     },
     "professional": {
         "style": "sobrio e autorevole",
@@ -77,6 +79,7 @@ _GROUP_TOKENS: dict[str, dict] = {
         "border_radius": "minimo (4-8px)",
         "image_treatment": "ritratti professionali, ambienti studio",
         "primary_cta": "Richiedi una consulenza",
+        "hero_layout": "centered",
     },
     "trade": {
         "style": "concreto ed essenziale",
@@ -93,6 +96,7 @@ _GROUP_TOKENS: dict[str, dict] = {
         "border_radius": "minimo (4-6px)",
         "image_treatment": "foto di interventi/lavori reali quando disponibili",
         "primary_cta": "Richiedi un preventivo",
+        "hero_layout": "split-reverse",
     },
     "retail": {
         "style": "moderno e curato",
@@ -109,6 +113,7 @@ _GROUP_TOKENS: dict[str, dict] = {
         "border_radius": "minimo (2-6px)",
         "image_treatment": "prodotto in primo piano, sfondo neutro",
         "primary_cta": "Scopri la collezione",
+        "hero_layout": "split",
     },
     "creative": {
         "style": "distintivo ed espressivo",
@@ -125,6 +130,7 @@ _GROUP_TOKENS: dict[str, dict] = {
         "border_radius": "nessuno (0-4px)",
         "image_treatment": "galleria fotografica protagonista",
         "primary_cta": "Guarda il portfolio",
+        "hero_layout": "banner",
     },
     "default": {
         "style": "neutro e professionale",
@@ -141,6 +147,7 @@ _GROUP_TOKENS: dict[str, dict] = {
         "border_radius": "moderato (8-12px)",
         "image_treatment": "fotografie reali quando disponibili, placeholder altrimenti",
         "primary_cta": "Contattaci",
+        "hero_layout": "centered",
     },
 }
 
@@ -154,6 +161,14 @@ FONT_STACKS: dict[str, tuple[str, str]] = {
     "creative": ("Georgia, serif", "system-ui, sans-serif"),
     "default": ("system-ui, sans-serif", "system-ui, sans-serif"),
 }
+
+
+def hero_layout_for_group(group: str) -> str:
+    """Variante strutturale dell'hero (banner/split/split-reverse/centered) per gruppo
+    categoria: non e' modificabile a mano come il resto del Design Brief, perche' e' una
+    scelta di struttura della pagina, non di stile.
+    """
+    return _GROUP_TOKENS.get(group, _GROUP_TOKENS["default"])["hero_layout"]
 
 
 def category_group(category: str | None) -> str:
