@@ -1,4 +1,3 @@
-import json
 from pathlib import Path
 
 from app.config import Settings
@@ -14,63 +13,11 @@ SHOT_LABELS = {
     "desktop_footer": "Desktop · footer",
     "mobile_hero": "Mobile · inizio",
     "mobile_mid": "Mobile · contenuto",
-    "preview_desktop": "Dopo · desktop inizio",
-    "preview_desktop_hero": "Dopo · desktop inizio",
-    "preview_desktop_mid": "Dopo · desktop contenuto",
-    "preview_desktop_footer": "Dopo · desktop footer",
-    "preview_mobile_hero": "Dopo · mobile inizio",
-    "preview_mobile_mid": "Dopo · mobile contenuto",
 }
-
-PREVIEW_STYLE = """
-html { font-size: 18px !important; }
-body { line-height: 1.5 !important; }
-a, button, [role="button"] { min-height: 44px; }
-[data-revampradar-preview="bar"] {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 2147483646;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 14px 20px;
-  background: #1c1917;
-  color: #fff;
-  font-family: system-ui, sans-serif;
-  box-shadow: 0 -8px 24px rgba(0,0,0,.2);
-}
-[data-revampradar-preview="bar"] strong { font-size: 16px; }
-[data-revampradar-preview="bar"] span { font-size: 13px; opacity: .8; }
-[data-revampradar-preview="bar"] em {
-  font-style: normal;
-  background: #fafaf9;
-  color: #1c1917;
-  padding: 8px 14px;
-  border-radius: 8px;
-  font-weight: 600;
-  font-size: 14px;
-}
-"""
-
-COOKIE_SELECTORS = (
-    "#onetrust-banner-sdk",
-    "#CybotCookiebotDialog",
-    ".cc-window",
-    "#cookie-banner",
-    ".cookie-banner",
-    "[id='cookieConsent']",
-)
 
 
 def shot_label(device: str) -> str:
     return SHOT_LABELS.get(device, device.replace("_", " "))
-
-
-def is_preview_shot(device: str) -> bool:
-    return device.startswith("preview_")
 
 
 def viewport_scroll_offsets(scroll_height: int, view_height: int) -> list[tuple[str, int]]:
@@ -105,7 +52,6 @@ def capture_screenshots(url: str, output_dir: Path, settings: Settings) -> dict:
                     "desktop",
                     DESKTOP_VIEWPORT,
                     settings,
-                    with_preview=True,
                 )
                 mobile = _capture_device(
                     browser,
@@ -114,7 +60,6 @@ def capture_screenshots(url: str, output_dir: Path, settings: Settings) -> dict:
                     "mobile",
                     MOBILE_VIEWPORT,
                     settings,
-                    with_preview=True,
                 )
                 result["screenshots"] = desktop["screenshots"] + mobile["screenshots"]
                 result["performance"] = desktop.get("performance") or {}
@@ -136,7 +81,6 @@ def _capture_device(
     prefix: str,
     viewport: tuple[int, int],
     settings: Settings,
-    with_preview: bool,
 ) -> dict:
     width, height = viewport
     page = browser.new_page(
@@ -170,19 +114,6 @@ def _capture_device(
                   };
                 }"""
             )
-
-        if with_preview:
-            page.add_style_tag(content=PREVIEW_STYLE)
-            page.evaluate(_preview_dom_script())
-            page.wait_for_timeout(200)
-            for name, top in viewport_scroll_offsets(scroll_height, height):
-                if prefix == "mobile" and name == "footer":
-                    continue
-                page.evaluate(f"window.scrollTo(0, {top})")
-                page.wait_for_timeout(250)
-                path = output_dir / f"preview_{prefix}_{name}.png"
-                page.screenshot(path=str(path), full_page=False)
-                shots.append(_shot_meta(f"preview_{prefix}_{name}", width, height, path))
         return {"screenshots": shots, "performance": performance}
     finally:
         page.close()
@@ -196,19 +127,3 @@ def _shot_meta(device: str, width: int, height: int, path: Path) -> dict:
         "file_path": str(path),
         "label": shot_label(device),
     }
-
-
-def _preview_dom_script() -> str:
-    selectors = json.dumps(list(COOKIE_SELECTORS))
-    return f"""() => {{
-  const hide = {selectors};
-  for (const sel of hide) {{
-    document.querySelectorAll(sel).forEach((el) => {{ el.style.setProperty('display', 'none', 'important'); }});
-  }}
-  if (document.querySelector('[data-revampradar-preview="bar"]')) return;
-  const bar = document.createElement('div');
-  bar.setAttribute('data-revampradar-preview', 'bar');
-  bar.innerHTML = '<div><strong>Prenota / Contattaci</strong><span> CTA visibile · testo più leggibile</span></div><em>Contattaci</em>';
-  document.body.appendChild(bar);
-  document.body.style.paddingBottom = '72px';
-}}"""

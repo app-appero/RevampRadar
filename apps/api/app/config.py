@@ -4,7 +4,11 @@ from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _API_DIR = Path(__file__).resolve().parents[1]
-_REPO_ROOT = Path(__file__).resolve().parents[2]
+# Risale da apps/api alla radice del monorepo in checkout nativo (.../apps/api -> .../apps -> repo).
+# In Docker l'immagine copia solo app/ e alembic/ in /app: qui non esiste una radice di monorepo,
+# .parent si ferma alla radice del filesystem senza sollevare eccezioni (a differenza di parents[N]
+# fisso), e SCREENSHOT_DIR/CONCEPT_DIR sono comunque impostati esplicitamente da docker-compose.yml.
+_REPO_ROOT = _API_DIR.parent.parent
 
 
 class Settings(BaseSettings):
@@ -25,6 +29,7 @@ class Settings(BaseSettings):
         "tauri://localhost,http://tauri.localhost"
     )
     screenshot_dir: str = str(_REPO_ROOT / "data" / "screenshots")
+    concept_dir: str = str(_REPO_ROOT / "data" / "concepts")
     request_timeout_seconds: float = 15.0
     browser_timeout_ms: int = 20000
     scanner_user_agent: str = "RevampRadar/1.0 (+https://revampradar.local)"

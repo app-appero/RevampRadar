@@ -30,6 +30,12 @@ L'architettura non deve impedire una futura evoluzione web/SaaS.
 
 Single Website Analysis → Website Score → Opportunity Score → Discovery → Bulk Analysis → Qualification → CRM → Proposal
 
+Su un prospect selezionato a mano, un livello opzionale si aggiunge prima della proposta:
+
+Selezione prospect → Company Deep Research → Company Brief → Design Brief → Concept Homepage HTML → Proposal
+
+Vedi docs/13-DEEP-RESEARCH.md.
+
 ## Input principali
 
 Esempio Single Website Analyzer:
@@ -96,4 +102,4 @@ Successivamente il sistema deve poter trovare automaticamente aziende reali e ap
 - pagamenti;
 - gestione team;
 - app mobile;
-- generazione completa automatica di nuovi siti.
+- generazione completa automatica di nuovi siti per ogni azienda scoperta: il Concept Homepage HTML (vedi docs/13-DEEP-RESEARCH.md) è generato solo su richiesta esplicita, azienda per azienda, mai in automatico durante Discovery o Bulk Scanner.

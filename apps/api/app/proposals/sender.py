@@ -18,6 +18,11 @@ class SenderProfileView:
     freelancer_links: tuple[SenderLink, ...]
     social_links: tuple[SenderLink, ...]
     other_links: tuple[SenderLink, ...] = ()
+    reference_latitude: float | None = None
+    reference_longitude: float | None = None
+    local_radius_km: float | None = None
+    local_mention_enabled: bool = False
+    local_mention_text: str | None = None
 
 
 DEFAULT_SENDER = SenderProfileView(
@@ -114,6 +119,15 @@ def email_claims_lost_business(body: str) -> bool:
         "vi fa perdere vendite", "vi fa perdere fatturato", "sta facendo perdere vendite",
         "sta facendo perdere fatturato", "state perdendo vendite", "state perdendo fatturato",
     )
+    return any(marker in text for marker in markers)
+
+
+def email_claims_concept_without_evidence(body: str, has_concept: bool) -> bool:
+    """Vero se l'email parla di una homepage/concept preparata quando non è stato generato."""
+    if has_concept:
+        return False
+    text = body.lower()
+    markers = ("direzione per la homepage", "direzione per il sito", "concept", "proposta visuale")
     return any(marker in text for marker in markers)
 
 

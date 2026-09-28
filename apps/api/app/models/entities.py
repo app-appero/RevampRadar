@@ -45,6 +45,15 @@ class Company(Base):
     growth_score: Mapped["GrowthScore | None"] = relationship(
         back_populates="company", uselist=False, cascade="all, delete-orphan"
     )
+    research: Mapped["CompanyResearch | None"] = relationship(
+        back_populates="company", uselist=False, cascade="all, delete-orphan"
+    )
+    design_brief: Mapped["DesignBrief | None"] = relationship(
+        back_populates="company", uselist=False, cascade="all, delete-orphan"
+    )
+    concepts: Mapped[list["Concept"]] = relationship(
+        back_populates="company", cascade="all, delete-orphan", order_by="Concept.version"
+    )
 
 
 class Website(Base):
@@ -471,9 +480,134 @@ class SenderProfile(Base):
     freelancer_links: Mapped[list] = mapped_column(JsonType, nullable=False)
     social_links: Mapped[list] = mapped_column(JsonType, nullable=False)
     other_links: Mapped[list] = mapped_column(JsonType, nullable=False, default=list)
+    reference_location: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    reference_latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    reference_longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    local_radius_km: Mapped[float | None] = mapped_column(Float, nullable=True)
+    local_mention_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    local_mention_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
+
+
+class CompanyResearch(Base):
+    """Stato e risultati del "secondo livello" di approfondimento (Deep Research) su un prospect."""
+
+    __tablename__ = "company_research"
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    company_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("companies.id"), unique=True, nullable=False, index=True
+    )
+    status: Mapped[str] = mapped_column(String(32), default="never", nullable=False, index=True)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    progress_percent: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    progress_label: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    website_findings: Mapped[dict | None] = mapped_column(JsonType, nullable=True)
+    digital_presence: Mapped[dict | None] = mapped_column(JsonType, nullable=True)
+    social_signals: Mapped[dict | None] = mapped_column(JsonType, nullable=True)
+    external_sources: Mapped[list | None] = mapped_column(JsonType, nullable=True)
+    brief: Mapped[dict | None] = mapped_column(JsonType, nullable=True)
+    research_version: Mapped[str] = mapped_column(String(32), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    company: Mapped[Company] = relationship(back_populates="research")
+
+
+class BusinessSignal(Base):
+    """Singolo segnale aziendale (fatturato, dipendenti, forma societaria...): valore + fonte + affidabilità."""
+
+    __tablename__ = "business_signals"
+    __table_args__ = (
+        UniqueConstraint("company_id", "key", "period", name="uq_business_signals_company_key_period"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    company_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("companies.id"), nullable=False, index=True)
+    key: Mapped[str] = mapped_column(String(64), nullable=False)
+    period: Mapped[str] = mapped_column(String(16), nullable=False, default="")
+    label: Mapped[str] = mapped_column(String(128), nullable=False)
+    value: Mapped[str] = mapped_column(Text, nullable=False)
+    unit: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    source: Mapped[str] = mapped_column(Text, nullable=False)
+    source_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    observed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    confidence: Mapped[str] = mapped_column(String(16), default="unverified", nullable=False)
+    is_manual: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    company: Mapped[Company] = relationship()
+
+
+class DesignBrief(Base):
+    """Direzione visiva proposta per il Concept: derivata dall'identità aziendale, modificabile a mano."""
+
+    __tablename__ = "design_briefs"
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    company_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("companies.id"), unique=True, nullable=False, index=True
+    )
+    style: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    palette: Mapped[list | None] = mapped_column(JsonType, nullable=True)
+    typography: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    tone_of_voice: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    spacing: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    border_radius: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    image_treatment: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    primary_cta: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source: Mapped[str] = mapped_column(String(16), default="auto", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    company: Mapped[Company] = relationship(back_populates="design_brief")
+
+
+class Concept(Base):
+    """Una versione del Concept Homepage HTML generato per un'azienda approfondita."""
+
+    __tablename__ = "concepts"
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    company_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("companies.id"), nullable=False, index=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="generating", nullable=False, index=True)
+    is_current: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False, index=True)
+    html_path: Mapped[str] = mapped_column(String(1024), nullable=False)
+    css_path: Mapped[str] = mapped_column(String(1024), nullable=False)
+    assets_dir: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    sections: Mapped[list | None] = mapped_column(JsonType, nullable=True)
+    design_brief_snapshot: Mapped[dict | None] = mapped_column(JsonType, nullable=True)
+    company_brief_snapshot: Mapped[dict | None] = mapped_column(JsonType, nullable=True)
+    generator_version: Mapped[str] = mapped_column(String(32), nullable=False)
+    source: Mapped[str] = mapped_column(String(16), default="deterministic", nullable=False)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    company: Mapped[Company] = relationship(back_populates="concepts")

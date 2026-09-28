@@ -55,8 +55,14 @@ Analisi massiva dei siti trovati.
 ### CRM
 Gestione della pipeline commerciale.
 
+### Company Deep Research
+Secondo livello di approfondimento, solo su richiesta, per i prospect selezionati: sito aziendale, presenza digitale, segnali economici con fonte (docs/13-DEEP-RESEARCH.md).
+
+### Concept Homepage HTML
+Homepage reale (HTML/CSS), generata on-demand da Company Brief + Design Brief, per mostrare una direzione concreta invece di un'anteprima grafica indicativa.
+
 ### Proposal Engine
-Creazione di argomentazioni e proposte.
+Creazione di argomentazioni e proposte, arricchite da Company Brief/Concept quando esistono.
 
 ## Principi UX
 

@@ -4,11 +4,14 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session, selectinload
 
+from app.concept.service import list_concepts
 from app.config import Settings, get_settings
+from app.geo import haversine_km
 from app.models.entities import Audit, Company, Proposal, Website
 from app.proposals.ai import polish_proposal
 from app.proposals.builder import ProposalDraft, build_greenfield_proposal_draft, build_proposal_draft
 from app.proposals.prompt_v1 import PROMPT_VERSION
+from app.proposals.sender import SenderProfileView
 from app.services.ai_settings import effective_settings
 from app.services.email_templates import get_or_create_email_templates
 from app.services.growth_service import compute_and_store_growth_score, get_growth_score
@@ -62,6 +65,8 @@ def create_or_replace_proposal(
     company: Company | None = website.company if website else None
     sender = profile_view(get_or_create_sender_profile(session))
     templates = get_or_create_email_templates(session)
+    has_concept = _has_current_concept(session, company.id) if company else False
+    local_mention = _local_mention_for(sender, company)
     draft = build_proposal_draft(
         domain=website.domain if website else audit.request_url,
         url=website.normalized_url if website else audit.request_url,
@@ -72,10 +77,13 @@ def create_or_replace_proposal(
         opportunity_score=audit.opportunity_score,
         sender=sender,
         email_template=templates.refactor_body,
+        has_concept=has_concept,
+        local_mention=local_mention,
     )
     source = "deterministic"
     if use_ai is not False:
-        polished = polish_proposal(resolved, draft, _facts(audit, company, draft, sender), sender)
+        facts = _facts(audit, company, draft, sender, has_concept, local_mention)
+        polished = polish_proposal(resolved, draft, facts, sender)
         if polished is not None:
             draft = polished
             source = "ai"
@@ -135,6 +143,8 @@ def create_or_replace_greenfield_proposal(
     score = get_growth_score(session, company.id) or compute_and_store_growth_score(session, company)
     sender = profile_view(get_or_create_sender_profile(session))
     templates = get_or_create_email_templates(session)
+    has_concept = _has_current_concept(session, company.id)
+    local_mention = _local_mention_for(sender, company)
     draft = build_greenfield_proposal_draft(
         company_name=company.name,
         category=company.category,
@@ -142,10 +152,13 @@ def create_or_replace_greenfield_proposal(
         growth_score=score,
         sender=sender,
         email_template=templates.greenfield_body,
+        has_concept=has_concept,
+        local_mention=local_mention,
     )
     source = "deterministic"
     if use_ai is not False:
-        polished = polish_proposal(resolved, draft, _greenfield_facts(company, score, draft, sender), sender)
+        facts = _greenfield_facts(company, score, draft, sender, has_concept, local_mention)
+        polished = polish_proposal(resolved, draft, facts, sender)
         if polished is not None:
             draft = polished
             source = "ai"
@@ -211,7 +224,32 @@ def _apply(
     proposal.range_note = draft.range_note
 
 
-def _facts(audit: Audit, company: Company | None, draft: ProposalDraft, sender) -> dict:
+def _has_current_concept(session: Session, company_id: UUID) -> bool:
+    return any(item.is_current and item.status == "ready" for item in list_concepts(session, company_id))
+
+
+def _local_mention_for(sender: SenderProfileView, company: Company | None) -> str | None:
+    if not sender.local_mention_enabled or not sender.local_mention_text:
+        return None
+    if company is None or company.latitude is None or company.longitude is None:
+        return None
+    if sender.reference_latitude is None or sender.reference_longitude is None:
+        return None
+    threshold = sender.local_radius_km if sender.local_radius_km is not None else 0
+    distance = haversine_km(sender.reference_latitude, sender.reference_longitude, company.latitude, company.longitude)
+    if distance > threshold:
+        return None
+    return sender.local_mention_text
+
+
+def _facts(
+    audit: Audit,
+    company: Company | None,
+    draft: ProposalDraft,
+    sender,
+    has_concept: bool = False,
+    local_mention: str | None = None,
+) -> dict:
     return {
         "domain": audit.website.domain if audit.website else None,
         "url": audit.website.normalized_url if audit.website else audit.request_url,
@@ -225,6 +263,8 @@ def _facts(audit: Audit, company: Company | None, draft: ProposalDraft, sender) 
         "range_min": draft.range_min,
         "range_max": draft.range_max,
         "range_is_internal_only": True,
+        "has_concept": has_concept,
+        "local_mention": local_mention,
         "sender_profile": {
             "display_name": sender.display_name,
             "intro": sender.intro,
@@ -237,7 +277,14 @@ def _facts(audit: Audit, company: Company | None, draft: ProposalDraft, sender) 
     }
 
 
-def _greenfield_facts(company: Company, score, draft: ProposalDraft, sender) -> dict:
+def _greenfield_facts(
+    company: Company,
+    score,
+    draft: ProposalDraft,
+    sender,
+    has_concept: bool = False,
+    local_mention: str | None = None,
+) -> dict:
     return {
         "company_name": company.name,
         "category": company.category,
@@ -250,6 +297,8 @@ def _greenfield_facts(company: Company, score, draft: ProposalDraft, sender) -> 
         "range_min": draft.range_min,
         "range_max": draft.range_max,
         "range_is_internal_only": True,
+        "has_concept": has_concept,
+        "local_mention": local_mention,
         "sender_profile": {
             "display_name": sender.display_name,
             "intro": sender.intro,
