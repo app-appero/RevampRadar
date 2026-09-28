@@ -113,7 +113,7 @@ I segnali economici (fatturato, dipendenti, forma societaria, trend) hanno un'as
 
 ## ADR-023 — Concept HTML: deterministico, mai un'invenzione
 
-Il generatore del Concept (`app/concept/generator.py`) è puro Python, senza AI: costruisce HTML/CSS solo dai dati già raccolti in Company Brief e Design Brief. Dove un contenuto manca, usa copy neutro o placeholder marcato internamente ("Concept dimostrativo", "contenuto di esempio"), mai testimonianze, numeri, clienti o anni inventati. L'AI resta opzionale solo nella fase di Company Brief (riscrittura di sintesi testuali sugli stessi fatti, mai la generazione dell'HTML).
+Il Concept è sempre generato in modo deterministico, senza AI, in due modalità (`app/concept/restyle.py` e `app/concept/generator.py`). Per un'azienda con sito, la modalità primaria è il **restyling della homepage reale**: HTML vero scaricato di nuovo, script/CSS/gestori di eventi originali rimossi per sicurezza, URL relativi risolti in assoluto, nuova veste (palette/tipografia/spaziature del Design Brief) applicata con selettori generici — contenuto, immagini e struttura restano quelli reali del cliente. Il generatore "da zero" (`generator.py`) resta il ripiego per chi non ha un sito o quando la homepage non è raggiungibile: costruisce HTML/CSS solo dai dati raccolti in Company Brief e Design Brief, mai testimonianze/numeri/clienti/anni inventati, copy neutro o placeholder marcato quando un contenuto manca. L'AI resta opzionale solo nella fase di Company Brief (riscrittura di sintesi testuali sugli stessi fatti), mai nella generazione dell'HTML.
 
 ## ADR-024 — Priorità locale descrittiva, nessun automatismo GPS
 

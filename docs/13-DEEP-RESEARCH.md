@@ -78,21 +78,49 @@ un pulsante separato la riporta ai default.
 **Genera concept homepage** produce una vera pagina HTML/CSS responsive
 (desktop/mobile), non un'immagine. Sostituisce del tutto la vecchia
 anteprima visiva indicativa (vedi ADR-015): quella applicava overlay
-automatici a screenshot reali, questo genera contenuto vero da dati veri.
+automatici a screenshot reali senza toccare il resto della pagina; questo
+genera un concept completo, in due modalità:
 
-Regole:
+### Restyling della homepage reale (modalità primaria, azienda con sito)
 
-- solo dati da Company Brief + Design Brief; nessun'invenzione di
-  testimonianze, numeri, clienti, premi, anni o certificazioni;
-- dove un contenuto manca: copy neutro o placeholder marcato internamente
-  (badge "Concept dimostrativo" in testa alla pagina, testo "contenuto di
-  esempio · da confermare" nei blocchi non verificati);
-- sezioni adattive per settore (servizi vs prodotti; punti di forza solo
-  se emersi davvero; presenza digitale solo per i canali trovati);
-- niente screenshot del sito attuale nel concept: quelli restano la
-  documentazione dello stato presente, il concept è la direzione futura;
-- generatore deterministico (`app/concept/generator.py`); nessuna AI è
+`app/concept/restyle.py` scarica di nuovo la homepage (stesso scanner
+HTTP con protezione SSRF già usato per audit/Deep Research), e:
+
+- rimuove script, gestori di eventi inline (`onclick`, `onload`...), CSS
+  e stylesheet originali — niente codice arbitrario del sito eseguito
+  aprendo il concept, ed è anche la causa più comune del look datato;
+- risolve ogni URL relativo (immagini, link, `srcset`) in assoluto, cosi'
+  le immagini vere del sito restano visibili senza scaricarle o alterarle;
+- applica una nuova veste (palette/tipografia/spaziature dal Design
+  Brief) con selettori generici (titoli, paragrafi, bottoni, sezioni),
+  senza toccare il contenuto, l'ordine o il testo reale della pagina;
+- aggiunge il badge "Concept dimostrativo · restyling di {dominio}".
+
+Contenuti, immagini e struttura restano quelli veri del cliente: è
+letteralmente la sua homepage, con tipografia/colori/spaziature nuovi.
+
+### Generatore da zero (azienda senza sito, o homepage irraggiungibile)
+
+`app/concept/generator.py` resta il ripiego per chi non ha un sito
+(segmento "da creare") o quando il restyling fallisce (sito irraggiungibile,
+errore di rete): costruisce una pagina da zero usando solo Company Brief +
+Design Brief.
+
+Regole (valide per entrambe le modalità):
+
+- nessun'invenzione di testimonianze, numeri, clienti, premi, anni o
+  certificazioni non presenti nei dati raccolti;
+- dove un contenuto manca (solo modalità da zero): copy neutro o
+  placeholder marcato internamente ("contenuto di esempio · da confermare");
+- niente screenshot del sito attuale incollati nel concept: quelli
+  restano la documentazione dello stato presente;
+- generazione deterministica in entrambe le modalità; nessuna AI è
   necessaria per produrre l'HTML.
+
+Il concept salvato riporta quale modalità è stata usata
+(`Concept.source`: `restyle` o `template`) e, se il restyling è fallito
+e si è usato il ripiego, il motivo (`Concept.error_message`), visibile
+nella scheda azienda.
 
 Ogni generazione crea una **nuova versione** (V1, V2, …) su filesystem
 (`data/concepts/{company_id}/{concept_id}/index.html` + `styles.css`) e in

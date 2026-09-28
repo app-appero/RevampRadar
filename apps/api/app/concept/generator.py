@@ -240,8 +240,8 @@ def _build_css(design_brief: dict, heading_font: str, body_font: str) -> str:
     accent = palette.get("accent", "#F59E0B")
     background = palette.get("background", "#F8FAFC")
     text = palette.get("text", "#1E293B")
-    radius = _radius_px(design_brief.get("border_radius"))
-    spacing = _spacing_px(design_brief.get("spacing"))
+    radius = radius_px(design_brief.get("border_radius"))
+    spacing = spacing_px(design_brief.get("spacing"))
 
     return f""":root {{
   --color-primary: {primary};
@@ -409,7 +409,7 @@ section h2 {{ font-size: 28px; margin-bottom: var(--spacing); }}
 """
 
 
-def _radius_px(label: str | None) -> int:
+def radius_px(label: str | None) -> int:
     if not label:
         return 8
     if "0-4" in label or "nessuno" in label:
@@ -427,6 +427,6 @@ def _radius_px(label: str | None) -> int:
     return 8
 
 
-def _spacing_px(label: str | None) -> int:
+def spacing_px(label: str | None) -> int:
     mapping = {"compatto": 16, "regolare": 24, "ampio": 32, "generoso": 40}
     return mapping.get(label or "", 24)

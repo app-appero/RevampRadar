@@ -13,7 +13,8 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.concept import GENERATOR_VERSION
-from app.concept.generator import generate_concept
+from app.concept.generator import ConceptOutput, generate_concept
+from app.concept.restyle import fetch_and_restyle_homepage
 from app.config import Settings, get_settings
 from app.deep_research.service import get_research
 from app.models.entities import Company, Concept, DesignBrief
@@ -47,6 +48,26 @@ def _design_brief_dict(brief: DesignBrief) -> dict:
     }
 
 
+def _generate_output(
+    company: Company, brief: dict | None, design_brief_dict: dict, settings: Settings
+) -> tuple[ConceptOutput, str, str | None]:
+    """Restyling della homepage reale quando c'e' un sito; generatore da zero altrimenti
+    (azienda senza sito) o come ripiego se la homepage non e' raggiungibile.
+    """
+    website_url = company.website_url
+    if website_url:
+        restyle_result = fetch_and_restyle_homepage(company, website_url, design_brief_dict, settings)
+        if restyle_result.ok and restyle_result.html and restyle_result.css:
+            output = ConceptOutput(html=restyle_result.html, css=restyle_result.css, sections=["restyle_homepage"])
+            return output, "restyle", None
+        error_message = (
+            f"Restyling della homepage non riuscito ({restyle_result.error}): "
+            "generato un concept da zero a partire dai dati raccolti."
+        )
+        return generate_concept(company, brief, design_brief_dict), "template", error_message
+    return generate_concept(company, brief, design_brief_dict), "template", None
+
+
 def generate_new_concept(session: Session, company_id: UUID, settings: Settings | None = None) -> Concept:
     resolved = settings or get_settings()
     company = session.get(Company, company_id)
@@ -62,7 +83,8 @@ def generate_new_concept(session: Session, company_id: UUID, settings: Settings 
 
     design_brief_row = get_or_create_design_brief(session, company_id)
     design_brief_dict = _design_brief_dict(design_brief_row)
-    output = generate_concept(company, research.brief, design_brief_dict)
+
+    output, source, error_message = _generate_output(company, research.brief, design_brief_dict, resolved)
 
     previous_current = session.query(Concept).filter_by(company_id=company_id, is_current=True).all()
     next_version = session.query(Concept).filter_by(company_id=company_id).count() + 1
@@ -78,7 +100,8 @@ def generate_new_concept(session: Session, company_id: UUID, settings: Settings 
         design_brief_snapshot=design_brief_dict,
         company_brief_snapshot=research.brief,
         generator_version=GENERATOR_VERSION,
-        source="deterministic",
+        source=source,
+        error_message=error_message,
     )
     session.add(concept)
     session.flush()

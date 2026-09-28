@@ -14,6 +14,13 @@ import {
 } from "../api/concept";
 import { ApiError } from "../api/health";
 
+const SOURCE_LABELS: Record<string, string> = {
+  restyle: "restyling del sito reale",
+  template: "template generato",
+  deterministic: "template generato",
+  ai: "template generato (AI)",
+};
+
 export function ConceptPanel({ companyId }: { companyId: string }) {
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
@@ -138,9 +145,13 @@ export function ConceptPanel({ companyId }: { companyId: string }) {
               >
                 <div>
                   <p className="font-medium">
-                    V{item.version} {item.is_current ? "· corrente" : ""} · {item.status}
+                    V{item.version} {item.is_current ? "· corrente" : ""} · {item.status} ·{" "}
+                    {SOURCE_LABELS[item.source] ?? item.source}
                   </p>
                   <p className="text-xs text-stone-500">{new Date(item.created_at).toLocaleString()}</p>
+                  {item.error_message ? (
+                    <p className="mt-1 text-xs text-amber-700">{item.error_message}</p>
+                  ) : null}
                 </div>
                 <div className="flex gap-3">
                   <a

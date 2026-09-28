@@ -4,6 +4,7 @@ import pytest
 
 from app.concept.design_brief import build_default_design_brief, category_group
 from app.concept.generator import PLACEHOLDER_MARK, generate_concept
+from app.concept.restyle import RestyleResult
 from app.concept.service import ConceptError, delete_concept, generate_new_concept, list_concepts
 from app.config import Settings
 from app.models.entities import Company, CompanyResearch
@@ -187,3 +188,63 @@ def test_generate_new_concept_versions_and_delete(db_session, tmp_path: Path) ->
     remaining = list_concepts(db_session, company.id)
     assert len(remaining) == 1
     assert remaining[0].is_current is True
+
+
+def test_generate_new_concept_uses_restyle_when_website_available(db_session, tmp_path: Path, monkeypatch) -> None:
+    company = _make_company(website_url="https://esempio-reale.test")
+    db_session.add(company)
+    db_session.commit()
+    db_session.refresh(company)
+    db_session.add(CompanyResearch(company_id=company.id, status="completed", research_version="test", brief=None))
+    db_session.commit()
+
+    monkeypatch.setattr(
+        "app.concept.service.fetch_and_restyle_homepage",
+        lambda company, website_url, design_brief, settings: RestyleResult(
+            ok=True, html="<html><body>Homepage reale ristilizzata</body></html>", css="body{}", source_url=website_url
+        ),
+    )
+
+    concept = generate_new_concept(db_session, company.id, Settings(concept_dir=str(tmp_path)))
+    assert concept.source == "restyle"
+    assert concept.error_message is None
+    assert concept.sections == ["restyle_homepage"]
+    assert "Homepage reale ristilizzata" in Path(concept.html_path).read_text(encoding="utf-8")
+
+
+def test_generate_new_concept_falls_back_to_template_when_restyle_fails(
+    db_session, tmp_path: Path, monkeypatch
+) -> None:
+    company = _make_company(website_url="https://esempio-irraggiungibile.test")
+    db_session.add(company)
+    db_session.commit()
+    db_session.refresh(company)
+    db_session.add(CompanyResearch(company_id=company.id, status="completed", research_version="test", brief=None))
+    db_session.commit()
+
+    monkeypatch.setattr(
+        "app.concept.service.fetch_and_restyle_homepage",
+        lambda company, website_url, design_brief, settings: RestyleResult(
+            ok=False, html=None, css=None, source_url=website_url, error="connection_error"
+        ),
+    )
+
+    concept = generate_new_concept(db_session, company.id, Settings(concept_dir=str(tmp_path)))
+    assert concept.source == "template"
+    assert concept.error_message is not None
+    assert "Restyling" in concept.error_message
+    assert "PLACEHOLDER" not in concept.error_message  # solo un messaggio informativo, non un errore bloccante
+
+
+def test_generate_new_concept_uses_template_without_website(db_session, tmp_path: Path) -> None:
+    company = _make_company(website_url=None)
+    db_session.add(company)
+    db_session.commit()
+    db_session.refresh(company)
+    db_session.add(CompanyResearch(company_id=company.id, status="partial", research_version="test", brief=None))
+    db_session.commit()
+
+    concept = generate_new_concept(db_session, company.id, Settings(concept_dir=str(tmp_path)))
+    assert concept.source == "template"
+    assert concept.error_message is None
+    assert PLACEHOLDER_MARK in Path(concept.html_path).read_text(encoding="utf-8")
