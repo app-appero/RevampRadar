@@ -106,10 +106,16 @@ def build_company_brief(
     if ai_text and ai_text.get("what_it_does"):
         what_it_does = ai_text["what_it_does"]
         what_it_does_source = "ai"
-    elif pages:
-        fragments = [page.title for page in pages if page.title]
-        fragments += [page.text_excerpt[:220] for page in pages if page.text_excerpt]
-        what_it_does = " ".join(fragments[:2]) or None
+    else:
+        homepage = next((page for page in pages if page.kind == "homepage"), None)
+        chi_siamo = next((page for page in pages if page.kind == "chi_siamo"), None)
+        source_page = chi_siamo or homepage
+        if source_page and source_page.text_excerpt:
+            what_it_does = source_page.text_excerpt[:280]
+        elif pages:
+            fragments = [page.title for page in pages if page.title]
+            fragments += [page.text_excerpt[:220] for page in pages if page.text_excerpt]
+            what_it_does = " ".join(fragments[:2]) or None
 
     homepage_direction_source = "deterministic"
     homepage_direction = None
@@ -131,8 +137,8 @@ def build_company_brief(
         missing.append("Numero dipendenti")
     if not signals_summary["founding_year"]:
         missing.append("Anno di fondazione")
-    if not pages:
-        missing.append("Pagine aziendali (chi siamo/servizi/contatti) non raggiunte")
+    if not any(page.kind != "homepage" for page in pages):
+        missing.append("Pagine aziendali dedicate (chi siamo/servizi/contatti) non raggiunte")
     if not audit_findings:
         missing.append("Nessun audit tecnico completato per questo sito")
 
@@ -149,5 +155,14 @@ def build_company_brief(
         "homepage_direction": homepage_direction,
         "homepage_direction_source": homepage_direction_source,
         "missing_information": missing,
-        "pages_researched": [{"kind": page.kind, "url": page.url, "title": page.title} for page in pages],
+        "pages_researched": [
+            {
+                "kind": page.kind,
+                "url": page.url,
+                "title": page.title,
+                "text_excerpt": page.text_excerpt,
+                "items": page.items,
+            }
+            for page in pages
+        ],
     }

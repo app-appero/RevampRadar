@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -118,6 +119,24 @@ def _set_progress(session: Session, research: CompanyResearch, percent: int, lab
     session.commit()
 
 
+def _homepage_page(latest_audit: Audit | None) -> ResearchPage | None:
+    """Pagina 'sintetica' costruita dai dati già raccolti dall'ultimo audit (titolo, meta
+    description, H1): nessuna nuova richiesta HTTP, e garantisce contenuto reale anche
+    quando il crawler non trova pagine dedicate (chi siamo/servizi) per URL riconoscibile.
+    """
+    if latest_audit is None or not latest_audit.html_data:
+        return None
+    data = latest_audit.html_data
+    title = data.get("title")
+    meta_description = data.get("meta_description")
+    h1_list = data.get("h1") or []
+    fragments = [part for part in (title, meta_description, " ".join(h1_list) or None) if part]
+    text = re.sub(r"\s+", " ", " · ".join(fragments)).strip()[:600]
+    if not text:
+        return None
+    return ResearchPage(kind="homepage", url=latest_audit.request_url, title=title, text_excerpt=text)
+
+
 def _run_research(session: Session, research: CompanyResearch, company: Company, settings: Settings) -> None:
     _set_progress(session, research, 15, "Analisi sito aziendale")
 
@@ -137,19 +156,32 @@ def _run_research(session: Session, research: CompanyResearch, company: Company,
             internal_links = latest_audit.html_data.get("internal_links") or []
 
     partial = website is None or latest_audit is None
-    pages: list[ResearchPage] = []
+    crawled_pages: list[ResearchPage] = []
     if internal_links:
         priority = select_priority_pages(internal_links)
-        pages = fetch_pages(priority, settings)
-        if not pages:
+        crawled_pages = fetch_pages(priority, settings)
+        if not crawled_pages:
             partial = True
+    elif latest_audit is not None:
+        # Audit completato ma senza link interni utilizzabili: niente pagine dedicate
+        # raggiunte, anche se la homepage (sotto) resta comunque disponibile.
+        partial = True
+
+    homepage_page = _homepage_page(latest_audit)
+    pages: list[ResearchPage] = ([homepage_page] if homepage_page else []) + crawled_pages
 
     _set_progress(session, research, 40, "Presenza digitale")
     html_data = latest_audit.html_data if latest_audit else None
     digital_presence = build_digital_presence(company, html_data)
     research.website_findings = {
         "pages": [
-            {"kind": page.kind, "url": page.url, "title": page.title, "text_excerpt": page.text_excerpt}
+            {
+                "kind": page.kind,
+                "url": page.url,
+                "title": page.title,
+                "text_excerpt": page.text_excerpt,
+                "items": page.items,
+            }
             for page in pages
         ]
     }

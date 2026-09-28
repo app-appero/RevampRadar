@@ -1,11 +1,14 @@
 from datetime import UTC, datetime
 
+from bs4 import BeautifulSoup
+
 from app.config import Settings
 from app.deep_research.brief import build_company_brief, extract_value_elements, summarize_business_signals
-from app.deep_research.crawler import ResearchPage, select_priority_pages
+from app.deep_research.crawler import ResearchPage, _extract_items, select_priority_pages
 from app.deep_research.digital_presence import build_digital_presence
-from app.deep_research.service import _run_research, refresh_stale_status
+from app.deep_research.service import _homepage_page, _run_research, refresh_stale_status
 from app.models.entities import Audit, BusinessSignal, Company, CompanyResearch, Website
+from app.scanner import SCANNER_VERSION
 
 
 def _make_company(**kwargs) -> Company:
@@ -30,6 +33,55 @@ def test_select_priority_pages_matches_known_url_patterns() -> None:
     assert "servizi" in kinds
     assert "contatti" in kinds
     assert len(selected) <= 5
+
+
+def test_extract_items_pairs_headings_with_following_text() -> None:
+    html = """
+    <div>
+      <h2>Taglio uomo</h2>
+      <p>Taglio classico o moderno, con rifinitura a rasoio.</p>
+      <h2>Colore e trattamenti</h2>
+      <p>Colorazione, balayage e trattamenti ristrutturanti.</p>
+    </div>
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    items = _extract_items(soup)
+    assert [item["heading"] for item in items] == ["Taglio uomo", "Colore e trattamenti"]
+    assert "rasoio" in items[0]["text"]
+    assert "balayage" in items[1]["text"]
+
+
+def test_extract_items_ignores_headings_without_text() -> None:
+    soup = BeautifulSoup("<h2></h2><h2>   </h2>", "html.parser")
+    assert _extract_items(soup) == []
+
+
+def test_homepage_page_grounds_text_in_real_audit_data() -> None:
+    audit = Audit(
+        website_id=None,
+        status="completed",
+        request_url="https://trattoriadelborgo.test",
+        scanner_version=SCANNER_VERSION,
+        html_data={
+            "title": "Trattoria Del Borgo | Cucina pugliese a Foggia",
+            "meta_description": "Piatti della tradizione pugliese nel cuore di Foggia.",
+            "h1": ["Benvenuti alla Trattoria Del Borgo"],
+        },
+    )
+    page = _homepage_page(audit)
+    assert page is not None
+    assert page.kind == "homepage"
+    assert "Cucina pugliese" in page.text_excerpt
+    assert "tradizione pugliese" in page.text_excerpt
+    assert "Benvenuti" in page.text_excerpt
+
+
+def test_homepage_page_none_without_audit_data() -> None:
+    assert _homepage_page(None) is None
+    empty_audit = Audit(
+        website_id=None, status="completed", request_url="https://x.test", scanner_version=SCANNER_VERSION
+    )
+    assert _homepage_page(empty_audit) is None
 
 
 def test_digital_presence_reports_found_and_not_found_channels() -> None:
@@ -175,6 +227,54 @@ def test_run_research_is_partial_without_website(db_session) -> None:
     assert research.brief is not None
     assert research.brief["pages_researched"] == []
     assert research.progress_percent == 100
+
+
+def test_run_research_grounds_brief_in_homepage_when_no_dedicated_pages(db_session) -> None:
+    """Anche senza pagine chi-siamo/servizi raggiungibili, il brief usa i dati reali
+    (titolo/H1/meta) gia' raccolti dall'audit, invece di restare vuoto/generico."""
+    company = _make_company(website_url="https://trattoriadelborgo.test")
+    db_session.add(company)
+    db_session.commit()
+    db_session.refresh(company)
+
+    website = Website(
+        company_id=company.id,
+        url="https://trattoriadelborgo.test",
+        normalized_url="https://trattoriadelborgo.test/",
+        domain="trattoriadelborgo.test",
+    )
+    db_session.add(website)
+    db_session.commit()
+    db_session.refresh(website)
+
+    audit = Audit(
+        website_id=website.id,
+        status="completed",
+        request_url=website.url,
+        scanner_version=SCANNER_VERSION,
+        completed_at=datetime(2026, 1, 1, tzinfo=UTC),
+        html_data={
+            "title": "Trattoria Del Borgo | Cucina pugliese a Foggia",
+            "meta_description": "Piatti della tradizione pugliese nel cuore di Foggia.",
+            "h1": ["Benvenuti alla Trattoria Del Borgo"],
+            "internal_links": [],
+        },
+    )
+    db_session.add(audit)
+    db_session.commit()
+
+    research = CompanyResearch(company_id=company.id, status="in_progress", research_version="test")
+    db_session.add(research)
+    db_session.commit()
+
+    _run_research(db_session, research, company, Settings())
+    db_session.commit()
+
+    assert research.status == "partial"  # nessuna pagina dedicata raggiunta
+    pages = research.website_findings["pages"]
+    assert any(page["kind"] == "homepage" for page in pages)
+    assert "Cucina pugliese" in research.brief["what_it_does"] or "Benvenuti" in research.brief["what_it_does"]
+    assert "Pagine aziendali dedicate" in " ".join(research.brief["missing_information"])
 
 
 def test_refresh_stale_status_when_newer_audit_arrives(db_session) -> None:

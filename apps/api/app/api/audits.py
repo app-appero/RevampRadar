@@ -96,6 +96,7 @@ def _to_response(audit: Audit) -> AuditResponse:
         request_url=audit.request_url,
         normalized_url=audit.website.normalized_url,
         domain=audit.website.domain,
+        company_id=audit.website.company_id,
         scanner_version=audit.scanner_version,
         started_at=audit.started_at,
         completed_at=audit.completed_at,

@@ -96,6 +96,7 @@ class AuditResponse(BaseModel):
     request_url: str
     normalized_url: str
     domain: str
+    company_id: UUID | None = None
     scanner_version: str
     started_at: datetime | None
     completed_at: datetime | None

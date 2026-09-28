@@ -34,14 +34,14 @@ def generate_concept(company: Company, brief: dict | None, design_brief: dict) -
     what_it_does = _clean_text(brief.get("what_it_does"))
     homepage_direction = _clean_text(brief.get("homepage_direction"))
     value_elements = brief.get("value_elements") or []
-    page_texts = {
-        page.get("kind"): page.get("text_excerpt")
-        for page in (brief.get("website_findings") or {}).get("pages") or []
-    }
+    findings_pages = brief.get("pages_researched") or []
+    page_texts = {page.get("kind"): page.get("text_excerpt") for page in findings_pages}
+    page_items = {page.get("kind"): page.get("items") or [] for page in findings_pages}
     digital_presence = (brief.get("digital_presence") or {}).get("channels") or {}
     found_channels = {name: item for name, item in digital_presence.items() if item.get("found")}
 
     services_kind = "prodotti" if group == "retail" else "servizi"
+    services_items = page_items.get(services_kind) or []
     services_text = page_texts.get(services_kind) or page_texts.get("prodotti") or page_texts.get("servizi")
 
     nav_items: list[tuple[str, str]] = [("Chi siamo", "#chi-siamo")]
@@ -58,7 +58,7 @@ def generate_concept(company: Company, brief: dict | None, design_brief: dict) -
     header_html = _build_header(company, design_brief, nav_items)
     hero_html = _build_hero(company, what_it_does, design_brief)
     value_prop_html = _build_value_proposition(homepage_direction)
-    services_html = _build_services(services_kind, services_text)
+    services_html = _build_services(services_kind, services_text, services_items)
     strengths_html = _build_strengths(value_elements) if value_elements else ""
     presence_html = _build_presence(found_channels) if found_channels else ""
     contact_html = _build_contact(company, design_brief)
@@ -149,10 +149,19 @@ def _build_value_proposition(homepage_direction: str | None) -> str:
 </section>"""
 
 
-def _build_services(kind: str, text: str | None) -> str:
+def _build_services(kind: str, text: str | None, items: list[dict] | None) -> str:
     title = "Servizi" if kind == "servizi" else "Prodotti"
     singular = "Servizio" if kind == "servizi" else "Prodotto"
-    if text:
+    real_items = [item for item in (items or []) if item.get("heading")]
+    if real_items:
+        cards = "".join(
+            f'<div class="service-card"><h3>{escape(str(item.get("heading", "")))}</h3>'
+            + (f'<p>{escape(str(item.get("text", ""))[:280])}</p>' if item.get("text") else "")
+            + "</div>"
+            for item in real_items[:6]
+        )
+        body = f'<div class="services-grid">{cards}</div>'
+    elif text:
         body = f"<p>{escape(text[:600])}</p>"
     else:
         body = (
@@ -339,6 +348,20 @@ section h2 {{ font-size: 28px; margin-bottom: var(--spacing); }}
   letter-spacing: .04em;
   opacity: .5;
 }}
+
+.services-grid {{
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--spacing);
+}}
+.service-card {{
+  background: #fff;
+  border-radius: var(--radius);
+  padding: var(--spacing);
+  box-shadow: 0 1px 2px rgba(0,0,0,.04);
+}}
+.service-card h3 {{ margin: 0 0 8px; font-size: 18px; }}
+.service-card p {{ margin: 0; font-size: 14px; opacity: .8; }}
 
 .strengths {{ background: var(--color-background); }}
 .strengths-list {{

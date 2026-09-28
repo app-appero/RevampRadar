@@ -68,12 +68,64 @@ def test_generator_only_lists_found_digital_channels() -> None:
             }
         },
         "pages_researched": [],
-        "website_findings": {"pages": []},
     }
     output = generate_concept(company, brief=brief, design_brief=design_brief)
     assert "instagram.com/example" in output.html
     assert "digital_presence" in output.sections
     assert "facebook.com" not in output.html
+
+
+def test_generator_uses_real_service_items_instead_of_generic_placeholders() -> None:
+    company = _make_company(category="parrucchiere")
+    design_brief = build_default_design_brief(company)
+    brief = {
+        "value_elements": [],
+        "digital_presence": {"channels": {}},
+        "pages_researched": [
+            {
+                "kind": "servizi",
+                "url": "https://example.test/servizi",
+                "title": "Servizi",
+                "text_excerpt": "...",
+                "items": [
+                    {"heading": "Taglio uomo", "text": "Taglio classico o moderno."},
+                    {"heading": "Colore", "text": "Colorazione e balayage."},
+                ],
+            }
+        ],
+    }
+    output = generate_concept(company, brief=brief, design_brief=design_brief)
+    assert "Taglio uomo" in output.html
+    assert "Colorazione e balayage" in output.html
+    assert "service-card" in output.html
+    assert "Servizio 1" not in output.html
+    assert "placeholder-card" not in output.html
+
+
+def test_generator_different_companies_produce_different_content() -> None:
+    """Due aziende con brief diversi non devono produrre lo stesso HTML (regressione
+    per il caso in cui tutto ricade sullo stesso fallback generico)."""
+    company_a = _make_company(name="Trattoria Del Borgo", category="ristorante")
+    company_b = _make_company(name="Studio Legale Bianchi", category="studio legale")
+    design_a = build_default_design_brief(company_a)
+    design_b = build_default_design_brief(company_b)
+    brief_a = {
+        "what_it_does": "Trattoria di famiglia a conduzione diretta dal 1998.",
+        "value_elements": [],
+        "digital_presence": {"channels": {}},
+        "pages_researched": [],
+    }
+    brief_b = {
+        "what_it_does": "Studio legale specializzato in diritto civile e societario.",
+        "value_elements": [],
+        "digital_presence": {"channels": {}},
+        "pages_researched": [],
+    }
+    output_a = generate_concept(company_a, brief=brief_a, design_brief=design_a)
+    output_b = generate_concept(company_b, brief=brief_b, design_brief=design_b)
+    assert output_a.html != output_b.html
+    assert "Trattoria di famiglia" in output_a.html
+    assert "Studio legale specializzato" in output_b.html
 
 
 def test_design_brief_manual_update_marks_source_manual(db_session) -> None:
