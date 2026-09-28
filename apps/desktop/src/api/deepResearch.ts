@@ -143,6 +143,23 @@ export function saveBusinessSignal(companyId: string, payload: BusinessSignalInp
   });
 }
 
-export function deleteBusinessSignal(companyId: string, signalId: string): Promise<void> {
-  return request(`/companies/${companyId}/business-signals/${signalId}`, { method: "DELETE" });
+export async function deleteBusinessSignal(companyId: string, signalId: string): Promise<void> {
+  let response: Response;
+  try {
+    response = await fetch(`${getApiBaseUrl()}/companies/${companyId}/business-signals/${signalId}`, {
+      method: "DELETE",
+    });
+  } catch {
+    throw new ApiError("Impossibile raggiungere il backend.");
+  }
+  if (!response.ok) {
+    let detail = `Errore ${response.status}`;
+    try {
+      const payload = (await response.json()) as { detail?: string };
+      if (payload.detail) detail = payload.detail;
+    } catch {
+      // ignore: nessun corpo o corpo non JSON
+    }
+    throw new ApiError(detail, response.status);
+  }
 }

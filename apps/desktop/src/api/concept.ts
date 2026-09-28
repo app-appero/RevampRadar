@@ -87,8 +87,25 @@ export function generateConcept(companyId: string): Promise<ConceptSummary> {
   return request(`/companies/${companyId}/concepts`, { method: "POST" });
 }
 
-export function deleteConcept(companyId: string, conceptId: string): Promise<void> {
-  return request(`/companies/${companyId}/concepts/${conceptId}`, { method: "DELETE" });
+export async function deleteConcept(companyId: string, conceptId: string): Promise<void> {
+  let response: Response;
+  try {
+    response = await fetch(`${getApiBaseUrl()}/companies/${companyId}/concepts/${conceptId}`, {
+      method: "DELETE",
+    });
+  } catch {
+    throw new ApiError("Impossibile raggiungere il backend.");
+  }
+  if (!response.ok) {
+    let detail = `Errore ${response.status}`;
+    try {
+      const payload = (await response.json()) as { detail?: string };
+      if (payload.detail) detail = payload.detail;
+    } catch {
+      // ignore: nessun corpo o corpo non JSON
+    }
+    throw new ApiError(detail, response.status);
+  }
 }
 
 export function conceptFileUrl(openUrl: string): string {

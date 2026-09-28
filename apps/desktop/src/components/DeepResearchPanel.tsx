@@ -61,7 +61,11 @@ export function DeepResearchPanel({ companyId }: { companyId: string }) {
 
   const removeSignal = useMutation({
     mutationFn: (signalId: string) => deleteBusinessSignal(companyId, signalId),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["business-signals", companyId] }),
+    onSuccess: () => {
+      setError(null);
+      void queryClient.invalidateQueries({ queryKey: ["business-signals", companyId] });
+    },
+    onError: (err) => setError(err instanceof ApiError ? err.message : "Segnale non eliminato."),
   });
 
   const research = researchQuery.data;

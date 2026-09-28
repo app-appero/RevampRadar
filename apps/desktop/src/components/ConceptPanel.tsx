@@ -40,7 +40,11 @@ export function ConceptPanel({ companyId }: { companyId: string }) {
 
   const remove = useMutation({
     mutationFn: (conceptId: string) => deleteConcept(companyId, conceptId),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["concepts", companyId] }),
+    onSuccess: () => {
+      setError(null);
+      void queryClient.invalidateQueries({ queryKey: ["concepts", companyId] });
+    },
+    onError: (err) => setError(err instanceof ApiError ? err.message : "Concept non eliminato."),
   });
 
   const saveBrief = useMutation({
@@ -54,7 +58,11 @@ export function ConceptPanel({ companyId }: { companyId: string }) {
 
   const resetBrief = useMutation({
     mutationFn: () => regenerateDesignBrief(companyId),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["design-brief", companyId] }),
+    onSuccess: () => {
+      setError(null);
+      void queryClient.invalidateQueries({ queryKey: ["design-brief", companyId] });
+    },
+    onError: (err) => setError(err instanceof ApiError ? err.message : "Design brief non rigenerato."),
   });
 
   const concepts = conceptsQuery.data ?? [];
