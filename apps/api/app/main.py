@@ -10,6 +10,7 @@ from app.api.health import router as health_router
 from app.api.intelligence import router as intelligence_router
 from app.api.map import router as map_router
 from app.api.proposals import router as proposals_router
+from app.api.registry import router as registry_router
 from app.api.settings import router as settings_router
 from app.config import get_settings
 from app.errors import register_error_handlers
@@ -44,6 +45,7 @@ def create_app() -> FastAPI:
     app.include_router(intelligence_router)
     app.include_router(map_router)
     app.include_router(growth_router)
+    app.include_router(registry_router)
     return app
 
 

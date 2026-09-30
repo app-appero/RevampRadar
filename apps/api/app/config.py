@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     browser_timeout_ms: int = 20000
     scanner_user_agent: str = "RevampRadar/1.0 (+https://revampradar.local)"
     pagespeed_api_key: str = ""
+    openapi_company_token: str = ""
+    openapi_company_base_url: str = "https://company.openapi.com"
+    openapi_company_timeout_seconds: float = 30.0
     ai_provider: str = "claude"
     openai_api_key: str = ""
     openai_base_url: str = "https://api.openai.com/v1"
