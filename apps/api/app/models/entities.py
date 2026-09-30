@@ -30,7 +30,9 @@ class Company(Base):
     external_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     status: Mapped[str] = mapped_column(String(32), default="discovered", nullable=False)
     extra: Mapped[dict | None] = mapped_column(JsonType, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
@@ -58,12 +60,16 @@ class Website(Base):
     __tablename__ = "websites"
 
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    company_id: Mapped[UUID | None] = mapped_column(Uuid, ForeignKey("companies.id"), nullable=True, index=True)
+    company_id: Mapped[UUID | None] = mapped_column(
+        Uuid, ForeignKey("companies.id"), nullable=True, index=True
+    )
     url: Mapped[str] = mapped_column(String(2048), nullable=False)
     normalized_url: Mapped[str] = mapped_column(String(2048), unique=True, index=True, nullable=False)
     domain: Mapped[str] = mapped_column(String(255), index=True, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
@@ -90,11 +96,17 @@ class Audit(Base):
     seo_data: Mapped[dict | None] = mapped_column(JsonType, nullable=True)
     performance_data: Mapped[dict | None] = mapped_column(JsonType, nullable=True)
     ai_data: Mapped[dict | None] = mapped_column(JsonType, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
 
     website: Mapped[Website] = relationship(back_populates="audits")
-    findings: Mapped[list["AuditFinding"]] = relationship(back_populates="audit", cascade="all, delete-orphan")
-    screenshots: Mapped[list["Screenshot"]] = relationship(back_populates="audit", cascade="all, delete-orphan")
+    findings: Mapped[list["AuditFinding"]] = relationship(
+        back_populates="audit", cascade="all, delete-orphan"
+    )
+    screenshots: Mapped[list["Screenshot"]] = relationship(
+        back_populates="audit", cascade="all, delete-orphan"
+    )
     website_score: Mapped["WebsiteScore | None"] = relationship(
         back_populates="audit", cascade="all, delete-orphan", uselist=False
     )
@@ -132,7 +144,9 @@ class Screenshot(Base):
     viewport_width: Mapped[int] = mapped_column(nullable=False)
     viewport_height: Mapped[int] = mapped_column(nullable=False)
     file_path: Mapped[str] = mapped_column(String(1024), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
 
     audit: Mapped[Audit] = relationship(back_populates="screenshots")
 
@@ -141,7 +155,9 @@ class WebsiteScore(Base):
     __tablename__ = "website_scores"
 
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    audit_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("audits.id"), unique=True, nullable=False, index=True)
+    audit_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("audits.id"), unique=True, nullable=False, index=True
+    )
     technical_score: Mapped[int] = mapped_column(Integer, nullable=False)
     performance_score: Mapped[int] = mapped_column(Integer, nullable=False)
     ui_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -154,7 +170,9 @@ class WebsiteScore(Base):
     explanation: Mapped[str] = mapped_column(Text, nullable=False)
     components: Mapped[dict | None] = mapped_column(JsonType, nullable=True)
     formula_version: Mapped[str] = mapped_column(String(32), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
 
     audit: Mapped[Audit] = relationship(back_populates="website_score")
 
@@ -163,8 +181,12 @@ class OpportunityScore(Base):
     __tablename__ = "opportunity_scores"
 
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    company_id: Mapped[UUID | None] = mapped_column(Uuid, ForeignKey("companies.id"), nullable=True, index=True)
-    audit_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("audits.id"), unique=True, nullable=False, index=True)
+    company_id: Mapped[UUID | None] = mapped_column(
+        Uuid, ForeignKey("companies.id"), nullable=True, index=True
+    )
+    audit_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("audits.id"), unique=True, nullable=False, index=True
+    )
     website_score: Mapped[int] = mapped_column(Integer, nullable=False)
     business_score: Mapped[int] = mapped_column(Integer, nullable=False)
     opportunity_score: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -177,7 +199,9 @@ class OpportunityScore(Base):
     recommended_service: Mapped[str] = mapped_column(Text, nullable=False)
     components: Mapped[dict | None] = mapped_column(JsonType, nullable=True)
     formula_version: Mapped[str] = mapped_column(String(32), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
 
     audit: Mapped[Audit] = relationship(back_populates="opportunity_score")
 
@@ -186,7 +210,9 @@ class GrowthScore(Base):
     __tablename__ = "growth_scores"
 
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    company_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("companies.id"), unique=True, nullable=False, index=True)
+    company_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("companies.id"), unique=True, nullable=False, index=True
+    )
     score: Mapped[int] = mapped_column(Integer, nullable=False)
     priority: Mapped[str] = mapped_column(String(16), nullable=False)
     confidence: Mapped[float] = mapped_column(Float, nullable=False)
@@ -198,7 +224,9 @@ class GrowthScore(Base):
     components: Mapped[dict | None] = mapped_column(JsonType, nullable=True)
     peer_sample_size: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     formula_version: Mapped[str] = mapped_column(String(32), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
@@ -223,20 +251,28 @@ class DiscoveryRun(Base):
     progress_label: Mapped[str | None] = mapped_column(String(128), nullable=True)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
 
     results: Mapped[list["DiscoveryResult"]] = relationship(
         back_populates="discovery_run", cascade="all, delete-orphan"
     )
-    bulk_scans: Mapped[list["BulkScan"]] = relationship(back_populates="discovery_run")
+    bulk_scans: Mapped[list["BulkScan"]] = relationship(
+        back_populates="discovery_run"
+    )
 
 
 class DiscoveryResult(Base):
     __tablename__ = "discovery_results"
-    __table_args__ = (UniqueConstraint("discovery_run_id", "company_id", name="uq_discovery_results_run_company"),)
+    __table_args__ = (
+        UniqueConstraint("discovery_run_id", "company_id", name="uq_discovery_results_run_company"),
+    )
 
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    discovery_run_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("discovery_runs.id"), nullable=False, index=True)
+    discovery_run_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("discovery_runs.id"), nullable=False, index=True
+    )
     company_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("companies.id"), nullable=False, index=True)
 
     discovery_run: Mapped[DiscoveryRun] = relationship(back_populates="results")
@@ -247,24 +283,32 @@ class BulkScan(Base):
     __tablename__ = "bulk_scans"
 
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    discovery_run_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("discovery_runs.id"), nullable=False, index=True)
+    discovery_run_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("discovery_runs.id"), nullable=False, index=True
+    )
     status: Mapped[str] = mapped_column(String(32), default="queued", nullable=False, index=True)
     max_attempts: Mapped[int] = mapped_column(Integer, nullable=False)
     concurrency: Mapped[int] = mapped_column(Integer, nullable=False)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
 
     discovery_run: Mapped[DiscoveryRun] = relationship(back_populates="bulk_scans")
-    items: Mapped[list["BulkScanItem"]] = relationship(back_populates="bulk_scan", cascade="all, delete-orphan")
+    items: Mapped[list["BulkScanItem"]] = relationship(
+        back_populates="bulk_scan", cascade="all, delete-orphan"
+    )
 
 
 class BulkScanItem(Base):
     __tablename__ = "bulk_scan_items"
 
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    bulk_scan_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("bulk_scans.id"), nullable=False, index=True)
+    bulk_scan_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("bulk_scans.id"), nullable=False, index=True
+    )
     company_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("companies.id"), nullable=False, index=True)
     audit_id: Mapped[UUID | None] = mapped_column(Uuid, ForeignKey("audits.id"), nullable=True)
     status: Mapped[str] = mapped_column(String(32), default="pending", nullable=False, index=True)
@@ -280,27 +324,41 @@ class Opportunity(Base):
     __tablename__ = "opportunities"
 
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    company_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("companies.id"), unique=True, nullable=False, index=True)
+    company_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("companies.id"), unique=True, nullable=False, index=True
+    )
     status: Mapped[str] = mapped_column(String(32), default="discovered", nullable=False, index=True)
     is_favorite: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
 
     company: Mapped[Company] = relationship(back_populates="opportunity")
-    notes: Mapped[list["OpportunityNote"]] = relationship(back_populates="opportunity", cascade="all, delete-orphan")
-    activities: Mapped[list["Activity"]] = relationship(back_populates="opportunity", cascade="all, delete-orphan")
-    tag_links: Mapped[list["OpportunityTag"]] = relationship(back_populates="opportunity", cascade="all, delete-orphan")
+    notes: Mapped[list["OpportunityNote"]] = relationship(
+        back_populates="opportunity", cascade="all, delete-orphan"
+    )
+    activities: Mapped[list["Activity"]] = relationship(
+        back_populates="opportunity", cascade="all, delete-orphan"
+    )
+    tag_links: Mapped[list["OpportunityTag"]] = relationship(
+        back_populates="opportunity", cascade="all, delete-orphan"
+    )
 
 
 class OpportunityNote(Base):
     __tablename__ = "opportunity_notes"
 
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    opportunity_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("opportunities.id"), nullable=False, index=True)
+    opportunity_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("opportunities.id"), nullable=False, index=True
+    )
     body: Mapped[str] = mapped_column(Text, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
 
     opportunity: Mapped[Opportunity] = relationship(back_populates="notes")
 
@@ -311,14 +369,18 @@ class Tag(Base):
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
     name: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
 
-    links: Mapped[list["OpportunityTag"]] = relationship(back_populates="tag", cascade="all, delete-orphan")
+    links: Mapped[list["OpportunityTag"]] = relationship(
+        back_populates="tag", cascade="all, delete-orphan"
+    )
 
 
 class OpportunityTag(Base):
     __tablename__ = "opportunity_tags"
     __table_args__ = (UniqueConstraint("opportunity_id", "tag_id", name="uq_opportunity_tags"),)
 
-    opportunity_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("opportunities.id"), primary_key=True)
+    opportunity_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("opportunities.id"), primary_key=True
+    )
     tag_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("tags.id"), primary_key=True)
 
     opportunity: Mapped[Opportunity] = relationship(back_populates="tag_links")
@@ -329,13 +391,17 @@ class Activity(Base):
     __tablename__ = "activities"
 
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    opportunity_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("opportunities.id"), nullable=False, index=True)
+    opportunity_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("opportunities.id"), nullable=False, index=True
+    )
     type: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
     occurred_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
 
     opportunity: Mapped[Opportunity] = relationship(back_populates="activities")
 
@@ -344,8 +410,12 @@ class Proposal(Base):
     __tablename__ = "proposals"
 
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    audit_id: Mapped[UUID | None] = mapped_column(Uuid, ForeignKey("audits.id"), unique=True, nullable=True, index=True)
-    company_id: Mapped[UUID | None] = mapped_column(Uuid, ForeignKey("companies.id"), nullable=True, index=True)
+    audit_id: Mapped[UUID | None] = mapped_column(
+        Uuid, ForeignKey("audits.id"), unique=True, nullable=True, index=True
+    )
+    company_id: Mapped[UUID | None] = mapped_column(
+        Uuid, ForeignKey("companies.id"), nullable=True, index=True
+    )
     kind: Mapped[str] = mapped_column(String(16), default="refactor", nullable=False)
     source: Mapped[str] = mapped_column(String(32), nullable=False)
     prompt_version: Mapped[str] = mapped_column(String(32), nullable=False)
@@ -360,7 +430,9 @@ class Proposal(Base):
     range_max: Mapped[int] = mapped_column(Integer, nullable=False)
     currency: Mapped[str] = mapped_column(String(8), default="EUR", nullable=False)
     range_note: Mapped[str] = mapped_column(Text, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
@@ -375,7 +447,9 @@ class EmailTemplates(Base):
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
     refactor_body: Mapped[str | None] = mapped_column(Text, nullable=True)
     greenfield_body: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
@@ -389,7 +463,9 @@ class AiCredentials(Base):
     anthropic_api_key: Mapped[str | None] = mapped_column(Text, nullable=True)
     openai_api_key: Mapped[str | None] = mapped_column(Text, nullable=True)
     openapi_company_token: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
@@ -411,7 +487,9 @@ class SenderProfile(Base):
     local_radius_km: Mapped[float | None] = mapped_column(Float, nullable=True)
     local_mention_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     local_mention_text: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
@@ -423,7 +501,9 @@ class CompanyResearch(Base):
     __tablename__ = "company_research"
 
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    company_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("companies.id"), unique=True, nullable=False, index=True)
+    company_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("companies.id"), unique=True, nullable=False, index=True
+    )
     status: Mapped[str] = mapped_column(String(32), default="never", nullable=False, index=True)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -436,7 +516,9 @@ class CompanyResearch(Base):
     external_sources: Mapped[list | None] = mapped_column(JsonType, nullable=True)
     brief: Mapped[dict | None] = mapped_column(JsonType, nullable=True)
     research_version: Mapped[str] = mapped_column(String(32), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
@@ -448,7 +530,9 @@ class BusinessSignal(Base):
     """Singolo segnale aziendale (fatturato, dipendenti, forma societaria...): valore + fonte + affidabilità."""
 
     __tablename__ = "business_signals"
-    __table_args__ = (UniqueConstraint("company_id", "key", "period", name="uq_business_signals_company_key_period"),)
+    __table_args__ = (
+        UniqueConstraint("company_id", "key", "period", name="uq_business_signals_company_key_period"),
+    )
 
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
     company_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("companies.id"), nullable=False, index=True)
@@ -462,7 +546,9 @@ class BusinessSignal(Base):
     observed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     confidence: Mapped[str] = mapped_column(String(16), default="unverified", nullable=False)
     is_manual: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
@@ -476,7 +562,9 @@ class DesignBrief(Base):
     __tablename__ = "design_briefs"
 
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    company_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("companies.id"), unique=True, nullable=False, index=True)
+    company_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("companies.id"), unique=True, nullable=False, index=True
+    )
     style: Mapped[str | None] = mapped_column(String(64), nullable=True)
     palette: Mapped[list | None] = mapped_column(JsonType, nullable=True)
     typography: Mapped[str | None] = mapped_column(String(255), nullable=True)
@@ -487,7 +575,9 @@ class DesignBrief(Base):
     primary_cta: Mapped[str | None] = mapped_column(String(128), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     source: Mapped[str] = mapped_column(String(16), default="auto", nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
@@ -514,7 +604,9 @@ class Concept(Base):
     generator_version: Mapped[str] = mapped_column(String(32), nullable=False)
     source: Mapped[str] = mapped_column(String(16), default="deterministic", nullable=False)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )

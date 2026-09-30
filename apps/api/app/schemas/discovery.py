@@ -3,6 +3,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+
 MAX_RESULTS_STANDARD = 50
 MAX_RESULTS_EXTENDED = 200
 
