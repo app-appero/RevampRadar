@@ -114,3 +114,23 @@ def test_find_company_requires_same_city_and_similar_name(monkeypatch) -> None:
 def test_no_content_means_no_results(monkeypatch) -> None:
     monkeypatch.setattr(httpx, "get", _fake({"IT-search": (204, None)}))
     assert find_company("Nessuna Azienda", "Torino", _settings()) is None
+
+
+def test_find_company_without_city_refuses_ambiguous_names(monkeypatch) -> None:
+    def start(vat, town):
+        return {"companyName": "FERRARI SRL", "vatCode": vat, "address": {"registeredOffice": {"town": town}}}
+
+    monkeypatch.setattr(
+        httpx,
+        "get",
+        _fake(
+            {
+                "IT-search": (200, {"data": [{"id": "a"}, {"id": "b"}]}),
+                "IT-start/a": (200, {"data": [start("111", "Modena")]}),
+                "IT-start/b": (200, {"data": [start("222", "Roma")]}),
+                "IT-advanced/": (200, {"data": [RAW]}),
+            }
+        ),
+    )
+    assert find_company("ferrari.com", None, _settings()) is None  # ".com" ignorato, ma due omonimi
+    assert find_company("ferrari.com", "Modena", _settings()) is not None

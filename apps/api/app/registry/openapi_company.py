@@ -124,8 +124,12 @@ _MIN_NAME_SCORE = 0.6
 _MAX_CANDIDATES = 5
 
 
+_URL_NOISE = {"www", "http", "https", "com", "it", "net", "org", "eu", "info"}
+
+
 def _tokens(text: str) -> set[str]:
-    return {t for t in re.findall(r"[a-z0-9]+", text.lower()) if t not in _STOPWORDS and len(t) > 1}
+    ignored = _STOPWORDS | _URL_NOISE
+    return {t for t in re.findall(r"[a-z0-9]+", text.lower()) if t not in ignored and len(t) > 1}
 
 
 def _name_score(wanted: str, found: str) -> float:
@@ -142,7 +146,7 @@ def find_company(name: str, city: str | None, settings: Settings) -> dict[str, A
     prima di spendere la chiamata completa. Nessuna corrispondenza affidabile -> None.
     """
     hits = _get("IT-search", settings, {"companyName": name.strip(), "limit": _MAX_CANDIDATES})
-    best: tuple[float, str] | None = None
+    matches: list[tuple[float, str]] = []
     for hit in hits[:_MAX_CANDIDATES]:
         if not hit.get("id"):
             continue
@@ -154,6 +158,11 @@ def find_company(name: str, city: str | None, settings: Settings) -> dict[str, A
         if city and town.strip().lower() != city.strip().lower():
             continue
         score = _name_score(name, candidate.get("companyName") or "")
-        if score >= _MIN_NAME_SCORE and (best is None or score > best[0]):
-            best = (score, candidate.get("vatCode") or hit["id"])
-    return lookup_by_vat(best[1], settings) if best else None
+        if score >= _MIN_NAME_SCORE:
+            matches.append((score, candidate.get("vatCode") or hit["id"]))
+    if not matches:
+        return None
+    matches.sort(reverse=True)
+    if not city and len(matches) > 1:
+        return None  # senza comune non si sceglie tra omonimi: meglio chiedere la P.IVA
+    return lookup_by_vat(matches[0][1], settings)

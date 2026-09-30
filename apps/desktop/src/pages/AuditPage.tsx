@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
 
@@ -9,6 +10,7 @@ import {
   type WebsiteScore,
 } from "../api/audits";
 import { fetchAuditIntelligence } from "../api/intelligence";
+import { fetchAiSettings } from "../api/settings";
 import { fetchAuditProposal, generateProposal, type Proposal } from "../api/proposals";
 import { IntelligencePanel } from "../components/IntelligencePanel";
 import { DeepResearchPanel } from "../components/DeepResearchPanel";
@@ -45,16 +47,69 @@ export function AuditPage() {
     enabled: Boolean(auditId) && audit?.status === "completed",
     retry: false,
   });
+  const aiSettingsQuery = useQuery({
+    queryKey: ["ai-settings"],
+    queryFn: fetchAiSettings,
+  });
+  const [aiDialogOpen, setAiDialogOpen] = useState(false);
   const generate = useMutation({
-    mutationFn: () => generateProposal(auditId!),
+    mutationFn: (useAi: boolean) => generateProposal(auditId!, useAi),
     onSuccess: () => {
       void proposalQuery.refetch();
     },
   });
 
+  function startGenerate() {
+    if (aiSettingsQuery.data?.ai_available) {
+      setAiDialogOpen(true);
+    } else {
+      generate.mutate(false);
+    }
+  }
+
+  function chooseAi(useAi: boolean) {
+    setAiDialogOpen(false);
+    generate.mutate(useAi);
+  }
+
   return (
       <main className="mx-auto flex max-w-5xl flex-col gap-8 px-6 py-10">
         <PageBackLink fallback="/" label="Indietro" />
+
+        {aiDialogOpen ? (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+            <div className="w-full max-w-sm space-y-4 rounded-2xl bg-white p-6 shadow-lg">
+              <h2 className="text-lg font-semibold">Come vuoi generare la proposta?</h2>
+              <p className="text-sm text-stone-600">
+                La versione con AI parte dal testo di default e lo arricchisce sui finding specifici
+                di questo sito.
+              </p>
+              <div className="flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={() => chooseAi(true)}
+                  className="rounded-lg bg-stone-900 px-4 py-2 text-sm font-medium text-white hover:bg-stone-800"
+                >
+                  Con AI
+                </button>
+                <button
+                  type="button"
+                  onClick={() => chooseAi(false)}
+                  className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-800 hover:bg-stone-50"
+                >
+                  Versione di default
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAiDialogOpen(false)}
+                  className="px-4 py-2 text-sm text-stone-500 hover:text-stone-800"
+                >
+                  Annulla
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
 
         {auditQuery.isError ? (
           <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">
@@ -119,7 +174,7 @@ export function AuditPage() {
                 proposal={proposalQuery.data}
                 pending={generate.isPending}
                 error={generate.isError}
-                onGenerate={() => generate.mutate()}
+                onGenerate={startGenerate}
               />
             ) : null}
 

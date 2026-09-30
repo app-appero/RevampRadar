@@ -31,6 +31,7 @@ export function DeepResearchPanel({ companyId }: { companyId: string }) {
   const [showSignalForm, setShowSignalForm] = useState(false);
   const [registryVat, setRegistryVat] = useState("");
   const [registryError, setRegistryError] = useState<string | null>(null);
+  const [registryInfo, setRegistryInfo] = useState<string | null>(null);
 
   const researchQuery = useQuery({
     queryKey: ["company-research", companyId],
@@ -64,8 +65,13 @@ export function DeepResearchPanel({ companyId }: { companyId: string }) {
 
   const registry = useMutation({
     mutationFn: () => enrichFromRegistry(companyId, registryVat.trim() || undefined),
-    onSuccess: () => {
+    onSuccess: (saved) => {
       setRegistryError(null);
+      setRegistryInfo(
+        saved.length > 0
+          ? `Salvati ${saved.length} segnali. Fonte: ${saved[0].source}. Premi "Aggiorna approfondimento" per aggiornare le informazioni mancanti.`
+          : "Azienda trovata, ma nessun dato nuovo da salvare (i segnali inseriti a mano non vengono sovrascritti).",
+      );
       void queryClient.invalidateQueries({ queryKey: ["business-signals", companyId] });
     },
     onError: (err) =>
@@ -200,6 +206,7 @@ export function DeepResearchPanel({ companyId }: { companyId: string }) {
             disabled={registry.isPending}
             onClick={() => {
               setRegistryError(null);
+              setRegistryInfo(null);
               registry.mutate();
             }}
             className="rounded-lg bg-stone-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-stone-800 disabled:opacity-50"
@@ -216,6 +223,7 @@ export function DeepResearchPanel({ companyId }: { companyId: string }) {
             Cerca per nome e comune. Se non trova l'azienda, indica la P.IVA. Consuma crediti OpenAPI.com.
           </span>
         </div>
+        {registryInfo ? <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{registryInfo}</p> : null}
         {registryError ? (
           <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{registryError}</p>
         ) : null}
