@@ -25,7 +25,7 @@ def _get(path: str, settings: Settings, params: dict[str, Any] | None = None) ->
         )
     except httpx.HTTPError as exc:
         raise RegistryError(f"openapi_company_network_{type(exc).__name__}") from None
-    if response.status_code == 404:
+    if response.status_code in (204, 404):  # nessun risultato
         return []
     if response.status_code != 200:
         raise RegistryError(f"openapi_company_http_{response.status_code}")

@@ -35,7 +35,11 @@ def _fake(responses):
         assert headers["Authorization"] == "Bearer secret-token"
         for suffix, (status, body) in responses.items():
             if suffix in url:
-                return httpx.Response(status, json=body, request=httpx.Request("GET", url))
+                return (
+                    httpx.Response(status, json=body, request=httpx.Request("GET", url))
+                    if body is not None
+                    else httpx.Response(status, request=httpx.Request("GET", url))
+                )
         raise AssertionError(url)
 
     return fake_get
@@ -105,3 +109,8 @@ def test_find_company_requires_same_city_and_similar_name(monkeypatch) -> None:
     )
     assert find_company("Pizzeria Da Mario", "Torino", _settings())["company_name"] == "ACME SRL"
     assert find_company("Ristorante Il Faro", "Torino", _settings()) is None
+
+
+def test_no_content_means_no_results(monkeypatch) -> None:
+    monkeypatch.setattr(httpx, "get", _fake({"IT-search": (204, None)}))
+    assert find_company("Nessuna Azienda", "Torino", _settings()) is None
