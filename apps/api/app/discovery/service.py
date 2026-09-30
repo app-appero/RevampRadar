@@ -169,6 +169,53 @@ def resolve_company_location(session: Session, company: Company, settings: Setti
     return company
 
 
+def enrich_company_from_places(session: Session, company: Company, settings: Settings) -> Company:
+    """Completa sito e telefono mancanti da Google Places, senza sovrascrivere nulla."""
+    from app.discovery.places import find_place
+    from app.services.ai_settings import get_or_create_ai_credentials
+
+    key = (get_or_create_ai_credentials(session).google_places_api_key or "").strip()
+    if not key:
+        raise DiscoveryServiceError(
+            "Manca la chiave Google Places: inseriscila in Impostazioni.", status_code=422
+        )
+    try:
+        found = find_place(
+            settings,
+            key,
+            name=company.name,
+            city=company.city,
+            latitude=company.latitude,
+            longitude=company.longitude,
+        )
+    except RuntimeError as exc:
+        raise DiscoveryServiceError(str(exc), status_code=502) from exc
+    if not found:
+        raise DiscoveryServiceError(
+            "Google Places non ha trovato un'attività corrispondente.", status_code=404
+        )
+    changed = False
+    if not company.website_url and found.get("website"):
+        try:
+            company.website_url = normalize_url(found["website"]).normalized
+        except UrlValidationError:
+            company.website_url = None
+        else:
+            changed = True
+            _link_website(session, company, company.website_url)
+    if not company.phone and found.get("phone"):
+        company.phone = found["phone"][:64]
+        changed = True
+    if not changed:
+        raise DiscoveryServiceError(
+            "Google Places non ha aggiunto nulla di nuovo (sito e telefono già presenti o non disponibili).",
+            status_code=404,
+        )
+    session.commit()
+    session.refresh(company)
+    return company
+
+
 def _set_progress(session: Session, run: DiscoveryRun, percent: int, label: str) -> None:
     run.progress_percent = max(0, min(100, percent))
     run.progress_label = label

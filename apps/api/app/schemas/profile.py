@@ -40,11 +40,13 @@ class AiCredentialsUpdate(BaseModel):
     provider: str | None = Field(default=None, max_length=16)
     anthropic_api_key: str | None = Field(default=None, max_length=500)
     openai_api_key: str | None = Field(default=None, max_length=500)
+    google_places_api_key: str | None = Field(default=None, max_length=500)
 
 
 class AiCredentialsResponse(BaseModel):
     provider: str
     anthropic_api_key: str | None
     openai_api_key: str | None
+    google_places_api_key: str | None = None
     ai_available: bool
     updated_at: datetime

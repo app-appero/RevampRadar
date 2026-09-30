@@ -197,6 +197,8 @@ function AiCredentialsEditor() {
   const [openaiKey, setOpenaiKey] = useState("");
   const [showAnthropic, setShowAnthropic] = useState(false);
   const [showOpenai, setShowOpenai] = useState(false);
+  const [placesKey, setPlacesKey] = useState("");
+  const [showPlaces, setShowPlaces] = useState(false);
 
   useEffect(() => {
     const data = aiQuery.data;
@@ -204,6 +206,7 @@ function AiCredentialsEditor() {
     setProvider(data.provider);
     setAnthropicKey(data.anthropic_api_key ?? "");
     setOpenaiKey(data.openai_api_key ?? "");
+    setPlacesKey(data.google_places_api_key ?? "");
   }, [aiQuery.data]);
 
   const save = useMutation({
@@ -212,6 +215,7 @@ function AiCredentialsEditor() {
         provider,
         anthropic_api_key: anthropicKey.trim(),
         openai_api_key: openaiKey.trim(),
+        google_places_api_key: placesKey.trim(),
       }),
     onSuccess: () => {
       void aiQuery.refetch();
@@ -282,6 +286,15 @@ function AiCredentialsEditor() {
             visible={showOpenai}
             onToggleVisible={() => setShowOpenai((prev) => !prev)}
             placeholder="sk-…"
+          />
+
+          <ApiKeyField
+            label="Chiave Google Places (verifica sito e telefono)"
+            value={placesKey}
+            onChange={setPlacesKey}
+            visible={showPlaces}
+            onToggleVisible={() => setShowPlaces((prev) => !prev)}
+            placeholder="AIza…"
           />
 
           {save.isError ? (

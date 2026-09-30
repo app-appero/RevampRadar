@@ -29,6 +29,7 @@ export type AiSettings = {
   provider: string;
   anthropic_api_key: string | null;
   openai_api_key: string | null;
+  google_places_api_key: string | null;
   ai_available: boolean;
   updated_at: string;
 };
@@ -117,6 +118,7 @@ export async function saveAiSettings(payload: {
   provider?: string;
   anthropic_api_key?: string | null;
   openai_api_key?: string | null;
+  google_places_api_key?: string | null;
 }): Promise<AiSettings> {
   let response: Response;
   try {

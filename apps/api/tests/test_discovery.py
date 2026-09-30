@@ -763,3 +763,80 @@ def test_geocode_endpoint_404_for_unknown_company(client) -> None:
 
     response = client.post(f"/companies/{UUID(int=0)}/geocode")
     assert response.status_code == 404
+
+
+def test_places_enrich_fills_missing_website_and_phone(client, db_session, monkeypatch) -> None:
+    import app.discovery.places as places_module
+    from app.services.ai_settings import update_ai_credentials
+
+    update_ai_credentials(
+        db_session, provider=None, anthropic_api_key=None, openai_api_key=None, google_places_api_key="AIza-test"
+    )
+    company = Company(
+        name="Hotel Mediterraneo",
+        source="fake",
+        external_id="x/20",
+        status="discovered",
+        phone="+39 0923 911299",
+    )
+    db_session.add(company)
+    db_session.commit()
+    company_id = company.id
+
+    monkeypatch.setattr(
+        places_module,
+        "find_place",
+        lambda settings, key, **kw: {"website": "http://www.hotelmediterraneo.it", "phone": "+39 0000", "place_id": "p"},
+    )
+    response = client.post(f"/companies/{company_id}/places-enrich")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["website_url"] and "hotelmediterraneo.it" in body["website_url"]
+    assert body["phone"] == "+39 0923 911299"  # non sovrascritto
+
+
+def test_places_enrich_requires_key(client, db_session) -> None:
+    company = Company(name="Senza Chiave", source="fake", external_id="x/21", status="discovered")
+    db_session.add(company)
+    db_session.commit()
+    response = client.post(f"/companies/{company.id}/places-enrich")
+    assert response.status_code == 422
+
+
+def test_places_match_rejects_namesake_far_away() -> None:
+    from app.discovery.places import _same_business
+
+    place = {"displayName": {"text": "Hotel Mediterraneo"}, "location": {"latitude": 41.9, "longitude": 12.5}}
+    assert not _same_business("Hotel Mediterraneo", place, 36.83, 11.94)
+    near = {"displayName": {"text": "Mediterraneo"}, "location": {"latitude": 36.831, "longitude": 11.941}}
+    assert _same_business("Hotel Mediterraneo", near, 36.83, 11.94)
+
+
+def test_places_enrich_moves_company_to_refactor_segment(client, db_session, monkeypatch) -> None:
+    import app.discovery.places as places_module
+    from app.services.ai_settings import update_ai_credentials
+    from app.services.crm_service import ensure_opportunity
+
+    update_ai_credentials(
+        db_session, provider=None, anthropic_api_key=None, openai_api_key=None, google_places_api_key="AIza-test"
+    )
+    company = Company(name="Hotel Mediterraneo", source="fake", external_id="x/22", status="discovered")
+    db_session.add(company)
+    db_session.commit()
+    ensure_opportunity(db_session, company)
+    company_id = str(company.id)
+
+    def ids(segment: str) -> set[str]:
+        items = client.get(f"/opportunities?segment={segment}").json()
+        items = items["items"] if isinstance(items, dict) else items
+        return {item["company_id"] for item in items}
+
+    assert company_id in ids("greenfield")
+    monkeypatch.setattr(
+        places_module,
+        "find_place",
+        lambda settings, key, **kw: {"website": "https://www.hotelmediterraneo.it", "phone": None, "place_id": "p"},
+    )
+    assert client.post(f"/companies/{company_id}/places-enrich").status_code == 200
+    assert company_id in ids("refactor")
+    assert company_id not in ids("greenfield")

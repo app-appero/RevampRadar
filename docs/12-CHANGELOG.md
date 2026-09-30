@@ -60,6 +60,7 @@
 - Discovery: "ricerca estesa" ed "escludi attività incontattabili" partono già spuntate su una nuova ricerca, e "Max risultati" parte sempre al tetto della modalità corrente (200 estesa, 50 standard) invece che fisso a 20.
 - Impostazioni profilo: aggiunta una terza sezione "Altro" per i link che non sono né una piattaforma freelance né un social (es. GitHub, portfolio, Calendly), separata da "Social" in firma email.
 - Scheda azienda: quando manca la città (spesso per attività rurali/piccole senza tag `addr:*` su OSM) ma le coordinate sono note, un pulsante "Recupera città" chiede a Nominatim l'indirizzo di quel punto — su richiesta, azienda per azienda, non durante la discovery (rallenterebbe troppo una ricerca ampia). Non sovrascrive mai una città già presente; se l'azienda non ha sito, ricalcola anche il Growth Potential Score così il confronto "stessa zona" torna corretto.
+- Scheda azienda: pulsante "Verifica su Google" (visibile se mancano sito o telefono) che cerca l'attività su Google Places (New) e completa solo i campi vuoti, senza sovrascrivere nulla. Il match richiede un nome compatibile e, con coordinate note, entro 300 m. La chiave Google Places si imposta in Impostazioni (migrazione `0019_google_places_key`). Motivo: OSM spesso non censisce il sito di attività che ne hanno uno, che finirebbero a torto nel segmento "da creare".
 
 ### Changed
 - PageSpeed Insights è opzionale via `PAGESPEED_API_KEY`; Lighthouse nativo è rimandato (M1-014).

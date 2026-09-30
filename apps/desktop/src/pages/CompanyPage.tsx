@@ -22,7 +22,7 @@ import { fetchCompanyGrowthScore } from "../api/growth";
 import { generateGreenfieldProposal, generateProposal, fetchCompanyProposal } from "../api/proposals";
 import { fetchAiSettings } from "../api/settings";
 import { IntelligencePanel } from "../components/IntelligencePanel";
-import { fetchCompany, formatOsmTags, geocodeCompany } from "../api/discovery";
+import { fetchCompany, formatOsmTags, geocodeCompany, placesEnrichCompany } from "../api/discovery";
 import { ProposalCard } from "../components/ProposalCard";
 import { ApiError } from "../api/health";
 import { PageBackLink } from "../components/HistoryNav";
@@ -134,6 +134,21 @@ export function CompanyPage() {
     },
   });
 
+  const placesEnrich = useMutation({
+    mutationFn: async () => placesEnrichCompany(companyId!),
+    onSuccess: (updated) => {
+      queryClient.setQueryData(["company", companyId], updated);
+      void queryClient.invalidateQueries({ queryKey: ["company-growth", companyId] });
+      void queryClient.invalidateQueries({ queryKey: ["company-opportunity", companyId] });
+      void queryClient.invalidateQueries({ queryKey: ["opportunities"] });
+      void queryClient.invalidateQueries({ queryKey: ["crm-dashboard"] });
+      void queryClient.invalidateQueries({ queryKey: ["companies"] });
+    },
+    onError: (err) => {
+      setError(err instanceof ApiError ? err.message : "Verifica su Google non riuscita.");
+    },
+  });
+
   function chooseAiForDialog(useAi: boolean) {
     if (aiDialogFor === "refactor") {
       generateProposalMut.mutate(useAi);
@@ -221,6 +236,20 @@ export function CompanyPage() {
               >
                 Cerca su Google Maps
               </ExternalLink>
+              {!company.website_url || !company.phone ? (
+                <button
+                  type="button"
+                  disabled={placesEnrich.isPending}
+                  onClick={() => {
+                    setError(null);
+                    placesEnrich.mutate();
+                  }}
+                  title="Cerca l'attività su Google Places e completa sito e telefono mancanti"
+                  className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-800 hover:bg-stone-50 disabled:opacity-50"
+                >
+                  {placesEnrich.isPending ? "Verifica…" : "Verifica su Google"}
+                </button>
+              ) : null}
               {!company.city && company.latitude != null && company.longitude != null ? (
                 <button
                   type="button"

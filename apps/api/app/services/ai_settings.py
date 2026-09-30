@@ -26,6 +26,7 @@ def update_ai_credentials(
     provider: str | None,
     anthropic_api_key: str | None,
     openai_api_key: str | None,
+    google_places_api_key: str | None = None,
 ) -> AiCredentials:
     row = get_or_create_ai_credentials(session)
     if provider is not None:
@@ -37,6 +38,8 @@ def update_ai_credentials(
         row.anthropic_api_key = anthropic_api_key.strip() or None
     if openai_api_key is not None:
         row.openai_api_key = openai_api_key.strip() or None
+    if google_places_api_key is not None:
+        row.google_places_api_key = google_places_api_key.strip() or None
     session.commit()
     session.refresh(row)
     return row

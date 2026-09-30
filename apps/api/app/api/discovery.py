@@ -15,6 +15,7 @@ from app.discovery.service import (
     list_companies,
     list_company_categories,
     load_discovery_run,
+    enrich_company_from_places,
     resolve_company_location,
 )
 from app.jobs.bulk_scan import latest_bulk_scan
@@ -146,6 +147,18 @@ def post_company_geocode(company_id: UUID, db: Session = Depends(get_db)) -> Com
         raise HTTPException(status_code=404, detail="Azienda non trovata.")
     try:
         company = resolve_company_location(db, company, get_settings())
+    except DiscoveryServiceError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return _company_detail(company)
+
+
+@router.post("/companies/{company_id}/places-enrich", response_model=CompanyDetail)
+def post_company_places_enrich(company_id: UUID, db: Session = Depends(get_db)) -> CompanyDetail:
+    company = get_company(db, company_id)
+    if company is None:
+        raise HTTPException(status_code=404, detail="Azienda non trovata.")
+    try:
+        company = enrich_company_from_places(db, company, get_settings())
     except DiscoveryServiceError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return _company_detail(company)

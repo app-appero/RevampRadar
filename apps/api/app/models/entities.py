@@ -453,6 +453,7 @@ class AiCredentials(Base):
     provider: Mapped[str] = mapped_column(String(16), default="claude", nullable=False)
     anthropic_api_key: Mapped[str | None] = mapped_column(Text, nullable=True)
     openai_api_key: Mapped[str | None] = mapped_column(Text, nullable=True)
+    google_places_api_key: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
