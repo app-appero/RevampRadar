@@ -87,8 +87,11 @@ export function CompanyPage() {
       }
       return generateProposal(auditId, useAi);
     },
-    onSuccess: () => {
+    onSuccess: (proposal) => {
       void queryClient.invalidateQueries({ queryKey: ["company-proposal", companyId] });
+      if (proposal.ai_error) {
+        setError(`AI non riuscita, usata la proposta deterministica: ${proposal.ai_error}`);
+      }
     },
     onError: (err) => {
       setError(err instanceof ApiError ? err.message : "Proposta non generata.");
@@ -96,8 +99,11 @@ export function CompanyPage() {
   });
   const generateGreenfieldMut = useMutation({
     mutationFn: async (useAi: boolean) => generateGreenfieldProposal(companyId!, useAi),
-    onSuccess: () => {
+    onSuccess: (proposal) => {
       void queryClient.invalidateQueries({ queryKey: ["company-proposal", companyId] });
+      if (proposal.ai_error) {
+        setError(`AI non riuscita, usata la proposta deterministica: ${proposal.ai_error}`);
+      }
     },
     onError: (err) => {
       setError(err instanceof ApiError ? err.message : "Proposta non generata.");

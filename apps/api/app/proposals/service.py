@@ -74,8 +74,11 @@ def create_or_replace_proposal(
         email_template=templates.refactor_body,
     )
     source = "deterministic"
+    ai_errors: list[str] = []
     if use_ai is not False:
-        polished = polish_proposal(resolved, draft, _facts(audit, company, draft, sender), sender)
+        polished = polish_proposal(
+            resolved, draft, _facts(audit, company, draft, sender), sender, errors=ai_errors
+        )
         if polished is not None:
             draft = polished
             source = "ai"
@@ -85,6 +88,7 @@ def create_or_replace_proposal(
         _apply(existing, draft, source, company.id if company else None, kind="refactor")
         session.commit()
         session.refresh(existing)
+        existing.ai_error = ai_errors[0] if ai_errors else None
         return existing
 
     proposal = Proposal(
@@ -108,6 +112,7 @@ def create_or_replace_proposal(
     session.add(proposal)
     session.commit()
     session.refresh(proposal)
+    proposal.ai_error = ai_errors[0] if ai_errors else None
     return proposal
 
 
@@ -144,8 +149,11 @@ def create_or_replace_greenfield_proposal(
         email_template=templates.greenfield_body,
     )
     source = "deterministic"
+    ai_errors: list[str] = []
     if use_ai is not False:
-        polished = polish_proposal(resolved, draft, _greenfield_facts(company, score, draft, sender), sender)
+        polished = polish_proposal(
+            resolved, draft, _greenfield_facts(company, score, draft, sender), sender, errors=ai_errors
+        )
         if polished is not None:
             draft = polished
             source = "ai"
@@ -160,6 +168,7 @@ def create_or_replace_greenfield_proposal(
         _apply(existing, draft, source, company.id, kind="greenfield")
         session.commit()
         session.refresh(existing)
+        existing.ai_error = ai_errors[0] if ai_errors else None
         return existing
 
     proposal = Proposal(
@@ -183,6 +192,7 @@ def create_or_replace_greenfield_proposal(
     session.add(proposal)
     session.commit()
     session.refresh(proposal)
+    proposal.ai_error = ai_errors[0] if ai_errors else None
     return proposal
 
 

@@ -25,6 +25,7 @@ def polish_proposal(
     draft: ProposalDraft,
     facts: dict,
     sender: SenderProfileView,
+    errors: list[str] | None = None,
 ) -> ProposalDraft | None:
     provider = get_ai_provider(settings)
     if provider is None:
@@ -66,6 +67,8 @@ def polish_proposal(
         parsed = parse_json_object(content)
     except Exception as exc:
         logger.warning("Proposal AI polish failed: %s", exc)
+        if errors is not None:
+            errors.append(str(exc))
         return None
     email_body = str(parsed.get("email_body") or draft.email_body)
     if (

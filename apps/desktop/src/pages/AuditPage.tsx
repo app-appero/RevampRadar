@@ -114,6 +114,7 @@ export function AuditPage() {
                 proposal={proposalQuery.data}
                 pending={generate.isPending}
                 error={generate.isError}
+                aiError={generate.data?.ai_error ?? null}
                 onGenerate={() => generate.mutate()}
               />
             ) : null}
@@ -439,11 +440,13 @@ function ProposalSection({
   proposal,
   pending,
   error,
+  aiError,
   onGenerate,
 }: {
   proposal: Proposal | null | undefined;
   pending: boolean;
   error: boolean;
+  aiError: string | null;
   onGenerate: () => void;
 }) {
   return (
@@ -466,6 +469,11 @@ function ProposalSection({
       </div>
       {error ? (
         <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">Proposta non generata.</p>
+      ) : null}
+      {aiError ? (
+        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">
+          AI non riuscita, usata la proposta deterministica: {aiError}
+        </p>
       ) : null}
       {proposal ? <ProposalCard proposal={proposal} /> : null}
     </section>

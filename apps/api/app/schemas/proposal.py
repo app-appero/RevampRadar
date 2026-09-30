@@ -31,3 +31,4 @@ class ProposalResponse(BaseModel):
     range_note: str
     created_at: datetime
     updated_at: datetime
+    ai_error: str | None = None

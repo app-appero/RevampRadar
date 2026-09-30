@@ -1,3 +1,4 @@
+import json
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -80,4 +81,19 @@ def _to_response(proposal: Proposal) -> ProposalResponse:
         range_note=proposal.range_note,
         created_at=proposal.created_at,
         updated_at=proposal.updated_at,
+        ai_error=_friendly_ai_error(getattr(proposal, "ai_error", None)),
     )
+
+
+def _friendly_ai_error(raw: str | None) -> str | None:
+    if not raw:
+        return None
+    start = raw.find("{")
+    if start != -1:
+        try:
+            message = json.loads(raw[start:]).get("error", {}).get("message")
+        except (ValueError, AttributeError):
+            message = None
+        if message:
+            return str(message)
+    return raw

@@ -27,6 +27,7 @@ export type Proposal = {
   range_note: string;
   created_at: string;
   updated_at: string;
+  ai_error?: string | null;
 };
 
 async function parseJson<T>(response: Response): Promise<T> {
