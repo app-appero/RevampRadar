@@ -94,3 +94,13 @@ def test_list_recent_audits(client, monkeypatch) -> None:
 def test_missing_audit_returns_404(client) -> None:
     response = client.get("/audits/11111111-1111-1111-1111-111111111111")
     assert response.status_code == 404
+
+
+def test_audit_from_plain_url_gets_a_company(db_session) -> None:
+    from app.services.audit_service import create_audit
+
+    first = create_audit(db_session, "https://www.example.com")
+    company_id = first.website.company_id
+    assert company_id is not None
+    again = create_audit(db_session, "https://www.example.com")
+    assert again.website.company_id == company_id

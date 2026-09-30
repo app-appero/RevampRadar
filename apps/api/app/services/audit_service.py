@@ -33,6 +33,26 @@ class AuditServiceError(Exception):
         self.status_code = status_code
 
 
+URL_COMPANY_SOURCE = "manual_url"
+
+
+def _get_or_create_url_company(session: Session, website: Website) -> Company:
+    """Un URL analizzato a mano diventa un prospect, così Approfondimento e Concept funzionano anche da lì."""
+    company = (
+        session.query(Company).filter_by(source=URL_COMPANY_SOURCE, external_id=website.domain).one_or_none()
+    )
+    if company is None:
+        company = Company(
+            name=website.domain.removeprefix("www."),
+            website_url=website.url,
+            source=URL_COMPANY_SOURCE,
+            external_id=website.domain,
+        )
+        session.add(company)
+        session.flush()
+    return company
+
+
 def create_audit(session: Session, raw_url: str, company_id: UUID | None = None) -> Audit:
     try:
         normalized = normalize_url(raw_url)
@@ -46,6 +66,8 @@ def create_audit(session: Session, raw_url: str, company_id: UUID | None = None)
             raise AuditServiceError("Azienda non trovata.", status_code=404)
 
     website = _get_or_create_website(session, normalized)
+    if company is None and website.company_id is None:
+        company = _get_or_create_url_company(session, website)
     if company is not None and website.company_id is None:
         website.company_id = company.id
     audit = Audit(
