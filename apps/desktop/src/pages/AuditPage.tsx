@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
 
 import {
@@ -10,7 +10,7 @@ import {
   type WebsiteScore,
 } from "../api/audits";
 import { fetchAuditIntelligence } from "../api/intelligence";
-import { fetchAiSettings } from "../api/settings";
+import { isAiAvailableNow } from "../lib/aiAvailability";
 import { fetchAuditProposal, generateProposal, type Proposal } from "../api/proposals";
 import { IntelligencePanel } from "../components/IntelligencePanel";
 import { DeepResearchPanel } from "../components/DeepResearchPanel";
@@ -47,10 +47,7 @@ export function AuditPage() {
     enabled: Boolean(auditId) && audit?.status === "completed",
     retry: false,
   });
-  const aiSettingsQuery = useQuery({
-    queryKey: ["ai-settings"],
-    queryFn: fetchAiSettings,
-  });
+  const queryClient = useQueryClient();
   const [aiDialogOpen, setAiDialogOpen] = useState(false);
   const generate = useMutation({
     mutationFn: (useAi: boolean) => generateProposal(auditId!, useAi),
@@ -59,8 +56,8 @@ export function AuditPage() {
     },
   });
 
-  function startGenerate() {
-    if (aiSettingsQuery.data?.ai_available) {
+  async function startGenerate() {
+    if (await isAiAvailableNow(queryClient)) {
       setAiDialogOpen(true);
     } else {
       generate.mutate(false);

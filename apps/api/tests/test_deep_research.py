@@ -409,3 +409,15 @@ def test_business_signal_upsert_same_key_and_period_replaces_value(db_session) -
     assert len(rows) == 1
     assert rows[0].value == "12"
     assert rows[0].source == "b"
+
+
+def test_homepage_page_ignores_error_pages() -> None:
+    audit = Audit(
+        website_id=None,
+        status="completed",
+        request_url="https://blocked.test",
+        scanner_version=SCANNER_VERSION,
+        http_data={"status_code": 403},
+        html_data={"title": "ERROR: The request could not be satisfied", "h1": ["403 ERROR"]},
+    )
+    assert _homepage_page(audit) is None

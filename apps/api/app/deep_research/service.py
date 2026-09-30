@@ -126,6 +126,10 @@ def _homepage_page(latest_audit: Audit | None) -> ResearchPage | None:
     """
     if latest_audit is None or not latest_audit.html_data:
         return None
+    status_code = (latest_audit.http_data or {}).get("status_code")
+    if isinstance(status_code, int) and status_code >= 400:
+        # Il sito ha risposto con una pagina di errore (es. 403): titolo e H1 sono dell'errore, non dell'azienda.
+        return None
     data = latest_audit.html_data
     title = data.get("title")
     meta_description = data.get("meta_description")

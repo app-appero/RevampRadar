@@ -20,8 +20,8 @@ import {
 import { fetchCompanyIntelligence } from "../api/intelligence";
 import { fetchCompanyGrowthScore } from "../api/growth";
 import { generateGreenfieldProposal, generateProposal, fetchCompanyProposal } from "../api/proposals";
-import { fetchAiSettings } from "../api/settings";
 import { IntelligencePanel } from "../components/IntelligencePanel";
+import { isAiAvailableNow } from "../lib/aiAvailability";
 import { DeepResearchPanel } from "../components/DeepResearchPanel";
 import { ConceptPanel } from "../components/ConceptPanel";
 import { fetchCompany, formatOsmTags, geocodeCompany } from "../api/discovery";
@@ -63,10 +63,6 @@ export function CompanyPage() {
     enabled: Boolean(companyId) && query.isSuccess && !query.data?.website_url,
     retry: false,
   });
-  const aiSettingsQuery = useQuery({
-    queryKey: ["ai-settings"],
-    queryFn: fetchAiSettings,
-  });
   const [aiDialogFor, setAiDialogFor] = useState<"refactor" | "greenfield" | null>(null);
   const analyze = useMutation({
     mutationFn: async () => {
@@ -106,9 +102,9 @@ export function CompanyPage() {
     },
   });
 
-  function startGenerateProposal(kind: "refactor" | "greenfield") {
+  async function startGenerateProposal(kind: "refactor" | "greenfield") {
     setError(null);
-    if (aiSettingsQuery.data?.ai_available) {
+    if (await isAiAvailableNow(queryClient)) {
       setAiDialogFor(kind);
       return;
     }
