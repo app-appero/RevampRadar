@@ -21,6 +21,7 @@ from app.schemas.profile import (
 from app.services.ai_settings import (
     get_or_create_ai_credentials,
     is_ai_available,
+    is_openapi_available,
     update_ai_credentials,
 )
 from app.services.email_templates import get_or_create_email_templates, update_email_templates
@@ -67,6 +68,7 @@ def put_ai_credentials(payload: AiCredentialsUpdate, db: Session = Depends(get_d
             provider=payload.provider,
             anthropic_api_key=payload.anthropic_api_key,
             openai_api_key=payload.openai_api_key,
+            openapi_company_token=payload.openapi_company_token,
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -96,7 +98,9 @@ def _ai_response(db: Session, row: AiCredentials) -> AiCredentialsResponse:
         provider=row.provider,
         anthropic_api_key=row.anthropic_api_key,
         openai_api_key=row.openai_api_key,
+        openapi_company_token=row.openapi_company_token,
         ai_available=is_ai_available(db, get_settings()),
+        openapi_available=is_openapi_available(db, get_settings()),
         updated_at=row.updated_at,
     )
 

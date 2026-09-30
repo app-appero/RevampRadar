@@ -35,7 +35,9 @@ export type AiSettings = {
   provider: string;
   anthropic_api_key: string | null;
   openai_api_key: string | null;
+  openapi_company_token: string | null;
   ai_available: boolean;
+  openapi_available: boolean;
   updated_at: string;
 };
 
@@ -123,6 +125,7 @@ export async function saveAiSettings(payload: {
   provider?: string;
   anthropic_api_key?: string | null;
   openai_api_key?: string | null;
+  openapi_company_token?: string | null;
 }): Promise<AiSettings> {
   let response: Response;
   try {

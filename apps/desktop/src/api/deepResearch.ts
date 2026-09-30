@@ -135,6 +135,14 @@ export function fetchBusinessSignals(companyId: string): Promise<BusinessSignal[
   return request(`/companies/${companyId}/business-signals`);
 }
 
+export function enrichFromRegistry(companyId: string, vat?: string): Promise<BusinessSignal[]> {
+  return request(`/companies/${companyId}/registry-enrichment`, {
+    method: "POST",
+    headers: JSON_HEADERS,
+    body: JSON.stringify(vat ? { vat } : {}),
+  });
+}
+
 export function saveBusinessSignal(companyId: string, payload: BusinessSignalInput): Promise<BusinessSignal> {
   return request(`/companies/${companyId}/business-signals`, {
     method: "PUT",

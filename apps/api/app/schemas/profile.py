@@ -46,11 +46,14 @@ class AiCredentialsUpdate(BaseModel):
     provider: str | None = Field(default=None, max_length=16)
     anthropic_api_key: str | None = Field(default=None, max_length=500)
     openai_api_key: str | None = Field(default=None, max_length=500)
+    openapi_company_token: str | None = Field(default=None, max_length=500)
 
 
 class AiCredentialsResponse(BaseModel):
     provider: str
     anthropic_api_key: str | None
     openai_api_key: str | None
+    openapi_company_token: str | None
     ai_available: bool
+    openapi_available: bool
     updated_at: datetime

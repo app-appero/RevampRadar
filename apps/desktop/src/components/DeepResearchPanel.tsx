@@ -2,6 +2,7 @@ import { FormEvent, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
+  enrichFromRegistry,
   fetchBusinessSignals,
   fetchCompanyResearch,
   saveBusinessSignal,
@@ -28,6 +29,8 @@ export function DeepResearchPanel({ companyId }: { companyId: string }) {
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const [showSignalForm, setShowSignalForm] = useState(false);
+  const [registryVat, setRegistryVat] = useState("");
+  const [registryError, setRegistryError] = useState<string | null>(null);
 
   const researchQuery = useQuery({
     queryKey: ["company-research", companyId],
@@ -57,6 +60,16 @@ export function DeepResearchPanel({ companyId }: { companyId: string }) {
       void queryClient.invalidateQueries({ queryKey: ["business-signals", companyId] });
     },
     onError: (err) => setError(err instanceof ApiError ? err.message : "Segnale non salvato."),
+  });
+
+  const registry = useMutation({
+    mutationFn: () => enrichFromRegistry(companyId, registryVat.trim() || undefined),
+    onSuccess: () => {
+      setRegistryError(null);
+      void queryClient.invalidateQueries({ queryKey: ["business-signals", companyId] });
+    },
+    onError: (err) =>
+      setRegistryError(err instanceof ApiError ? err.message : "Recupero dati aziendali non riuscito."),
   });
 
   const removeSignal = useMutation({
@@ -181,6 +194,31 @@ export function DeepResearchPanel({ companyId }: { companyId: string }) {
             {showSignalForm ? "Annulla" : "Aggiungi segnale"}
           </button>
         </div>
+        <div className="flex flex-wrap items-center gap-2 rounded-xl bg-stone-50 px-3 py-2">
+          <button
+            type="button"
+            disabled={registry.isPending}
+            onClick={() => {
+              setRegistryError(null);
+              registry.mutate();
+            }}
+            className="rounded-lg bg-stone-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-stone-800 disabled:opacity-50"
+          >
+            {registry.isPending ? "Ricerca in corso…" : "Recupera dati aziendali (Registro Imprese)"}
+          </button>
+          <input
+            value={registryVat}
+            onChange={(event) => setRegistryVat(event.target.value)}
+            placeholder="P.IVA (facoltativa)"
+            className="w-44 rounded-lg border border-stone-300 px-3 py-1.5 font-mono text-sm outline-none focus:border-stone-900"
+          />
+          <span className="text-xs text-stone-500">
+            Cerca per nome e comune. Se non trova l'azienda, indica la P.IVA. Consuma crediti OpenAPI.com.
+          </span>
+        </div>
+        {registryError ? (
+          <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{registryError}</p>
+        ) : null}
         <ul className="space-y-2">
           {(signalsQuery.data ?? []).map((item) => (
             <li

@@ -1,9 +1,7 @@
 import httpx
-from fastapi.testclient import TestClient
 
 from app.config import Settings
-from app.main import create_app
-from app.registry.openapi_company import RegistryError, lookup_by_name, lookup_by_vat
+from app.registry.openapi_company import RegistryError, find_company, lookup_by_name, lookup_by_vat
 
 RAW = {
     "companyName": "ACME SRL",
@@ -74,11 +72,36 @@ def test_missing_token_and_http_error_do_not_leak(monkeypatch) -> None:
         assert "secret-token" not in str(exc)
 
 
-def test_endpoint(monkeypatch) -> None:
+def test_endpoint(client, monkeypatch) -> None:
     monkeypatch.setattr(httpx, "get", _fake({"IT-advanced/01234567890": (200, {"data": [RAW]})}))
-    app = create_app()
-    app.dependency_overrides = {}
     monkeypatch.setattr("app.api.registry.get_settings", _settings)
-    client = TestClient(app)
-    assert client.get("/registry/company", params={"vat": "01234567890"}).json()["vat_code"] == "01234567890"
+    response = client.get("/registry/company", params={"vat": "01234567890"})
+    assert response.json()["vat_code"] == "01234567890"
     assert client.get("/registry/company").status_code == 422
+
+
+def test_find_company_requires_same_city_and_similar_name(monkeypatch) -> None:
+    start_ok = {
+        "companyName": "PIZZERIA DA MARIO DI ROSSI SNC",
+        "vatCode": "111",
+        "address": {"registeredOffice": {"town": "Torino"}},
+    }
+    start_other_city = {
+        "companyName": "PIZZERIA DA MARIO",
+        "vatCode": "222",
+        "address": {"registeredOffice": {"town": "Roma"}},
+    }
+    monkeypatch.setattr(
+        httpx,
+        "get",
+        _fake(
+            {
+                "IT-search": (200, {"data": [{"id": "a"}, {"id": "b"}]}),
+                "IT-start/a": (200, {"data": [start_other_city]}),
+                "IT-start/b": (200, {"data": [start_ok]}),
+                "IT-advanced/111": (200, {"data": [RAW]}),
+            }
+        ),
+    )
+    assert find_company("Pizzeria Da Mario", "Torino", _settings())["company_name"] == "ACME SRL"
+    assert find_company("Ristorante Il Faro", "Torino", _settings()) is None

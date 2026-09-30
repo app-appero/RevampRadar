@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Added
+- OpenAPI.com Company (Registro Imprese): token gestito da Impostazioni (come le chiavi AI, migrazione 0022) e pulsante "Recupera dati aziendali" nell'Approfondimento prospect, che salva fatturato, dipendenti, anno di fondazione e forma societaria come Business Signals `verified` (mai sovrascrive quelli manuali). Ricerca per nome+comune con P.IVA facoltativa; deviazione da docs/13 ("nessun provider a pagamento"): richiesta esplicita dell'utente, chiamata solo su richiesta;
 - definizione iniziale del prodotto RevampRadar;
 - architettura desktop-first;
 - roadmap M0–M8;

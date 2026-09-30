@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Any
 
 import httpx
@@ -57,6 +58,11 @@ def normalize_company(raw: dict[str, Any]) -> dict[str, Any]:
         "zip_code": office.get("zipCode"),
         "region": (office.get("region") or {}).get("description"),
         "start_date": raw.get("startDate"),
+        "revenues": [
+            {"year": b.get("year"), "turnover": b.get("turnover")}
+            for b in (raw.get("balanceSheets") or {}).get("all") or []
+            if b.get("turnover") is not None and b.get("year")
+        ],
         "balance_year": balance.get("year"),
         "turnover": balance.get("turnover"),
         "employees": balance.get("employees"),
@@ -76,3 +82,78 @@ def lookup_by_name(name: str, settings: Settings) -> dict[str, Any] | None:
         return None
     rows = _get(f"IT-advanced/{hits[0]['id']}", settings)
     return normalize_company(rows[0]) if rows else None
+
+
+_STOPWORDS = {
+    "srl",
+    "spa",
+    "snc",
+    "sas",
+    "sapa",
+    "ss",
+    "di",
+    "da",
+    "del",
+    "della",
+    "dei",
+    "delle",
+    "e",
+    "il",
+    "la",
+    "lo",
+    "le",
+    "i",
+    "the",
+    "societa",
+    "societa'",
+    "azienda",
+    "ditta",
+    "impresa",
+    "individuale",
+    "cooperativa",
+    "coop",
+    "a",
+    "r",
+    "l",
+    "s",
+    "p",
+    "c",
+    "n",
+}
+_MIN_NAME_SCORE = 0.6
+_MAX_CANDIDATES = 5
+
+
+def _tokens(text: str) -> set[str]:
+    return {t for t in re.findall(r"[a-z0-9]+", text.lower()) if t not in _STOPWORDS and len(t) > 1}
+
+
+def _name_score(wanted: str, found: str) -> float:
+    wanted_tokens = _tokens(wanted)
+    if not wanted_tokens:
+        return 0.0
+    return len(wanted_tokens & _tokens(found)) / len(wanted_tokens)
+
+
+def find_company(name: str, city: str | None, settings: Settings) -> dict[str, Any] | None:
+    """Cerca per nome e sceglie solo una corrispondenza affidabile (nome simile e stesso comune).
+
+    IT-search restituisce solo gli id: ogni candidato è verificato con IT-start (anagrafica base)
+    prima di spendere la chiamata completa. Nessuna corrispondenza affidabile -> None.
+    """
+    hits = _get("IT-search", settings, {"companyName": name.strip(), "limit": _MAX_CANDIDATES})
+    best: tuple[float, str] | None = None
+    for hit in hits[:_MAX_CANDIDATES]:
+        if not hit.get("id"):
+            continue
+        rows = _get(f"IT-start/{hit['id']}", settings)
+        if not rows:
+            continue
+        candidate = rows[0]
+        town = (((candidate.get("address") or {}).get("registeredOffice")) or {}).get("town") or ""
+        if city and town.strip().lower() != city.strip().lower():
+            continue
+        score = _name_score(name, candidate.get("companyName") or "")
+        if score >= _MIN_NAME_SCORE and (best is None or score > best[0]):
+            best = (score, candidate.get("vatCode") or hit["id"])
+    return lookup_by_vat(best[1], settings) if best else None

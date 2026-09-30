@@ -261,6 +261,8 @@ function AiCredentialsEditor() {
   const [openaiKey, setOpenaiKey] = useState("");
   const [showAnthropic, setShowAnthropic] = useState(false);
   const [showOpenai, setShowOpenai] = useState(false);
+  const [openapiToken, setOpenapiToken] = useState("");
+  const [showOpenapi, setShowOpenapi] = useState(false);
 
   useEffect(() => {
     const data = aiQuery.data;
@@ -268,6 +270,7 @@ function AiCredentialsEditor() {
     setProvider(data.provider);
     setAnthropicKey(data.anthropic_api_key ?? "");
     setOpenaiKey(data.openai_api_key ?? "");
+    setOpenapiToken(data.openapi_company_token ?? "");
   }, [aiQuery.data]);
 
   const save = useMutation({
@@ -276,6 +279,7 @@ function AiCredentialsEditor() {
         provider,
         anthropic_api_key: anthropicKey.trim(),
         openai_api_key: openaiKey.trim(),
+        openapi_company_token: openapiToken.trim(),
       }),
     onSuccess: () => {
       void aiQuery.refetch();
@@ -346,6 +350,28 @@ function AiCredentialsEditor() {
             visible={showOpenai}
             onToggleVisible={() => setShowOpenai((prev) => !prev)}
             placeholder="sk-…"
+          />
+
+          <div className="space-y-1 border-t border-stone-100 pt-6">
+            <p className="text-sm">
+              Dati aziendali (OpenAPI.com):{" "}
+              <span className={`font-medium ${data.openapi_available ? "text-emerald-700" : "text-amber-700"}`}>
+                {data.openapi_available ? "configurato" : "token mancante"}
+              </span>
+            </p>
+            <p className="text-xs text-stone-500">
+              Serve per recuperare fatturato, dipendenti e forma societaria nell'Approfondimento prospect.
+              Ogni ricerca consuma crediti OpenAPI.com, quindi parte solo dal pulsante.
+            </p>
+          </div>
+
+          <ApiKeyField
+            label="Token OpenAPI.com Company"
+            value={openapiToken}
+            onChange={setOpenapiToken}
+            visible={showOpenapi}
+            onToggleVisible={() => setShowOpenapi((prev) => !prev)}
+            placeholder="Token Bearer di produzione"
           />
 
           {save.isError ? (

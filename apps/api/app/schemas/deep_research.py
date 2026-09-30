@@ -20,6 +20,10 @@ class BusinessSignalCreate(BaseModel):
     confidence: SignalConfidence = "manual"
 
 
+class RegistryEnrichmentRequest(BaseModel):
+    vat: str | None = Field(default=None, min_length=8, max_length=16)
+
+
 class BusinessSignalResponse(BaseModel):
     id: UUID
     key: str

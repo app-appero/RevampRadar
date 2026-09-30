@@ -26,6 +26,7 @@ def update_ai_credentials(
     provider: str | None,
     anthropic_api_key: str | None,
     openai_api_key: str | None,
+    openapi_company_token: str | None = None,
 ) -> AiCredentials:
     row = get_or_create_ai_credentials(session)
     if provider is not None:
@@ -37,6 +38,8 @@ def update_ai_credentials(
         row.anthropic_api_key = anthropic_api_key.strip() or None
     if openai_api_key is not None:
         row.openai_api_key = openai_api_key.strip() or None
+    if openapi_company_token is not None:
+        row.openapi_company_token = openapi_company_token.strip() or None
     session.commit()
     session.refresh(row)
     return row
@@ -50,8 +53,14 @@ def effective_settings(session: Session, base: Settings) -> Settings:
         overrides["anthropic_api_key"] = creds.anthropic_api_key
     if creds.openai_api_key:
         overrides["openai_api_key"] = creds.openai_api_key
+    if creds.openapi_company_token:
+        overrides["openapi_company_token"] = creds.openapi_company_token
     return base.model_copy(update=overrides)
 
 
 def is_ai_available(session: Session, base: Settings) -> bool:
     return get_ai_provider(effective_settings(session, base)) is not None
+
+
+def is_openapi_available(session: Session, base: Settings) -> bool:
+    return bool(effective_settings(session, base).openapi_company_token)

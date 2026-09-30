@@ -3,6 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from app.config import get_settings
 from app.db import get_db
 from app.deep_research.service import (
     DeepResearchError,
@@ -16,6 +17,7 @@ from app.schemas.deep_research import (
     BusinessSignalCreate,
     BusinessSignalResponse,
     CompanyResearchResponse,
+    RegistryEnrichmentRequest,
 )
 from app.services.business_signals import (
     BusinessSignalError,
@@ -23,6 +25,7 @@ from app.services.business_signals import (
     list_business_signals,
     upsert_business_signal,
 )
+from app.services.registry_enrichment import EnrichmentError, enrich_from_registry
 
 router = APIRouter(tags=["deep-research"])
 
@@ -54,6 +57,20 @@ def get_company_research(company_id: UUID, db: Session = Depends(get_db)) -> Com
 @router.get("/companies/{company_id}/business-signals", response_model=list[BusinessSignalResponse])
 def get_business_signals(company_id: UUID, db: Session = Depends(get_db)) -> list[BusinessSignalResponse]:
     return [_signal_response(item) for item in list_business_signals(db, company_id)]
+
+
+@router.post("/companies/{company_id}/registry-enrichment", response_model=list[BusinessSignalResponse])
+def post_registry_enrichment(
+    company_id: UUID,
+    payload: RegistryEnrichmentRequest | None = None,
+    db: Session = Depends(get_db),
+) -> list[BusinessSignalResponse]:
+    """Recupera fatturato e dati aziendali dal Registro Imprese (solo su richiesta: ogni chiamata costa crediti)."""
+    try:
+        signals = enrich_from_registry(db, company_id, get_settings(), vat=payload.vat if payload else None)
+    except EnrichmentError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from None
+    return [_signal_response(item) for item in signals]
 
 
 @router.put("/companies/{company_id}/business-signals", response_model=BusinessSignalResponse)
