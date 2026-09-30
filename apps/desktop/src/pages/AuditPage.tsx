@@ -11,6 +11,8 @@ import {
 import { fetchAuditIntelligence } from "../api/intelligence";
 import { fetchAuditProposal, generateProposal, type Proposal } from "../api/proposals";
 import { IntelligencePanel } from "../components/IntelligencePanel";
+import { DeepResearchPanel } from "../components/DeepResearchPanel";
+import { ConceptPanel } from "../components/ConceptPanel";
 import { PageBackLink } from "../components/HistoryNav";
 import { ProgressBar } from "../components/ProgressBar";
 import { ProposalCard } from "../components/ProposalCard";
@@ -108,6 +110,9 @@ export function AuditPage() {
             ) : null}
 
             {intelligenceQuery.data ? <IntelligencePanel data={intelligenceQuery.data} /> : null}
+
+            {audit.company_id ? <DeepResearchPanel companyId={audit.company_id} /> : null}
+            {audit.company_id ? <ConceptPanel companyId={audit.company_id} /> : null}
 
             {audit.status === "completed" ? (
               <ProposalSection

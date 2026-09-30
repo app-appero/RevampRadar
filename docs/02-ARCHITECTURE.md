@@ -77,7 +77,11 @@ Entità principali:
 - contacts;
 - activities;
 - jobs;
-- sender_profiles.
+- sender_profiles;
+- company_research (Deep Research: stato, presenza digitale, Company Brief);
+- business_signals (segnali economici con valore/fonte/data/affidabilità);
+- design_briefs;
+- concepts (versioni del Concept Homepage HTML).
 
 ## Scanner Engine
 

@@ -136,3 +136,19 @@
 - [x] M9-005 Greenfield proposal endpoint + persistence (nullable audit_id, kind)
 - [x] M9-006 Pipeline segment filter (refactor / greenfield) and unified ranking
 - [x] M9-007 Company page: growth score panel + greenfield proposal CTA
+
+## M10 — Deep Research & Concept Homepage
+
+- [x] M10-001 Rimozione preview "dopo": solo screenshot reali
+- [x] M10-002 Modello dati: company_research, business_signals, design_briefs, concepts
+- [x] M10-003 "Approfondisci prospect": avvio on-demand, stato e progress
+- [x] M10-004 Crawler pagine prioritarie sito (chi siamo/servizi/prodotti/contatti)
+- [x] M10-005 Presenza digitale: estensione Intelligence esistente per canale
+- [x] M10-006 Business Signals: CRUD manuale con fonte/data/affidabilità
+- [x] M10-007 Company Brief automatico (deterministico + AI opzionale vincolata)
+- [x] M10-008 Design Brief: default per categoria + colore brand reale, editabile
+- [x] M10-009 Generatore Concept Homepage HTML/CSS deterministico
+- [x] M10-010 Versionamento Concept (apri/rigenera/elimina)
+- [x] M10-011 Priorità geografica locale (settings + distanza + ordinamento)
+- [x] M10-012 Proposal Engine: nota concept + frase locale opzionali e verificate
+- [x] M10-013 Test automatici e documentazione

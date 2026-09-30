@@ -77,9 +77,11 @@ La proposta commerciale si genera da audit/finding/score già persistiti. L'AI p
 
 M7 usa solo dati già misurati (HTML, audit precedenti, tag OSM). Niente competitor crawl, ads o recensioni inventate. Il confronto storico è tra audit persistiti dello stesso website.
 
-## ADR-015 — Anteprima visiva indicativa, non mockup di restyling
+## ADR-015 — Screenshot solo reali; il "dopo" è un Concept HTML on-demand
 
-Gli screenshot extra sono catture reali (viewport desktop/mobile a quote diverse). L'anteprima "dopo" applica solo overlay deterministici (testo più leggibile, CTA, nascondere cookie banner) e va etichettata come indicativa. Non si generano immagini di restyling con AI: sarebbero inventate e fuorvianti in sede commerciale.
+Gli screenshot restano esclusivamente catture reali del sito attuale (viewport desktop/mobile a quote diverse): documentano lo stato presente, senza overlay o modifiche artificiali del DOM. Non esiste più un'anteprima visiva indicativa del "dopo" generata automaticamente per ogni audit.
+
+Il "dopo" è invece una vera homepage HTML/CSS (Concept), generata **on-demand** soltanto sui prospect selezionati dopo un "Approfondisci prospect" (vedi docs/13-DEEP-RESEARCH.md), a partire da dati realmente raccolti (Company Brief, Design Brief). Non si inventano contenuti, testimonianze o statistiche: dove un dato manca si usa copy neutro o placeholder chiaramente identificabile.
 
 ## ADR-016 — M8 parte dai link store già sul sito
 
@@ -100,4 +102,32 @@ Il range progetto resta deterministico e visibile solo all'operatore. L'email al
 ## ADR-020 — Mappa descrittiva, clustering solo geografico
 
 La mappa usa lat/lon persistiti da OpenStreetMap (nodo o `center` Overpass). I punti si colorano con l'Opportunity Score già calcolato. Il clustering è k-means non supervisionato sulle sole coordinate, in Python senza dipendenze ML: descrive gruppi spaziali (città, categoria, score medio, quota app). Non stima la probabilità che un prospect accetti. Le aziende scoperte prima della persistenza coordinate restano senza pin finché non si rilancia una discovery OSM.
+
+## ADR-021 — Deep Research e Concept solo on-demand, mai automatici
+
+Discovery, audit e Opportunity Score restano come oggi: veloci, su tutte le aziende trovate. Il "secondo livello" (Company Deep Research, Company Brief, Concept Homepage HTML) parte solo con un'azione esplicita ("Approfondisci prospect") sulla singola azienda selezionata, mai durante una discovery o un bulk scan. Coerente con il non-goal "generazione completa automatica di nuovi siti" di docs/00-PROJECT.md: qui la generazione è manuale, mirata e sempre a partire da dati verificati.
+
+## ADR-022 — Business Signals: manuale prima del provider a pagamento
+
+I segnali economici (fatturato, dipendenti, forma societaria, trend) hanno un'astrazione provider pronta ma nessun servizio esterno a pagamento collegato nell'MVP. L'inserimento è manuale, con valore/fonte/data/affidabilità espliciti e marcatura "manuale" sempre visibile. Un provider automatico si aggiunge solo quando emerge una necessità concreta d'uso reale (AGENTS.md, principio "ogni nuova dipendenza deve avere una motivazione concreta").
+
+## ADR-023 — Concept HTML: deterministico, mai un'invenzione
+
+Il Concept è sempre generato in modo deterministico, senza AI, con un unico generatore "da zero" (`app/concept/generator.py`) che costruisce HTML/CSS solo dai dati raccolti in Company Brief e Design Brief: mai testimonianze/numeri/clienti/anni inventati, copy neutro o placeholder marcato quando un contenuto manca. L'AI resta opzionale solo nella fase di Company Brief (riscrittura di sintesi testuali sugli stessi fatti), mai nella generazione dell'HTML.
+
+Una prima versione (poi abbandonata) generava il "dopo" ristilizzando l'HTML vero della homepage scaricata di nuovo (`app/concept/restyle.py`): su siti reali complessi (layout CSS non banali, contenuto reso via JavaScript rimosso per sicurezza) il risultato risultava spesso visibilmente disallineato, un rischio non accettabile per un concept che deve convincere il prospect. Rimosso: il generatore da zero, con piena proprietà del markup/CSS, non eredita mai la rottura di un layout altrui.
+
+Per evitare che il generatore da zero produca concept troppo simili tra loro (rischio concreto: differenze solo cromatiche entro lo stesso scheletro), il concept ora si differenzia per azienda su più assi, sempre da dati reali:
+
+- **struttura**, non solo palette: l'hero ha una variante strutturale (banner a piena larghezza, due colonne affiancate diritta/invertita, centrato) scelta per categoria (`app/concept/design_brief.py::hero_layout_for_group`), non modificabile a mano perché è una scelta di impaginazione, non di stile;
+- **foto reali**: le immagini già individuate dal crawler su homepage/chi-siamo/servizi (`app/deep_research/crawler.py::_extract_images`, URL assoluto, mai scaricate o alterate, loghi/icone esclusi per euristica) alimentano hero, sezione "Chi siamo" ed eventuale galleria (solo se restano almeno 3 immagini reali distinte dopo aver assegnato hero/chi-siamo);
+- **numeri verificati**: una sezione "In cifre" mostra i Business Signals realmente presenti (fatturato, dipendenti, anno di fondazione, forma societaria, andamento) con etichetta di fonte/affidabilità, assente se non c'è nessun segnale;
+- **"Chi siamo" reale**: quando il crawler ha raggiunto una pagina chi-siamo dedicata, il suo testo (non il riassunto breve dell'hero) diventa una sezione a parte;
+- **punti di forza con evidenza**: ogni punto di forza mostra la citazione testuale reale trovata sul sito, non solo l'etichetta.
+
+Un'azienda senza questi dati resta comunque coperta: le sezioni non supportate da dati reali sono semplicemente assenti (mai un placeholder di numeri o foto inventate).
+
+## ADR-024 — Priorità locale descrittiva, nessun automatismo GPS
+
+La località di riferimento è impostata a mano (città o coordinate), mai dedotta da geolocalizzazione automatica del dispositivo. La distanza è un calcolo geometrico (haversine) su coordinate già note, usato solo per ordinare/filtrare e, sotto soglia, per abilitare una frase email opzionale e modificabile. Non è una previsione di vicinanza reale né un fattore nello scoring.
 

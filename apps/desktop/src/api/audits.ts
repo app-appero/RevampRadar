@@ -21,7 +21,6 @@ export type AuditScreenshot = {
   viewport_height: number;
   url: string;
   label?: string;
-  preview?: boolean;
 };
 
 export type WebsiteScore = {
@@ -76,6 +75,7 @@ export type Audit = {
   request_url: string;
   normalized_url: string;
   domain: string;
+  company_id: string | null;
   scanner_version: string;
   started_at: string | null;
   completed_at: string | null;

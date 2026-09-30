@@ -17,6 +17,7 @@ from app.discovery.service import (
     load_discovery_run,
     resolve_company_location,
 )
+from app.geo import haversine_km
 from app.jobs.bulk_scan import latest_bulk_scan
 from app.models.entities import Company, DiscoveryRun
 from app.schemas.discovery import (
@@ -31,7 +32,7 @@ from app.schemas.discovery import (
     OsmIndustryPreview,
     SocialLink,
 )
-
+from app.services.sender_profile import get_or_create_sender_profile
 
 router = APIRouter(tags=["discovery"])
 
@@ -122,8 +123,18 @@ def get_discovery(run_id: UUID, db: Session = Depends(get_db)) -> DiscoveryRunRe
 
 
 @router.get("/companies", response_model=list[CompanySummary])
-def get_companies(db: Session = Depends(get_db)) -> list[CompanySummary]:
-    return [_company_summary(item) for item in list_companies(db)]
+def get_companies(
+    sort: str = Query("recent", pattern="^(recent|distance)$"),
+    max_distance_km: float | None = Query(None, ge=0, le=2000),
+    db: Session = Depends(get_db),
+) -> list[CompanySummary]:
+    reference = _reference_point(db)
+    items = [_company_summary(item, reference) for item in list_companies(db)]
+    if max_distance_km is not None:
+        items = [item for item in items if item.distance_km is not None and item.distance_km <= max_distance_km]
+    if sort == "distance":
+        items.sort(key=lambda item: (item.distance_km is None, item.distance_km))
+    return items
 
 
 @router.get("/companies/categories", response_model=list[str])
@@ -136,7 +147,7 @@ def get_company_detail(company_id: UUID, db: Session = Depends(get_db)) -> Compa
     company = get_company(db, company_id)
     if company is None:
         raise HTTPException(status_code=404, detail="Azienda non trovata.")
-    return _company_detail(company)
+    return _company_detail(company, _reference_point(db))
 
 
 @router.post("/companies/{company_id}/geocode", response_model=CompanyDetail)
@@ -148,11 +159,21 @@ def post_company_geocode(company_id: UUID, db: Session = Depends(get_db)) -> Com
         company = resolve_company_location(db, company, get_settings())
     except DiscoveryServiceError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
-    return _company_detail(company)
+    return _company_detail(company, _reference_point(db))
+
+
+def _reference_point(db: Session) -> tuple[float, float] | None:
+    profile = get_or_create_sender_profile(db)
+    if profile.reference_latitude is None or profile.reference_longitude is None:
+        return None
+    return profile.reference_latitude, profile.reference_longitude
 
 
 def _run_response(db: Session, run: DiscoveryRun) -> DiscoveryRunResponse:
-    companies = [_company_summary(item.company) for item in run.results if item.company is not None]
+    reference = _reference_point(db)
+    companies = [
+        _company_summary(item.company, reference) for item in run.results if item.company is not None
+    ]
     latest = latest_bulk_scan(db, run.id)
     return DiscoveryRunResponse(
         id=run.id,
@@ -179,10 +200,13 @@ def _website(company: Company):
     return company.websites[0] if company.websites else None
 
 
-def _company_summary(company: Company) -> CompanySummary:
+def _company_summary(company: Company, reference: tuple[float, float] | None = None) -> CompanySummary:
     website = _website(company)
     tags = _company_osm_tags(company)
     social = social_contact_links(tags)
+    distance_km = None
+    if reference is not None and company.latitude is not None and company.longitude is not None:
+        distance_km = round(haversine_km(reference[0], reference[1], company.latitude, company.longitude), 1)
     return CompanySummary(
         id=company.id,
         name=company.name,
@@ -202,6 +226,7 @@ def _company_summary(company: Company) -> CompanySummary:
         osm_start_date=tags.get("start_date") if tags else None,
         osm_opening_hours=tags.get("opening_hours") if tags else None,
         social_links=[SocialLink(label=label, url=url) for label, url in social],
+        distance_km=distance_km,
     )
 
 
@@ -213,8 +238,8 @@ def _company_osm_tags(company: Company) -> dict[str, str] | None:
     return {str(key): str(value) for key, value in tags.items()}
 
 
-def _company_detail(company: Company) -> CompanyDetail:
-    summary = _company_summary(company)
+def _company_detail(company: Company, reference: tuple[float, float] | None = None) -> CompanyDetail:
+    summary = _company_summary(company, reference)
     website = _website(company)
     return CompanyDetail(
         **summary.model_dump(),

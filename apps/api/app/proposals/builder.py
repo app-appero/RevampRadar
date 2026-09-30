@@ -41,6 +41,8 @@ def build_proposal_draft(
     opportunity_score,
     sender: SenderProfileView | None = None,
     email_template: str | None = None,
+    has_concept: bool = False,
+    local_mention: str | None = None,
 ) -> ProposalDraft:
     name = company_name or domain
     place = f" a {city}" if city else ""
@@ -58,7 +60,9 @@ def build_proposal_draft(
     strategy = _strategy(service, problems, website_overall)
     brief = _brief(name, url, domain, website_overall, opportunity_value, service, problems, range_min, range_max)
     email_subject = f"{name}: un'idea concreta per il sito"
-    email_body = _email(name, place, domain, sender or DEFAULT_SENDER, email_template, problems)
+    email_body = _email(
+        name, place, domain, sender or DEFAULT_SENDER, email_template, problems, has_concept, local_mention
+    )
     return ProposalDraft(
         summary=summary,
         priority_problems=problems,
@@ -82,6 +86,8 @@ def build_greenfield_proposal_draft(
     growth_score,
     sender: SenderProfileView | None = None,
     email_template: str | None = None,
+    has_concept: bool = False,
+    local_mention: str | None = None,
 ) -> ProposalDraft:
     place = f" a {city}" if city else ""
     service = growth_score.recommended_service
@@ -93,7 +99,9 @@ def build_greenfield_proposal_draft(
     # Nei dati OSM non risulta un sito, ma non è una verifica: l'oggetto non deve
     # presentarlo come un fatto accertato al destinatario (vedi anche AGENTS.md §2.1).
     email_subject = f"{company_name}: un'idea per la vostra presenza online"
-    email_body = _greenfield_email(company_name, place, sender or DEFAULT_SENDER, email_template)
+    email_body = _greenfield_email(
+        company_name, place, sender or DEFAULT_SENDER, email_template, has_concept, local_mention
+    )
     return ProposalDraft(
         summary=summary,
         priority_problems=problems,
@@ -198,12 +206,16 @@ def _greenfield_email(
     place: str,
     sender: SenderProfileView,
     template: str | None,
+    has_concept: bool,
+    local_mention: str | None,
 ) -> str:
     context = {
         "nome_mittente": sender.display_name,
         "nome_attivita": name,
         "luogo": place,
         "firma": format_signature(sender),
+        "nota_concept": _concept_note(has_concept),
+        "nota_locale": _local_note(local_mention),
     }
     return render_email_template(template or DEFAULT_GREENFIELD_EMAIL_TEMPLATE, context)
 
@@ -329,6 +341,8 @@ def _email(
     sender: SenderProfileView,
     template: str | None,
     problems: list[dict],
+    has_concept: bool,
+    local_mention: str | None,
 ) -> str:
     context = {
         "nome_mittente": sender.display_name,
@@ -337,8 +351,25 @@ def _email(
         "dominio": domain,
         "firma": format_signature(sender),
         "osservazione": _pick_observation(problems),
+        "nota_concept": _concept_note(has_concept),
+        "nota_locale": _local_note(local_mention),
     }
     return render_email_template(template or DEFAULT_REFACTOR_EMAIL_TEMPLATE, context)
+
+
+def _concept_note(has_concept: bool) -> str:
+    if not has_concept:
+        return ""
+    return (
+        " Ho analizzato la vostra presenza online e, partendo dai punti di forza della vostra "
+        "attività, ho preparato anche una possibile direzione per la homepage."
+    )
+
+
+def _local_note(local_mention: str | None) -> str:
+    if not local_mention:
+        return ""
+    return f" {local_mention}"
 
 
 # Solo problemi verificati dallo scanner, tradotti in linguaggio non tecnico e rilevanti

@@ -214,29 +214,51 @@ function BulkScanPanel({ scan }: { scan: BulkScan }) {
 }
 
 export function CompaniesPage() {
+  const [sort, setSort] = useState<"recent" | "distance">("recent");
   const query = useQuery({
-    queryKey: ["companies"],
-    queryFn: fetchCompanies,
+    queryKey: ["companies", sort],
+    queryFn: () => fetchCompanies({ sort }),
   });
 
   return (
       <main className="mx-auto flex max-w-5xl flex-col gap-8 px-6 py-10">
         <PageBackLink fallback="/discovery" label="Indietro" />
-        <header>
-          <h1 className="text-3xl font-semibold tracking-tight">Aziende</h1>
-          <p className="mt-1 text-sm text-stone-500">Tutte le aziende persistite dalle ricerche.</p>
+        <header className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h1 className="text-3xl font-semibold tracking-tight">Aziende</h1>
+            <p className="mt-1 text-sm text-stone-500">Tutte le aziende persistite dalle ricerche.</p>
+          </div>
+          <label className="flex items-center gap-2 text-sm text-stone-700">
+            <span className="text-xs font-medium tracking-wide text-stone-500 uppercase">Ordina</span>
+            <select
+              value={sort}
+              onChange={(event) => setSort(event.target.value as "recent" | "distance")}
+              className="rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-stone-900"
+            >
+              <option value="recent">Più recenti</option>
+              <option value="distance">Distanza (località di riferimento)</option>
+            </select>
+          </label>
         </header>
         {query.isError ? (
           <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">
             {query.error instanceof Error ? query.error.message : "Impossibile caricare le aziende."}
           </p>
         ) : null}
-        <CompanyTable companies={query.data ?? []} empty={query.isSuccess} />
+        <CompanyTable companies={query.data ?? []} empty={query.isSuccess} showDistance={sort === "distance"} />
       </main>
   );
 }
 
-function CompanyTable({ companies, empty }: { companies: CompanySummary[]; empty: boolean }) {
+function CompanyTable({
+  companies,
+  empty,
+  showDistance = false,
+}: {
+  companies: CompanySummary[];
+  empty: boolean;
+  showDistance?: boolean;
+}) {
   const [page, setPage] = useState(1);
   const [categoryFilter, setCategoryFilter] = useState("");
   const categories = useMemo(
@@ -299,6 +321,7 @@ function CompanyTable({ companies, empty }: { companies: CompanySummary[]; empty
               <th className="px-4 py-3">Azienda</th>
               <th className="px-4 py-3">Città</th>
               <th className="px-4 py-3">Sito</th>
+              {showDistance ? <th className="px-4 py-3">Distanza</th> : null}
             </tr>
           </thead>
           <tbody>
@@ -324,6 +347,11 @@ function CompanyTable({ companies, empty }: { companies: CompanySummary[]; empty
                     <span className="text-sky-800">Senza sito</span>
                   )}
                 </td>
+                {showDistance ? (
+                  <td className="px-4 py-3 text-stone-600">
+                    {company.distance_km != null ? `${company.distance_km} km` : "—"}
+                  </td>
+                ) : null}
               </tr>
             ))}
           </tbody>

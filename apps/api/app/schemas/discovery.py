@@ -66,6 +66,7 @@ class CompanySummary(BaseModel):
     osm_start_date: str | None = None
     osm_opening_hours: str | None = None
     social_links: list[SocialLink] = Field(default_factory=list)
+    distance_km: float | None = None
 
 
 class CompanyDetail(CompanySummary):

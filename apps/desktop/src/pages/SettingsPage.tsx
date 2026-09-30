@@ -28,6 +28,10 @@ export function SettingsPage() {
   const [freelancerLinks, setFreelancerLinks] = useState<ProfileLink[]>([]);
   const [socialLinks, setSocialLinks] = useState<ProfileLink[]>([]);
   const [otherLinks, setOtherLinks] = useState<ProfileLink[]>([]);
+  const [referenceLocation, setReferenceLocation] = useState("");
+  const [localRadiusKm, setLocalRadiusKm] = useState("");
+  const [localMentionEnabled, setLocalMentionEnabled] = useState(false);
+  const [localMentionText, setLocalMentionText] = useState("");
 
   useEffect(() => {
     const profile = profileQuery.data;
@@ -38,6 +42,13 @@ export function SettingsPage() {
     setFreelancerLinks(profile.freelancer_links);
     setSocialLinks(profile.social_links);
     setOtherLinks(profile.other_links);
+    setReferenceLocation(profile.reference_location ?? "");
+    setLocalRadiusKm(profile.local_radius_km != null ? String(profile.local_radius_km) : "");
+    setLocalMentionEnabled(profile.local_mention_enabled);
+    setLocalMentionText(
+      profile.local_mention_text ??
+        "Essendo anch'io della zona, se preferite possiamo anche incontrarci di persona per parlarne.",
+    );
   }, [profileQuery.data]);
 
   const save = useMutation({
@@ -49,6 +60,10 @@ export function SettingsPage() {
         freelancer_links: freelancerLinks.filter((item) => item.label.trim() && item.url.trim()),
         social_links: socialLinks.filter((item) => item.label.trim() && item.url.trim()),
         other_links: otherLinks.filter((item) => item.label.trim() && item.url.trim()),
+        reference_location: referenceLocation.trim() || null,
+        local_radius_km: localRadiusKm.trim() ? Number(localRadiusKm) : null,
+        local_mention_enabled: localMentionEnabled,
+        local_mention_text: localMentionText.trim() || null,
       }),
     onSuccess: () => {
       void profileQuery.refetch();
@@ -124,6 +139,55 @@ export function SettingsPage() {
           links={otherLinks}
           onChange={setOtherLinks}
         />
+
+        <div className="space-y-4 border-t border-stone-100 pt-6">
+          <div>
+            <h2 className="text-sm font-medium text-stone-700">Priorità locale</h2>
+            <p className="text-sm text-stone-500">
+              Città o zona di riferimento: mostra la distanza indicativa dei prospect e permette,
+              solo se lo attivi, una frase opzionale sull'incontro di persona nelle email.
+            </p>
+          </div>
+          <label className="block space-y-1">
+            <span className="text-sm font-medium text-stone-700">Località di riferimento</span>
+            <input
+              value={referenceLocation}
+              onChange={(event) => setReferenceLocation(event.target.value)}
+              placeholder="Es. Foggia"
+              className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-stone-900"
+            />
+          </label>
+          <label className="block space-y-1">
+            <span className="text-sm font-medium text-stone-700">Soglia distanza locale (km)</span>
+            <input
+              type="number"
+              min={0}
+              max={500}
+              value={localRadiusKm}
+              onChange={(event) => setLocalRadiusKm(event.target.value)}
+              placeholder="Es. 50"
+              className="w-full max-w-xs rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-stone-900"
+            />
+          </label>
+          <label className="flex items-center gap-2 text-sm font-medium text-stone-700">
+            <input
+              type="checkbox"
+              checked={localMentionEnabled}
+              onChange={(event) => setLocalMentionEnabled(event.target.checked)}
+              className="h-4 w-4"
+            />
+            Inserisci la frase sulla zona nelle proposte entro la soglia
+          </label>
+          <label className="block space-y-1">
+            <span className="text-sm font-medium text-stone-700">Frase sulla zona (modificabile)</span>
+            <textarea
+              value={localMentionText}
+              onChange={(event) => setLocalMentionText(event.target.value)}
+              rows={2}
+              className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-stone-900"
+            />
+          </label>
+        </div>
 
         {save.isError ? (
           <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">

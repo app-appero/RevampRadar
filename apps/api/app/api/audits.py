@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.db import get_db
 from app.models.entities import Audit
+from app.scanner.browser import shot_label
 from app.schemas.audit import (
     AIAnalysisResponse,
     AuditResponse,
@@ -17,7 +18,6 @@ from app.schemas.audit import (
     ScreenshotResponse,
     WebsiteScoreResponse,
 )
-from app.scanner.browser import is_preview_shot, shot_label
 from app.services.audit_service import AuditServiceError, create_audit, execute_audit
 
 router = APIRouter(prefix="/audits", tags=["audits"])
@@ -96,6 +96,7 @@ def _to_response(audit: Audit) -> AuditResponse:
         request_url=audit.request_url,
         normalized_url=audit.website.normalized_url,
         domain=audit.website.domain,
+        company_id=audit.website.company_id,
         scanner_version=audit.scanner_version,
         started_at=audit.started_at,
         completed_at=audit.completed_at,
@@ -128,7 +129,6 @@ def _to_response(audit: Audit) -> AuditResponse:
                 viewport_height=item.viewport_height,
                 url=f"/audits/{audit.id}/screenshots/{item.device}",
                 label=shot_label(item.device),
-                preview=is_preview_shot(item.device),
             )
             for item in sorted(audit.screenshots, key=_screenshot_rank)
         ],
@@ -231,12 +231,6 @@ _SHOT_ORDER = (
     "mobile_hero",
     "mobile",
     "mobile_mid",
-    "preview_desktop_hero",
-    "preview_desktop",
-    "preview_desktop_mid",
-    "preview_desktop_footer",
-    "preview_mobile_hero",
-    "preview_mobile_mid",
 )
 
 

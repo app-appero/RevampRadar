@@ -27,6 +27,7 @@ services:
       DATABASE_URL: postgresql+psycopg://revampradar:revampradar@db:5432/revampradar
       CORS_ORIGINS: http://localhost:1420,http://localhost:5173,http://127.0.0.1:1420,tauri://localhost,http://tauri.localhost
       SCREENSHOT_DIR: /data/screenshots
+      CONCEPT_DIR: /data/concepts
       PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
@@ -40,6 +41,7 @@ services:
       OPENAI_TIMEOUT_SECONDS: ${OPENAI_TIMEOUT_SECONDS:-90}
     volumes:
       - ./data/screenshots:/data/screenshots
+      - ./data/concepts:/data/concepts
     shm_size: "1gb"
     depends_on:
       db:
