@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.audits import router as audits_router
+from app.api.bulk_enrich import router as bulk_enrich_router
 from app.api.bulk_scans import router as bulk_scans_router
 from app.api.crm import router as crm_router
 from app.api.discovery import router as discovery_router
@@ -38,6 +39,7 @@ def create_app() -> FastAPI:
     app.include_router(audits_router)
     app.include_router(discovery_router)
     app.include_router(bulk_scans_router)
+    app.include_router(bulk_enrich_router)
     app.include_router(crm_router)
     app.include_router(proposals_router)
     app.include_router(settings_router)

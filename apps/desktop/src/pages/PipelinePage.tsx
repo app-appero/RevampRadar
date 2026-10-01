@@ -10,6 +10,7 @@ import {
   type OpportunityFilters,
 } from "../api/crm";
 import { fetchCompanyCategories } from "../api/discovery";
+import { BulkEnrichPanel } from "../components/BulkEnrichPanel";
 
 const PRIORITIES = ["VERY_HIGH", "HIGH", "MEDIUM", "LOW"] as const;
 
@@ -160,6 +161,8 @@ export function PipelinePage() {
             ))}
           </div>
         ) : null}
+
+        <BulkEnrichPanel />
 
         <form className="grid gap-3 rounded-2xl border border-stone-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-4">
           <input
