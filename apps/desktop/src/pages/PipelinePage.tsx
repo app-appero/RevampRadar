@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 
 import {
@@ -11,6 +11,9 @@ import {
 } from "../api/crm";
 import { fetchCompanyCategories } from "../api/discovery";
 import { BulkEnrichPanel } from "../components/BulkEnrichPanel";
+import { ConfirmDelete } from "../components/ConfirmDelete";
+import { ApiError } from "../api/health";
+import { deleteAllCompanies, deleteCompany } from "../api/purge";
 
 const PRIORITIES = ["VERY_HIGH", "HIGH", "MEDIUM", "LOW"] as const;
 
@@ -63,6 +66,14 @@ export function PipelinePage() {
     queryFn: fetchCompanyCategories,
   });
   const dash = dashboardQuery.data;
+  const [purgeError, setPurgeError] = useState<string | null>(null);
+  const purge = useMutation({
+    mutationFn: (action: () => Promise<number>) => action(),
+    onMutate: () => setPurgeError(null),
+    onError: (err) => {
+      setPurgeError(err instanceof ApiError ? err.message : "Eliminazione non riuscita.");
+    },
+  });
 
   return (
       <main className="mx-auto flex max-w-6xl flex-col gap-8 px-6 py-10">
@@ -164,6 +175,19 @@ export function PipelinePage() {
 
         <BulkEnrichPanel />
 
+        {(dash?.total ?? 0) > 0 ? (
+          <div className="flex justify-end">
+            <ConfirmDelete
+              label="Elimina tutta la pipeline"
+              warning="Verranno eliminate TUTTE le aziende con audit, punteggi, proposte, note, attività e tutte le discovery."
+              requireText="ELIMINA"
+              pending={purge.isPending}
+              onConfirm={() => purge.mutate(deleteAllCompanies)}
+            />
+          </div>
+        ) : null}
+        {purgeError ? <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{purgeError}</p> : null}
+
         <form className="grid gap-3 rounded-2xl border border-stone-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-4">
           <input
             value={q}
@@ -244,6 +268,7 @@ export function PipelinePage() {
                 <th className="px-4 py-3">Punteggio</th>
                 <th className="px-4 py-3">Priorità</th>
                 <th className="px-4 py-3">Tag</th>
+                <th className="px-4 py-3" />
               </tr>
             </thead>
             <tbody>
@@ -288,6 +313,14 @@ export function PipelinePage() {
                       )}
                     </td>
                     <td className="px-4 py-3 text-stone-500">{item.tags.map((tagItem) => tagItem.name).join(", ") || "—"}</td>
+                    <td className="px-4 py-3">
+                      <ConfirmDelete
+                        label="Elimina"
+                        warning={`Verrà eliminata ${item.company_name} con audit, punteggi, proposte, note e attività.`}
+                        pending={purge.isPending}
+                        onConfirm={() => purge.mutate(() => deleteCompany(item.company_id))}
+                      />
+                    </td>
                   </tr>
                 );
               })}

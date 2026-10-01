@@ -11,7 +11,9 @@ from app.api.health import router as health_router
 from app.api.intelligence import router as intelligence_router
 from app.api.map import router as map_router
 from app.api.proposals import router as proposals_router
+from app.api.purge import router as purge_router
 from app.api.settings import router as settings_router
+from app.auth import BasicAuthMiddleware
 from app.config import get_settings
 from app.errors import register_error_handlers
 from app.logging import configure_logging
@@ -27,6 +29,11 @@ def create_app() -> FastAPI:
         docs_url="/docs" if settings.app_env != "production" else None,
         redoc_url=None,
     )
+    if settings.basic_auth_user and settings.basic_auth_password:
+        # Aggiunto prima del CORS: il CORS resta più esterno e risponde ai preflight.
+        app.add_middleware(
+            BasicAuthMiddleware, username=settings.basic_auth_user, password=settings.basic_auth_password
+        )
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origin_list,
@@ -40,6 +47,7 @@ def create_app() -> FastAPI:
     app.include_router(discovery_router)
     app.include_router(bulk_scans_router)
     app.include_router(bulk_enrich_router)
+    app.include_router(purge_router)
     app.include_router(crm_router)
     app.include_router(proposals_router)
     app.include_router(settings_router)

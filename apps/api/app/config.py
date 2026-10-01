@@ -48,6 +48,8 @@ class Settings(BaseSettings):
     discovery_timeout_seconds: float = 60.0
     bulk_scan_concurrency: int = 2
     bulk_scan_max_attempts: int = 2
+    basic_auth_user: str = ""
+    basic_auth_password: str = ""
 
     @property
     def cors_origin_list(self) -> list[str]:

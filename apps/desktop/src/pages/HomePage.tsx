@@ -1,11 +1,13 @@
 import { FormEvent, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 
 import { createAudit, fetchRecentAudits } from "../api/audits";
 import { fetchRecentDiscoveries } from "../api/discovery";
 import { fetchDashboard } from "../api/crm";
 import { ApiError } from "../api/health";
+import { deleteAllAudits, deleteAllDiscoveries, deleteAudit, deleteDiscovery } from "../api/purge";
+import { ConfirmDelete } from "../components/ConfirmDelete";
 
 export function HomePage() {
   const navigate = useNavigate();
@@ -27,6 +29,13 @@ export function HomePage() {
       query.state.data?.some((item) => item.status === "queued" || item.status === "running")
         ? 2000
         : false,
+  });
+  const purge = useMutation({
+    mutationFn: (action: () => Promise<number>) => action(),
+    onMutate: () => setError(null),
+    onError: (err) => {
+      setError(err instanceof ApiError ? err.message : "Eliminazione non riuscita.");
+    },
   });
   const dashboardQuery = useQuery({
     queryKey: ["crm-dashboard"],
@@ -103,11 +112,22 @@ export function HomePage() {
 
       <section className="grid gap-8 lg:grid-cols-2">
         <div>
-          <h2 className="text-lg font-medium">Audit recenti</h2>
+          <div className="flex items-start justify-between gap-3">
+            <h2 className="text-lg font-medium">Audit recenti</h2>
+            {(auditsQuery.data?.length ?? 0) > 0 ? (
+              <ConfirmDelete
+                label="Elimina tutti"
+                warning="Verranno eliminati TUTTI gli audit (punteggi, problemi, screenshot e proposte collegate). Le aziende restano nella pipeline."
+                requireText="ELIMINA"
+                pending={purge.isPending}
+                onConfirm={() => purge.mutate(deleteAllAudits)}
+              />
+            ) : null}
+          </div>
           <p className="mt-1 text-sm text-stone-500">Riprendi un’analisi senza perdere il filo.</p>
           <ul className="mt-4 space-y-2">
             {(auditsQuery.data ?? []).map((audit) => (
-              <li key={audit.id}>
+              <li key={audit.id} className="space-y-2">
                 <Link
                   to={`/audits/${audit.id}`}
                   className="flex items-baseline justify-between gap-3 rounded-xl border border-stone-200 bg-white px-4 py-3 hover:border-stone-400"
@@ -124,6 +144,14 @@ export function HomePage() {
                     {audit.opportunity_score != null ? `Opp. ${audit.opportunity_score}` : "—"}
                   </span>
                 </Link>
+                <div className="flex justify-end">
+                  <ConfirmDelete
+                    label="Elimina"
+                    warning={`Verrà eliminato l'audit di ${audit.domain} con punteggi, problemi, screenshot e proposta.`}
+                    pending={purge.isPending}
+                    onConfirm={() => purge.mutate(() => deleteAudit(audit.id))}
+                  />
+                </div>
               </li>
             ))}
           </ul>
@@ -132,7 +160,18 @@ export function HomePage() {
           ) : null}
         </div>
         <div>
-          <h2 className="text-lg font-medium">Discovery recenti</h2>
+          <div className="flex items-start justify-between gap-3">
+            <h2 className="text-lg font-medium">Discovery recenti</h2>
+            {(discoveriesQuery.data?.length ?? 0) > 0 ? (
+              <ConfirmDelete
+                label="Elimina tutte"
+                warning="Verranno eliminate TUTTE le discovery e le aziende trovate da loro, con audit, proposte, note e attività."
+                requireText="ELIMINA"
+                pending={purge.isPending}
+                onConfirm={() => purge.mutate(deleteAllDiscoveries)}
+              />
+            ) : null}
+          </div>
           <p className="mt-1 text-sm text-stone-500">
             <Link to="/discovery" className="underline hover:text-stone-900">
               Nuova ricerca
@@ -140,7 +179,7 @@ export function HomePage() {
           </p>
           <ul className="mt-4 space-y-2">
             {(discoveriesQuery.data ?? []).map((run) => (
-              <li key={run.id}>
+              <li key={run.id} className="space-y-2">
                 <Link
                   to={`/discoveries/${run.id}`}
                   className="flex items-baseline justify-between gap-3 rounded-xl border border-stone-200 bg-white px-4 py-3 hover:border-stone-400"
@@ -157,6 +196,14 @@ export function HomePage() {
                   </span>
                   <span className="text-sm text-stone-600">{run.total_found} aziende</span>
                 </Link>
+                <div className="flex justify-end">
+                  <ConfirmDelete
+                    label="Elimina"
+                    warning={`Verrà eliminata la ricerca "${run.industry} — ${run.location}" e le aziende trovate solo da questa, con audit, proposte, note e attività. Le aziende presenti anche in altre ricerche restano.`}
+                    pending={purge.isPending}
+                    onConfirm={() => purge.mutate(() => deleteDiscovery(run.id))}
+                  />
+                </div>
               </li>
             ))}
           </ul>

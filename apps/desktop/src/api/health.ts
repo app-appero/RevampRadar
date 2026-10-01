@@ -1,4 +1,6 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+import { getApiBaseUrl } from "./apiTarget";
+
+export { getApiBaseUrl };
 
 export type HealthStatus = "ok" | "degraded";
 export type DatabaseStatus = "ok" | "unavailable";
@@ -25,7 +27,7 @@ export async function fetchHealth(): Promise<HealthResponse> {
   let response: Response;
 
   try {
-    response = await fetch(`${API_BASE_URL}/health`);
+    response = await fetch(`${getApiBaseUrl()}/health`);
   } catch {
     throw new ApiError("Impossibile raggiungere il backend.");
   }
@@ -42,8 +44,4 @@ export async function fetchHealth(): Promise<HealthResponse> {
   }
 
   return payload;
-}
-
-export function getApiBaseUrl(): string {
-  return API_BASE_URL;
 }

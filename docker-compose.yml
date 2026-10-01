@@ -1,5 +1,8 @@
 services:
+  # Database locale opzionale: parte solo con `docker compose --profile localdb up`.
+  # Di default l'API usa il Postgres su Railway (API_DATABASE_URL in .env).
   db:
+    profiles: ["localdb"]
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: revampradar
@@ -24,7 +27,7 @@ services:
     environment:
       APP_ENV: development
       LOG_LEVEL: INFO
-      DATABASE_URL: postgresql+psycopg://revampradar:revampradar@db:5432/revampradar
+      DATABASE_URL: ${API_DATABASE_URL:-postgresql+psycopg://revampradar:revampradar@db:5432/revampradar}
       CORS_ORIGINS: http://localhost:1420,http://localhost:5173,http://127.0.0.1:1420,tauri://localhost,http://tauri.localhost
       SCREENSHOT_DIR: /data/screenshots
       PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
@@ -42,6 +45,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
+        required: false
 
 volumes:
   postgres_data:
