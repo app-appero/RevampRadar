@@ -97,7 +97,7 @@ def start_job(
         raise BulkEnrichError("Nessuna azienda idonea nella selezione.", status_code=409)
     with _LOCK:
         for job in _JOBS.values():
-            if job.kind == kind and job.status == "running":
+            if job.kind == kind and job.status in {"running", "cancelling"}:
                 if set(job.company_ids) == set(ids):
                     return job, False
                 raise BulkEnrichError("Un'altra operazione dello stesso tipo è già in corso.", status_code=409)
@@ -111,6 +111,14 @@ def get_job(job_id: UUID) -> EnrichJob | None:
         return _JOBS.get(job_id)
 
 
+def cancel_job(job_id: UUID) -> EnrichJob | None:
+    with _LOCK:
+        job = _JOBS.get(job_id)
+        if job is not None and job.status == "running":
+            job.status = "cancelling"
+        return job
+
+
 def run_job(job_id: UUID, settings: Settings | None = None) -> None:
     from app.db import get_session_factory
 
@@ -122,6 +130,10 @@ def run_job(job_id: UUID, settings: Settings | None = None) -> None:
     consecutive_errors = 0
     try:
         for company_id in job.company_ids:
+            with _LOCK:
+                if job.status == "cancelling":
+                    job.status = "cancelled"
+                    return
             session = factory()
             try:
                 company = session.get(Company, company_id)
@@ -159,7 +171,8 @@ def run_job(job_id: UUID, settings: Settings | None = None) -> None:
                 session.close()
             job.processed += 1
             time.sleep(_DELAY_SECONDS[job.kind])
-        job.status = "completed"
+        with _LOCK:
+            job.status = "cancelled" if job.status == "cancelling" else "completed"
     except Exception as exc:  # noqa: BLE001 - il job non deve mai lasciare stato "running"
         job.status = "failed"
         job.last_error = str(exc)

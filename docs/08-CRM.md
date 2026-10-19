@@ -65,6 +65,8 @@ solo le aziende restituite dai filtri correnti. Cambiare filtri azzera la selezi
 “Analizza siti” avvia audit sequenziali per le selezionate con sito;
 “Recupera sito e telefono” cerca su Google Places solo le selezionate senza sito.
 I pulsanti mostrano il numero di aziende idonee e il progresso dell'operazione.
+Durante un job sequenziale è possibile annullare: la chiamata già in corso termina,
+ma non vengono avviate le aziende successive.
 Il backend ricontrolla l'idoneità e non interpreta una selezione vuota come globale.
 I job sono in memoria (come il recupero preesistente); gli audit e i dati recuperati
 restano persistiti. Nessuna nuova dipendenza.

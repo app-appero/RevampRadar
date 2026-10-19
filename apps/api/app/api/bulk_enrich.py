@@ -5,7 +5,15 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.jobs.bulk_enrich import BulkEnrichError, EnrichJob, candidate_counts, get_job, run_job, start_job
+from app.jobs.bulk_enrich import (
+    BulkEnrichError,
+    EnrichJob,
+    cancel_job,
+    candidate_counts,
+    get_job,
+    run_job,
+    start_job,
+)
 
 router = APIRouter(prefix="/enrichment", tags=["enrichment"])
 
@@ -69,6 +77,22 @@ def post_enrichment(
 @router.get("/jobs/{job_id}", response_model=EnrichJobResponse)
 def get_enrichment_job(job_id: UUID) -> EnrichJobResponse:
     job = get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job non trovato.")
+    return _response(job)
+
+
+@router.post("/selected/{kind}", status_code=202, response_model=EnrichJobResponse)
+def post_selected_enrichment(
+    kind: str, payload: EnrichSelection, background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+) -> EnrichJobResponse:
+    return post_enrichment(kind, background_tasks, payload, db)
+
+
+@router.post("/jobs/{job_id}/cancel", response_model=EnrichJobResponse)
+def cancel_enrichment(job_id: UUID) -> EnrichJobResponse:
+    job = cancel_job(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="Job non trovato.")
     return _response(job)

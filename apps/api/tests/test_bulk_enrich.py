@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from sqlalchemy.orm import sessionmaker
 
 import app.db as db_module
@@ -82,6 +84,26 @@ def test_empty_selection_does_not_start_global_job(client, db_session) -> None:
     assert response.status_code == 409
 
 
+def test_selected_endpoint_enriches_only_requested_companies(client, db_session, monkeypatch) -> None:
+    selected = _company("selected")
+    outside = _company("outside")
+    db_session.add_all([selected, outside])
+    db_session.commit()
+
+    def complete_job(job_id):
+        job_module.get_job(job_id).status = "completed"
+
+    monkeypatch.setattr("app.api.bulk_enrich.run_job", complete_job)
+    response = client.post(
+        "/enrichment/selected/places",
+        json={"company_ids": [str(selected.id)]},
+    )
+
+    assert response.status_code == 202
+    assert response.json()["total"] == 1
+    assert job_module.get_job(UUID(response.json()["id"])).company_ids == [selected.id]
+
+
 def test_running_different_selection_is_rejected(client, db_session) -> None:
     import pytest
     first = _company("first")
@@ -114,3 +136,27 @@ def test_analysis_only_runs_selected_websites(client, db_session, sqlite_engine,
 
 def test_analysis_requires_selection(client) -> None:
     assert client.post("/enrichment/analysis").status_code == 422
+
+
+def test_cancelled_job_does_not_start_next_company(client, db_session, sqlite_engine, monkeypatch) -> None:
+    first = _company("first", latitude=1.0, longitude=2.0)
+    second = _company("second", latitude=1.0, longitude=2.0)
+    db_session.add_all([first, second])
+    db_session.commit()
+    monkeypatch.setattr(db_module, "get_session_factory", lambda: sessionmaker(bind=sqlite_engine))
+    monkeypatch.setattr(job_module.time, "sleep", lambda _s: None)
+    calls = []
+    job, _ = job_module.start_job(db_session, "city", [first.id, second.id])
+    expected_first = job.company_ids[0]
+
+    def cancel_after_first(session, company, settings):
+        calls.append(company.id)
+        job_module.cancel_job(job.id)
+        return company
+
+    monkeypatch.setattr(job_module, "resolve_company_location", cancel_after_first)
+    job_module.run_job(job.id)
+
+    assert calls == [expected_first]
+    assert job.status == "cancelled"
+    assert job.processed == 1

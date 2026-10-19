@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
   fetchEnrichCandidates,
+  cancelEnrichment,
   fetchEnrichJob,
   startEnrichment,
   type EnrichJob,
@@ -34,10 +35,10 @@ export function BulkEnrichPanel({ selection }: { selection?: { withWebsite: stri
     queryKey: ["enrich-job", jobId],
     queryFn: () => fetchEnrichJob(jobId!),
     enabled: jobId !== null,
-    refetchInterval: (query) => (query.state.data?.status === "running" ? 1000 : false),
+    refetchInterval: (query) => (["running", "cancelling"].includes(query.state.data?.status ?? "") ? 1000 : false),
   });
   const current: EnrichJob | undefined = job.data;
-  const running = current?.status === "running";
+  const running = current?.status === "running" || current?.status === "cancelling";
 
   const start = useMutation({
     mutationFn: (kind: EnrichKind) => startEnrichment(kind, selection ? (kind === "analysis" ? selection.withWebsite : selection.withoutWebsite) : undefined),
@@ -50,7 +51,12 @@ export function BulkEnrichPanel({ selection }: { selection?: { withWebsite: stri
     },
   });
 
-  const finished = current && current.status !== "running";
+  const cancel = useMutation({
+    mutationFn: () => cancelEnrichment(jobId!),
+    onSuccess: (cancelled) => queryClient.setQueryData(["enrich-job", jobId], cancelled),
+    onError: () => setError("Impossibile annullare: il backend potrebbe non supportare l'arresto dei job precedenti."),
+  });
+  const finished = current && !running;
   useEffect(() => {
     if (!finished) return;
     void queryClient.invalidateQueries({ queryKey: ["opportunities"] });
@@ -81,7 +87,15 @@ export function BulkEnrichPanel({ selection }: { selection?: { withWebsite: stri
             {counts[kind] != null ? ` (${counts[kind]})` : ""}
           </button>
         ))}
+        {running ? (
+          <button type="button" disabled={cancel.isPending || current?.status === "cancelling"}
+            onClick={() => cancel.mutate()}
+            className="rounded-lg border border-red-300 px-4 py-2 text-sm text-red-700 disabled:opacity-50">
+            {current?.status === "cancelling" ? "Annullamento…" : "Annulla ricerca"}
+          </button>
+        ) : null}
       </div>
+      {current?.status === "cancelling" ? <p className="text-sm text-stone-600">Attendo la chiamata in corso. Non verranno avviate altre aziende.</p> : null}
 
       {error ? <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{error}</p> : null}
 
@@ -98,6 +112,7 @@ export function BulkEnrichPanel({ selection }: { selection?: { withWebsite: stri
             {current.failed > 0 ? ` · errori ${current.failed}` : ""}
             {current.status === "completed" ? " · completato" : ""}
             {current.status === "failed" ? " · interrotto" : ""}
+            {current.status === "cancelled" ? " · annullato" : ""}
           </p>
           {current.last_error ? (
             <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{current.last_error}</p>
