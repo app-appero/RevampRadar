@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import func, or_
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.config import Settings, get_settings
@@ -16,10 +16,11 @@ from app.discovery.service import (
     resolve_company_location,
 )
 from app.models.entities import Company, Website
+from app.services.audit_service import create_audit, execute_audit
 
-KINDS = ("city", "places")
+KINDS = ("city", "places", "analysis")
 # Nominatim ammette ~1 richiesta/secondo; Google Places non ha bisogno di pause lunghe.
-_DELAY_SECONDS = {"city": 1.1, "places": 0.1}
+_DELAY_SECONDS = {"city": 1.1, "places": 0.1, "analysis": 0}
 _MAX_CONSECUTIVE_ERRORS = 3
 
 
@@ -76,19 +77,31 @@ def candidate_counts(session: Session) -> dict[str, int]:
     return {"missing_city": len(city_candidates(session)), "missing_website": len(places_candidates(session))}
 
 
-def start_job(session: Session, kind: str) -> tuple[EnrichJob, bool]:
-    """Crea il job e restituisce (job, appena_creato). Un solo job attivo per tipo."""
+def start_job(
+    session: Session, kind: str, company_ids: list[UUID] | None = None,
+) -> tuple[EnrichJob, bool]:
+    """Un job per tipo; una selezione esplicita non può diventare globale."""
     if kind not in KINDS:
         raise BulkEnrichError("Tipo di recupero non valido.", status_code=422)
+    if kind == "analysis" and company_ids is None:
+        raise BulkEnrichError("Seleziona le aziende da analizzare.", status_code=422)
+    if kind == "analysis":
+        ids = [company.id for company in session.query(Company).filter(Company.id.in_(company_ids)).all()
+               if company.website_url or company.websites]
+    else:
+        ids = city_candidates(session) if kind == "city" else places_candidates(session)
+    if company_ids is not None:
+        selected = set(company_ids)
+        ids = [company_id for company_id in ids if company_id in selected]
+    if not ids:
+        raise BulkEnrichError("Nessuna azienda idonea nella selezione.", status_code=409)
     with _LOCK:
         for job in _JOBS.values():
             if job.kind == kind and job.status == "running":
-                return job, False
-    ids = city_candidates(session) if kind == "city" else places_candidates(session)
-    if not ids:
-        raise BulkEnrichError("Nessuna azienda da completare.", status_code=409)
-    job = EnrichJob(id=uuid4(), kind=kind, total=len(ids), company_ids=ids)
-    with _LOCK:
+                if set(job.company_ids) == set(ids):
+                    return job, False
+                raise BulkEnrichError("Un'altra operazione dello stesso tipo è già in corso.", status_code=409)
+        job = EnrichJob(id=uuid4(), kind=kind, total=len(ids), company_ids=ids)
         _JOBS[job.id] = job
     return job, True
 
@@ -114,7 +127,11 @@ def run_job(job_id: UUID, settings: Settings | None = None) -> None:
                 company = session.get(Company, company_id)
                 if company is not None:
                     try:
-                        if job.kind == "city":
+                        if job.kind == "analysis":
+                            url = company.website_url or company.websites[0].normalized_url
+                            audit = create_audit(session, url, company.id)
+                            execute_audit(audit.id, resolved)
+                        elif job.kind == "city":
                             resolve_company_location(session, company, resolved)
                         else:
                             enrich_company_from_places(session, company, resolved)
@@ -134,6 +151,10 @@ def run_job(job_id: UUID, settings: Settings | None = None) -> None:
                                 job.processed += 1
                                 job.status = "failed"
                                 return
+            except Exception as exc:  # noqa: BLE001 - registra errori e continua con le altre aziende
+                session.rollback()
+                job.failed += 1
+                job.last_error = str(exc)
             finally:
                 session.close()
             job.processed += 1

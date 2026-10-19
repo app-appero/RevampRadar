@@ -63,6 +63,26 @@ def mark_analyzed_if_discovered(session: Session, company_id: UUID) -> None:
     )
 
 
+# Alias espliciti: niente stemming che possa unire settori diversi (es. bar/barbiere).
+_CATEGORY_ALIASES = {
+    "barbieri": "barbiere",
+    "hotels": "hotel",
+    "albergo": "hotel",
+    "alberghi": "hotel",
+    "ristoranti": "ristorante",
+    "restaurant": "ristorante",
+    "parrucchieri": "parrucchiere",
+    "hairdresser": "parrucchiere",
+    "abbigliamento": "abbigliamento",
+    "clothes": "abbigliamento",
+}
+
+
+def normalize_category(value: str | None) -> str:
+    normalized = " ".join((value or "").casefold().split())
+    return _CATEGORY_ALIASES.get(normalized, normalized)
+
+
 def list_opportunities(
     session: Session,
     *,
@@ -97,8 +117,6 @@ def list_opportunities(
         q = q.filter(or_(Opportunity.is_favorite.is_(True), Opportunity.status == "shortlisted"))
     if query:
         q = q.filter(func.lower(Company.name).like(f"%{query.strip().lower()}%"))
-    if category:
-        q = q.filter(func.lower(Company.category).like(f"%{category.strip().lower()}%"))
     if city:
         q = q.filter(func.lower(Company.city).like(f"%{city.strip().lower()}%"))
     if tag:
@@ -106,6 +124,9 @@ def list_opportunities(
     if segment not in (None, "all", "refactor", "greenfield"):
         raise CrmServiceError("Segmento non valido.", status_code=422)
     opportunities = q.order_by(Opportunity.updated_at.desc()).all()
+    if category:
+        category_key = normalize_category(category)
+        opportunities = [item for item in opportunities if normalize_category(item.company.category) == category_key]
     if segment in ("refactor", "greenfield"):
         opportunities = [item for item in opportunities if (_has_website(item.company) == (segment == "refactor"))]
     if contactable is True:

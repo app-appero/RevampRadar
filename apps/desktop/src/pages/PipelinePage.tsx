@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 
@@ -7,9 +7,9 @@ import {
   CRM_STATUS_LABELS,
   fetchDashboard,
   fetchOpportunities,
+  fetchOpportunityCategories,
   type OpportunityFilters,
 } from "../api/crm";
-import { fetchCompanyCategories } from "../api/discovery";
 import { BulkEnrichPanel } from "../components/BulkEnrichPanel";
 import { ConfirmDelete } from "../components/ConfirmDelete";
 import { ApiError } from "../api/health";
@@ -23,18 +23,39 @@ const SEGMENTS = [
   { value: "greenfield", label: "Da creare (senza sito)" },
 ] as const;
 
+// Mantiene i filtri durante la navigazione e il reload nella stessa sessione.
+function usePipelineFilter<T extends string | boolean>(name: string, initial: T) {
+  const key = `revampradar:pipeline:${name}`;
+  const [value, setValue] = useState<T>(() => {
+    try {
+      const saved: unknown = JSON.parse(sessionStorage.getItem(key) ?? "null");
+      return typeof saved === typeof initial ? saved as T : initial;
+    } catch {
+      return initial;
+    }
+  });
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(key, JSON.stringify(value));
+    } catch {
+      // La ricerca resta utilizzabile anche se lo storage non e disponibile.
+    }
+  }, [key, value]);
+  return [value, setValue] as const;
+}
+
 export function PipelinePage() {
-  const [status, setStatus] = useState("");
-  const [q, setQ] = useState("");
-  const [city, setCity] = useState("");
-  const [category, setCategory] = useState("");
-  const [tag, setTag] = useState("");
-  const [priority, setPriority] = useState("");
-  const [minScore, setMinScore] = useState("");
-  const [shortlist, setShortlist] = useState(false);
-  const [favorite, setFavorite] = useState(false);
-  const [segment, setSegment] = useState<"" | "refactor" | "greenfield">("");
-  const [contactableOnly, setContactableOnly] = useState(false);
+  const [status, setStatus] = usePipelineFilter<string>("status", "");
+  const [q, setQ] = usePipelineFilter<string>("q", "");
+  const [city, setCity] = usePipelineFilter<string>("city", "");
+  const [category, setCategory] = usePipelineFilter<string>("category", "");
+  const [tag, setTag] = usePipelineFilter<string>("tag", "");
+  const [priority, setPriority] = usePipelineFilter<string>("priority", "");
+  const [minScore, setMinScore] = usePipelineFilter<string>("minScore", "");
+  const [shortlist, setShortlist] = usePipelineFilter<boolean>("shortlist", false);
+  const [favorite, setFavorite] = usePipelineFilter<boolean>("favorite", false);
+  const [segment, setSegment] = usePipelineFilter<"" | "refactor" | "greenfield">("segment", "");
+  const [contactableOnly, setContactableOnly] = usePipelineFilter<boolean>("contactableOnly", false);
 
   const filters = useMemo<OpportunityFilters>(
     () => ({
@@ -61,9 +82,30 @@ export function PipelinePage() {
     queryKey: ["opportunities", filters],
     queryFn: () => fetchOpportunities(filters),
   });
+  const categoryFilters = { ...filters, category: undefined };
   const categoriesQuery = useQuery({
-    queryKey: ["company-categories"],
-    queryFn: fetchCompanyCategories,
+    queryKey: ["opportunities", "categories", categoryFilters],
+    queryFn: () => fetchOpportunityCategories(categoryFilters),
+  });
+  useEffect(() => {
+    if (!category || !categoriesQuery.isSuccess || categoriesQuery.isFetching) return;
+    const match = categoriesQuery.data.find((item) => item.value === category || item.variants.includes(category));
+    if (!match) setCategory("");
+    else if (match.value !== category) setCategory(match.value);
+  }, [category, categoriesQuery.data, categoriesQuery.isSuccess, categoriesQuery.isFetching, setCategory]);
+  // La selezione appartiene alla ricerca corrente, mai a risultati nascosti.
+  const filterKey = JSON.stringify(filters);
+  const [selection, setSelection] = useState<{ key: string; ids: string[] }>({ key: "", ids: [] });
+  if (selection.key !== filterKey) {
+    setSelection({ key: filterKey, ids: [] });
+  }
+  const rows = listQuery.data ?? [];
+  const selectedIds = selection.key === filterKey ? selection.ids : [];
+  const selectedRows = rows.filter((item) => selectedIds.includes(item.company_id));
+  const allSelected = rows.length > 0 && selectedRows.length === rows.length;
+  const toggleRow = (id: string, checked: boolean) => setSelection({
+    key: filterKey,
+    ids: checked ? [...selectedIds, id] : selectedIds.filter((value) => value !== id),
   });
   const dash = dashboardQuery.data;
   const [purgeError, setPurgeError] = useState<string | null>(null);
@@ -173,7 +215,7 @@ export function PipelinePage() {
           </div>
         ) : null}
 
-        <BulkEnrichPanel />
+
 
         {(dash?.total ?? 0) > 0 ? (
           <div className="flex justify-end">
@@ -188,7 +230,13 @@ export function PipelinePage() {
         ) : null}
         {purgeError ? <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{purgeError}</p> : null}
 
-        <form className="grid gap-3 rounded-2xl border border-stone-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-4">
+        {categoriesQuery.isError ? (
+          <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">
+            Impossibile caricare i settori.
+            <button type="button" className="ml-2 underline" onClick={() => void categoriesQuery.refetch()}>Riprova</button>
+          </p>
+        ) : null}
+        <form onSubmit={(event) => event.preventDefault()} className="grid gap-3 rounded-2xl border border-stone-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-4">
           <input
             value={q}
             onChange={(event) => setQ(event.target.value)}
@@ -206,10 +254,13 @@ export function PipelinePage() {
             onChange={(event) => setCategory(event.target.value)}
             className="rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-stone-900"
           >
-            <option value="">Settore (tutti)</option>
+            <option value="">{categoriesQuery.isPending ? "Caricamento settori…" : "Settore (tutti)"}</option>
+            {category && !categoriesQuery.data?.some((item) => item.value === category) ? (
+              <option value={category}>{category} ({categoriesQuery.isSuccess ? "0" : "…"})</option>
+            ) : null}
             {(categoriesQuery.data ?? []).map((item) => (
-              <option key={item} value={item}>
-                {item}
+              <option key={item.value} value={item.value}>
+                {item.label} ({item.count})
               </option>
             ))}
           </select>
@@ -258,10 +309,27 @@ export function PipelinePage() {
           </label>
         </form>
 
-        <div className="overflow-hidden rounded-2xl border border-stone-200 bg-white">
+        <section className="space-y-3">
+          <div className="flex items-center gap-4 text-sm">
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={allSelected} disabled={!rows.length || listQuery.isFetching}
+                ref={(node) => { if (node) node.indeterminate = selectedRows.length > 0 && !allSelected; }}
+                onChange={(event) => setSelection({ key: filterKey, ids: event.target.checked ? rows.map((item) => item.company_id) : [] })} />
+              Seleziona tutti i risultati della ricerca ({rows.length})
+            </label>
+            <span>{selectedRows.length} selezionate</span>
+          </div>
+          <BulkEnrichPanel selection={{
+            withWebsite: selectedRows.filter((item) => item.has_website).map((item) => item.company_id),
+            withoutWebsite: selectedRows.filter((item) => !item.has_website).map((item) => item.company_id),
+          }} />
+        </section>
+
+        <div className="overflow-x-auto rounded-2xl border border-stone-200 bg-white">
           <table className="w-full text-left text-sm">
             <thead className="bg-stone-50 text-xs tracking-wide text-stone-500 uppercase">
               <tr>
+                <th className="px-4 py-3">Seleziona</th>
                 <th className="px-4 py-3">Azienda</th>
                 <th className="px-4 py-3">Stato</th>
                 <th className="px-4 py-3">Segmento</th>
@@ -278,6 +346,11 @@ export function PipelinePage() {
                 const priority = isGreenfield ? item.growth_priority : item.priority;
                 return (
                   <tr key={item.id} className="border-t border-stone-100">
+                    <td className="px-4 py-3">
+                      <input type="checkbox" aria-label={`Seleziona ${item.company_name}`}
+                        checked={selectedIds.includes(item.company_id)} disabled={listQuery.isFetching}
+                        onChange={(event) => toggleRow(item.company_id, event.target.checked)} />
+                    </td>
                     <td className="px-4 py-3">
                       <Link to={`/companies/${item.company_id}`} className="font-medium hover:underline">
                         {item.is_favorite ? "★ " : ""}

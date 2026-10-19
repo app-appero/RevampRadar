@@ -159,7 +159,57 @@ export function fetchDashboard(): Promise<Dashboard> {
   return request("/opportunities/dashboard");
 }
 
-export function fetchOpportunities(filters: OpportunityFilters = {}): Promise<OpportunitySummary[]> {
+export type PipelineCategory = { value: string; label: string; count: number; variants: string[] };
+
+// Compatibilita con backend precedenti all'endpoint delle faccette.
+const legacyCategoryApis = new Set<string>();
+const CATEGORY_ALIASES: Record<string, string> = {
+  barbieri: "barbiere", hotels: "hotel", albergo: "hotel", alberghi: "hotel",
+  ristoranti: "ristorante", restaurant: "ristorante", parrucchieri: "parrucchiere",
+  hairdresser: "parrucchiere", clothes: "abbigliamento",
+};
+function categoryKey(value: string | null): string {
+  const key = (value ?? "").trim().toLocaleLowerCase("it").replace(/\s+/g, " ");
+  return CATEGORY_ALIASES[key] ?? key;
+}
+
+export async function fetchOpportunityCategories(filters: OpportunityFilters): Promise<PipelineCategory[]> {
+  const baseUrl = getApiBaseUrl();
+  const params = opportunityParams({ ...filters, category: undefined });
+  if (!legacyCategoryApis.has(baseUrl)) {
+    try {
+      return await request(`/opportunities/categories?${params}`);
+    } catch (error) {
+      if (!(error instanceof ApiError) || ![404, 422].includes(error.status ?? 0)) throw error;
+      legacyCategoryApis.add(baseUrl);
+    }
+  }
+  const rows = await request<OpportunitySummary[]>(`/opportunities?${params}`);
+  const groups = new Map<string, PipelineCategory>();
+  for (const row of rows) {
+    const key = categoryKey(row.category);
+    if (!key) continue;
+    const group = groups.get(key) ?? { value: key, label: key[0].toLocaleUpperCase("it") + key.slice(1), count: 0, variants: [] };
+    group.count += 1;
+    if (row.category && !group.variants.includes(row.category)) group.variants.push(row.category);
+    groups.set(key, group);
+  }
+  return [...groups.values()].sort((a, b) => a.label.localeCompare(b.label, "it"));
+}
+
+export async function fetchOpportunities(filters: OpportunityFilters = {}): Promise<OpportunitySummary[]> {
+  if (filters.category) {
+    // Attende il controllo di compatibilita anche al ripristino di filtri salvati.
+    await fetchOpportunityCategories(filters);
+    if (legacyCategoryApis.has(getApiBaseUrl())) {
+      const rows = await request<OpportunitySummary[]>(`/opportunities?${opportunityParams({ ...filters, category: undefined })}`);
+      return rows.filter((row) => categoryKey(row.category) === categoryKey(filters.category!));
+    }
+  }
+  return request(`/opportunities?${opportunityParams(filters)}`);
+}
+
+function opportunityParams(filters: OpportunityFilters): string {
   const params = new URLSearchParams();
   if (filters.status) params.set("status", filters.status);
   if (filters.favorite) params.set("favorite", "true");
@@ -173,7 +223,7 @@ export function fetchOpportunities(filters: OpportunityFilters = {}): Promise<Op
   if (filters.segment) params.set("segment", filters.segment);
   if (filters.contactable) params.set("contactable", "true");
   const query = params.toString();
-  return request(`/opportunities${query ? `?${query}` : ""}`);
+  return query;
 }
 
 export function fetchCompanyOpportunity(companyId: string): Promise<OpportunityDetail> {

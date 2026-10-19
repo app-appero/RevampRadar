@@ -1,6 +1,6 @@
 import { ApiError, getApiBaseUrl } from "./health";
 
-export type EnrichKind = "city" | "places";
+export type EnrichKind = "city" | "places" | "analysis";
 
 export type EnrichCandidates = {
   missing_city: number;
@@ -46,8 +46,8 @@ export function fetchEnrichCandidates(): Promise<EnrichCandidates> {
   return request("/enrichment/candidates");
 }
 
-export function startEnrichment(kind: EnrichKind): Promise<EnrichJob> {
-  return request(`/enrichment/${kind}`, { method: "POST" });
+export function startEnrichment(kind: EnrichKind, companyIds?: string[]): Promise<EnrichJob> {
+  return request(`/enrichment/${kind}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: companyIds === undefined ? undefined : JSON.stringify({ company_ids: companyIds }) });
 }
 
 export function fetchEnrichJob(id: string): Promise<EnrichJob> {

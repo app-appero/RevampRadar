@@ -10,6 +10,10 @@ from app.jobs.bulk_enrich import BulkEnrichError, EnrichJob, candidate_counts, g
 router = APIRouter(prefix="/enrichment", tags=["enrichment"])
 
 
+class EnrichSelection(BaseModel):
+    company_ids: list[UUID]
+
+
 class EnrichCandidates(BaseModel):
     missing_city: int
     missing_website: int
@@ -50,10 +54,11 @@ def get_candidates(db: Session = Depends(get_db)) -> EnrichCandidates:
 def post_enrichment(
     kind: str,
     background_tasks: BackgroundTasks,
+    payload: EnrichSelection | None = None,
     db: Session = Depends(get_db),
 ) -> EnrichJobResponse:
     try:
-        job, created = start_job(db, kind)
+        job, created = start_job(db, kind, payload.company_ids if payload is not None else None)
     except BulkEnrichError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     if created:

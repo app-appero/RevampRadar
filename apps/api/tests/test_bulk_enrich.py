@@ -62,3 +62,55 @@ def test_only_one_running_job_per_kind(client, db_session) -> None:
     second, created_again = job_module.start_job(db_session, "city")
     assert created and not created_again and first.id == second.id
     first.status = "completed"
+
+
+def test_selection_never_includes_other_companies(client, db_session) -> None:
+    selected = _company("selected")
+    outside = _company("outside")
+    with_site = _company("with-site", website_url="https://example.com")
+    db_session.add_all([selected, outside, with_site])
+    db_session.commit()
+    job, _ = job_module.start_job(db_session, "places", [selected.id, with_site.id])
+    assert job.company_ids == [selected.id]
+    job.status = "completed"
+
+
+def test_empty_selection_does_not_start_global_job(client, db_session) -> None:
+    db_session.add(_company("outside"))
+    db_session.commit()
+    response = client.post("/enrichment/places", json={"company_ids": []})
+    assert response.status_code == 409
+
+
+def test_running_different_selection_is_rejected(client, db_session) -> None:
+    import pytest
+    first = _company("first")
+    second = _company("second")
+    db_session.add_all([first, second])
+    db_session.commit()
+    job, _ = job_module.start_job(db_session, "places", [first.id])
+    try:
+        with pytest.raises(job_module.BulkEnrichError, match="già in corso"):
+            job_module.start_job(db_session, "places", [second.id])
+    finally:
+        job.status = "completed"
+
+
+def test_analysis_only_runs_selected_websites(client, db_session, sqlite_engine, monkeypatch) -> None:
+    selected = _company("selected-site", website_url="https://example.com")
+    outside = _company("outside-site", website_url="https://example.org")
+    missing = _company("missing-site")
+    db_session.add_all([selected, outside, missing])
+    db_session.commit()
+    monkeypatch.setattr(db_module, "get_session_factory", lambda: sessionmaker(bind=sqlite_engine))
+    calls = []
+    monkeypatch.setattr(job_module, "execute_audit", lambda audit_id, settings: calls.append(audit_id))
+    job, _ = job_module.start_job(db_session, "analysis", [selected.id, missing.id])
+    assert job.company_ids == [selected.id]
+    job_module.run_job(job.id)
+    assert len(calls) == 1
+    assert job.status == "completed" and job.updated == 1
+
+
+def test_analysis_requires_selection(client) -> None:
+    assert client.post("/enrichment/analysis").status_code == 422

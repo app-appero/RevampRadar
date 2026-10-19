@@ -35,6 +35,7 @@ from app.services.crm_service import (
     list_agenda,
     list_agenda_history,
     list_opportunities,
+    normalize_category,
     reopen_activity,
     remove_tag,
     update_opportunity,
@@ -142,6 +143,39 @@ def get_opportunities(
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     scores, growth_scores = _score_maps(db, [item.company_id for item in items])
     return [_summary(item, scores.get(item.company_id), growth_scores.get(item.company_id)) for item in items]
+
+
+@router.get("/opportunities/categories")
+def get_opportunity_categories(
+    db: Session = Depends(get_db),
+    status: str | None = None,
+    favorite: bool | None = None,
+    shortlist: bool = False,
+    q: str | None = None,
+    city: str | None = None,
+    tag: str | None = None,
+    min_score: int | None = Query(default=None, ge=0, le=100),
+    priority: str | None = None,
+    segment: str | None = None,
+    contactable: bool | None = None,
+) -> list[dict]:
+    # La faccetta applica tutti i filtri tranne il settore stesso.
+    items = get_opportunities(
+        db=db, status=status, favorite=favorite, shortlist=shortlist, q=q,
+        city=city, tag=tag, min_score=min_score, priority=priority,
+        segment=segment, contactable=contactable,
+    )
+    counts: dict[str, int] = {}
+    variants: dict[str, set[str]] = {}
+    for item in items:
+        key = normalize_category(item.category)
+        if key:
+            counts[key] = counts.get(key, 0) + 1
+            variants.setdefault(key, set()).add(item.category)
+    return [
+        {"value": key, "label": key.capitalize(), "count": counts[key], "variants": sorted(variants[key])}
+        for key in sorted(counts)
+    ]
 
 
 @router.get("/companies/{company_id}/opportunity", response_model=OpportunityDetail)
