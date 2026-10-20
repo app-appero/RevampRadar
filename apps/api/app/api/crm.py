@@ -309,6 +309,8 @@ def _summary(
         website_url=(company.website_url if company else None) or (website.normalized_url if website else None),
         domain=website.domain if website else None,
         places_checked_at=company.places_checked_at if company else None,
+        has_email=bool(company and company.email),
+        has_phone=bool(company and company.phone),
         status=opportunity.status,
         is_favorite=opportunity.is_favorite,
         tags=tags,

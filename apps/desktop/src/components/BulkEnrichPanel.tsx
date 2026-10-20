@@ -27,8 +27,10 @@ const LABELS: Record<EnrichKind, { idle: string; running: string; hint: string }
 
 export function BulkEnrichPanel({
   selection,
+  onRecoverUnseen,
 }: {
   selection?: { withWebsite: string[]; unseenWithoutWebsite: string[] };
+  onRecoverUnseen?: () => void;
 }) {
   const queryClient = useQueryClient();
   const [jobId, setJobId] = useState<string | null>(null);
@@ -86,7 +88,10 @@ export function BulkEnrichPanel({
             key={kind}
             type="button"
             disabled={running || (jobId !== null && !current) || start.isPending || counts[kind] === 0}
-            onClick={() => start.mutate(kind)}
+            onClick={() => {
+              if (kind === "places") onRecoverUnseen?.();
+              start.mutate(kind);
+            }}
             title={LABELS[kind].hint}
             className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-800 hover:bg-stone-50 disabled:opacity-50"
           >

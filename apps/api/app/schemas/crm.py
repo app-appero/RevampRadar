@@ -78,6 +78,8 @@ class OpportunitySummary(BaseModel):
     website_url: str | None
     domain: str | None
     places_checked_at: datetime | None = None
+    has_email: bool = False
+    has_phone: bool = False
     status: str
     is_favorite: bool
     tags: list[TagResponse]

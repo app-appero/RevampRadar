@@ -65,10 +65,14 @@ Le caselle su ogni riga e “Seleziona tutti i risultati della ricerca” selezi
 solo le aziende restituite dai filtri correnti. Cambiare filtri azzera la selezione.
 “Analizza siti” avvia audit sequenziali per le selezionate con sito;
 “Recupera solo non visti” cerca su Google Places solo le selezionate senza sito che
-non sono già state verificate. La tabella mostra separatamente l'esito della
-verifica (“Visto” / “Non visto”) dallo stato CRM. Una verifica completata che non
-trova né sito né telefono sposta automaticamente l'opportunità in “Impossibili da
-contattare”; errori tecnici e chiave mancante non contano come verifica.
+non sono già state verificate; avviando il recupero, la selezione viene ridotta a
+queste aziende e le righe già viste vengono deselezionate. La tabella mostra
+separatamente l'esito della verifica dallo stato CRM: “Non visto”, “Visto” (email
+presente), “Visto - senza email” (numero presente) o “Visto - senza contatti”
+(né numero né email). Una verifica completata senza
+sito, email e telefono sposta automaticamente l'opportunità in “Impossibili da
+contattare”, aggiunge il tag “nd” e una nota esplicativa; errori tecnici e chiave
+mancante non contano come verifica.
 I pulsanti mostrano il numero di aziende idonee e il progresso dell'operazione.
 Durante un job sequenziale è possibile annullare: la chiamata già in corso termina,
 ma non vengono avviate le aziende successive.

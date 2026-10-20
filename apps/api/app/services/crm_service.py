@@ -64,21 +64,40 @@ def mark_analyzed_if_discovered(session: Session, company_id: UUID) -> None:
 
 
 def mark_uncontactable_after_places_check(session: Session, company: Company) -> None:
-    if company.website_url or company.websites or company.phone:
+    if company.website_url or company.websites or company.phone or company.email:
         return
     opportunity = ensure_opportunity(session, company)
-    if opportunity.status == "uncontactable":
-        return
-    previous = opportunity.status
-    opportunity.status = "uncontactable"
-    session.add(
-        Activity(
-            opportunity_id=opportunity.id,
-            type="status_change",
-            note=f"{previous} → uncontactable: Google Places non ha trovato sito o telefono.",
-            occurred_at=datetime.now(UTC),
+    tag = session.query(Tag).filter_by(name="nd").one_or_none()
+    if tag is None:
+        tag = Tag(name="nd")
+        session.add(tag)
+        session.flush()
+    tag_link = session.query(OpportunityTag).filter_by(
+        opportunity_id=opportunity.id,
+        tag_id=tag.id,
+    ).one_or_none()
+    if tag_link is None:
+        session.add(OpportunityTag(opportunity_id=opportunity.id, tag_id=tag.id))
+
+    note = "Verifica Google Places completata: nessun sito, email o numero di telefono disponibile."
+    existing_note = session.query(OpportunityNote).filter_by(
+        opportunity_id=opportunity.id,
+        body=note,
+    ).one_or_none()
+    if existing_note is None:
+        session.add(OpportunityNote(opportunity_id=opportunity.id, body=note))
+
+    if opportunity.status != "uncontactable":
+        previous = opportunity.status
+        opportunity.status = "uncontactable"
+        session.add(
+            Activity(
+                opportunity_id=opportunity.id,
+                type="status_change",
+                note=f"{previous} → uncontactable: Google Places non ha trovato sito, email o telefono.",
+                occurred_at=datetime.now(UTC),
+            )
         )
-    )
 
 
 # Alias espliciti: niente stemming che possa unire settori diversi (es. bar/barbiere).

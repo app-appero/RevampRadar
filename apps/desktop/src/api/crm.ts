@@ -89,6 +89,8 @@ export type OpportunitySummary = {
   website_url: string | null;
   domain: string | null;
   places_checked_at: string | null;
+  has_email: boolean;
+  has_phone: boolean;
   status: string;
   is_favorite: boolean;
   tags: Tag[];

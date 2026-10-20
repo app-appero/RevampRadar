@@ -324,7 +324,12 @@ export function PipelinePage() {
             unseenWithoutWebsite: selectedRows
               .filter((item) => !item.has_website && !item.places_checked_at)
               .map((item) => item.company_id),
-          }} />
+          }} onRecoverUnseen={() => setSelection({
+            key: filterKey,
+            ids: selectedRows
+              .filter((item) => !item.has_website && !item.places_checked_at)
+              .map((item) => item.company_id),
+          })} />
         </section>
 
         <div className="overflow-x-auto rounded-2xl border border-stone-200 bg-white">
@@ -374,7 +379,11 @@ export function PipelinePage() {
                         {item.has_website
                           ? "Sito presente"
                           : item.places_checked_at
-                            ? "Visto · senza sito"
+                            ? item.has_email
+                              ? "Visto"
+                              : item.has_phone
+                                ? "Visto - senza email"
+                                : "Visto - senza contatti"
                             : "Non visto"}
                       </span>
                     </td>
