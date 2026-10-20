@@ -190,10 +190,14 @@ def enrich_company_from_places(session: Session, company: Company, settings: Set
         )
     except RuntimeError as exc:
         raise DiscoveryServiceError(str(exc), status_code=502) from exc
+    company.places_checked_at = datetime.now(UTC)
     if not found:
-        raise DiscoveryServiceError(
-            "Google Places non ha trovato un'attività corrispondente.", status_code=404
-        )
+        from app.services.crm_service import mark_uncontactable_after_places_check
+
+        mark_uncontactable_after_places_check(session, company)
+        session.commit()
+        session.refresh(company)
+        return company
     changed = False
     if not company.website_url and found.get("website"):
         try:
@@ -206,11 +210,13 @@ def enrich_company_from_places(session: Session, company: Company, settings: Set
     if not company.phone and found.get("phone"):
         company.phone = found["phone"][:64]
         changed = True
+    from app.services.crm_service import mark_uncontactable_after_places_check
+
+    mark_uncontactable_after_places_check(session, company)
     if not changed:
-        raise DiscoveryServiceError(
-            "Google Places non ha aggiunto nulla di nuovo (sito e telefono già presenti o non disponibili).",
-            status_code=404,
-        )
+        session.commit()
+        session.refresh(company)
+        return company
     session.commit()
     session.refresh(company)
     return company

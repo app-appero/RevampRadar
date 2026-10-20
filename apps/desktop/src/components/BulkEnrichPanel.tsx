@@ -19,13 +19,17 @@ const LABELS: Record<EnrichKind, { idle: string; running: string; hint: string }
     hint: "Chiede a OpenStreetMap la città delle aziende che non ce l'hanno (circa 1 al secondo)",
   },
   places: {
-    idle: "Recupera sito e telefono",
+    idle: "Recupera solo non visti",
     running: "Verifica su Google…",
     hint: "Cerca su Google Places sito e telefono delle aziende senza sito (richiede la chiave in Impostazioni)",
   },
 };
 
-export function BulkEnrichPanel({ selection }: { selection?: { withWebsite: string[]; withoutWebsite: string[] } }) {
+export function BulkEnrichPanel({
+  selection,
+}: {
+  selection?: { withWebsite: string[]; unseenWithoutWebsite: string[] };
+}) {
   const queryClient = useQueryClient();
   const [jobId, setJobId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -41,7 +45,10 @@ export function BulkEnrichPanel({ selection }: { selection?: { withWebsite: stri
   const running = current?.status === "running" || current?.status === "cancelling";
 
   const start = useMutation({
-    mutationFn: (kind: EnrichKind) => startEnrichment(kind, selection ? (kind === "analysis" ? selection.withWebsite : selection.withoutWebsite) : undefined),
+    mutationFn: (kind: EnrichKind) => startEnrichment(
+      kind,
+      selection ? (kind === "analysis" ? selection.withWebsite : selection.unseenWithoutWebsite) : undefined,
+    ),
     onSuccess: (started) => {
       setError(null);
       setJobId(started.id);
@@ -66,7 +73,7 @@ export function BulkEnrichPanel({ selection }: { selection?: { withWebsite: stri
 
   const counts: Record<EnrichKind, number | undefined> = {
     city: candidates.data?.missing_city,
-    places: selection ? selection.withoutWebsite.length : candidates.data?.missing_website,
+    places: selection ? selection.unseenWithoutWebsite.length : candidates.data?.missing_website,
     analysis: selection?.withWebsite.length ?? 0,
   };
   const percent = current && current.total > 0 ? Math.round((current.processed / current.total) * 100) : 0;

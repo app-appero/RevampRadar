@@ -70,7 +70,8 @@ def city_candidates(session: Session) -> list[UUID]:
 
 
 def places_candidates(session: Session) -> list[UUID]:
-    return [row[0] for row in _missing_website_filter(session.query(Company.id)).distinct().all()]
+    query = _missing_website_filter(session.query(Company.id)).filter(Company.places_checked_at.is_(None))
+    return [row[0] for row in query.distinct().all()]
 
 
 def candidate_counts(session: Session) -> dict[str, int]:

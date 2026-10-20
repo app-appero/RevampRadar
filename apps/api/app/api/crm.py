@@ -1,20 +1,20 @@
-from uuid import UUID
-
 from datetime import UTC, datetime
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session
 
 from app.db import get_db
+from app.models.entities import Activity, GrowthScore, Opportunity, OpportunityScore
 from app.schemas.crm import (
+    ActivityResponse,
+    AgendaHistoryItemResponse,
+    AgendaItemResponse,
     CreateActivityRequest,
     CreateNoteRequest,
     CreateTagRequest,
     DashboardCounts,
     DashboardResponse,
-    AgendaItemResponse,
-    AgendaHistoryItemResponse,
-    ActivityResponse,
     OpportunityDetail,
     OpportunitySummary,
     TagResponse,
@@ -36,12 +36,11 @@ from app.services.crm_service import (
     list_agenda_history,
     list_opportunities,
     normalize_category,
-    reopen_activity,
     remove_tag,
+    reopen_activity,
     update_opportunity,
     website_for,
 )
-from app.models.entities import Activity, GrowthScore, Opportunity, OpportunityScore
 
 router = APIRouter(tags=["crm"])
 
@@ -309,6 +308,7 @@ def _summary(
         region=company.region if company else None,
         website_url=(company.website_url if company else None) or (website.normalized_url if website else None),
         domain=website.domain if website else None,
+        places_checked_at=company.places_checked_at if company else None,
         status=opportunity.status,
         is_favorite=opportunity.is_favorite,
         tags=tags,

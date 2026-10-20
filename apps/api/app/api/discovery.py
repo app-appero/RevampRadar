@@ -10,12 +10,12 @@ from app.discovery.osm import format_industry_tags, listed_sectors, preview_indu
 from app.discovery.service import (
     DiscoveryServiceError,
     create_discovery_run,
+    enrich_company_from_places,
     execute_discovery,
     get_company,
     list_companies,
     list_company_categories,
     load_discovery_run,
-    enrich_company_from_places,
     resolve_company_location,
 )
 from app.jobs.bulk_scan import latest_bulk_scan
@@ -32,7 +32,6 @@ from app.schemas.discovery import (
     OsmIndustryPreview,
     SocialLink,
 )
-
 
 router = APIRouter(tags=["discovery"])
 
@@ -206,6 +205,7 @@ def _company_summary(company: Company) -> CompanySummary:
         website_url=company.website_url or (website.normalized_url if website else None),
         phone=company.phone,
         email=company.email,
+        places_checked_at=company.places_checked_at,
         source=company.source,
         status=company.status,
         domain=website.domain if website else None,

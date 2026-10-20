@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy.orm import sessionmaker
@@ -23,6 +24,18 @@ def test_candidates_count_only_companies_that_can_be_completed(client, db_sessio
     db_session.commit()
     body = client.get("/enrichment/candidates").json()
     assert body == {"missing_city": 1, "missing_website": 2}
+
+
+def test_places_candidates_skip_companies_already_checked(client, db_session) -> None:
+    db_session.add_all(
+        [
+            _company("da-verificare"),
+            _company("gia-verificata", places_checked_at=datetime.now(UTC)),
+        ]
+    )
+    db_session.commit()
+
+    assert job_module.candidate_counts(db_session)["missing_website"] == 1
 
 
 def test_run_job_counts_updated_not_found_and_failed(client, db_session, sqlite_engine, monkeypatch) -> None:
@@ -75,6 +88,17 @@ def test_selection_never_includes_other_companies(client, db_session) -> None:
     job, _ = job_module.start_job(db_session, "places", [selected.id, with_site.id])
     assert job.company_ids == [selected.id]
     job.status = "completed"
+
+
+def test_places_job_rejects_selection_that_was_already_checked(client, db_session) -> None:
+    import pytest
+
+    checked = _company("checked", places_checked_at=datetime.now(UTC))
+    db_session.add(checked)
+    db_session.commit()
+
+    with pytest.raises(job_module.BulkEnrichError, match="Nessuna azienda idonea"):
+        job_module.start_job(db_session, "places", [checked.id])
 
 
 def test_empty_selection_does_not_start_global_job(client, db_session) -> None:

@@ -15,9 +15,8 @@ from app.services.crm_service import (
     list_agenda_history,
     list_opportunities,
     mark_analyzed_if_discovered,
-    reopen_activity,
-    delete_scheduled_activity,
     remove_tag,
+    reopen_activity,
     update_opportunity,
 )
 
@@ -52,6 +51,7 @@ def test_pipeline_statuses_match_docs() -> None:
         "proposal",
         "won",
         "lost",
+        "uncontactable",
     )
 
 
@@ -265,6 +265,19 @@ def test_crm_api_roundtrip(client, db_session) -> None:
     assert patched.status_code == 200
     assert patched.json()["status"] == "to_contact"
     assert patched.json()["is_favorite"] is True
+
+    uncontactable = client.patch(
+        f"/opportunities/{opportunity_id}",
+        json={"status": "uncontactable"},
+    )
+    assert uncontactable.status_code == 200
+    assert uncontactable.json()["status"] == "uncontactable"
+    assert client.get("/opportunities").json()[0]["status"] == "uncontactable"
+    restored = client.patch(
+        f"/opportunities/{opportunity_id}",
+        json={"status": "to_contact"},
+    )
+    assert restored.status_code == 200
 
     noted = client.post(f"/opportunities/{opportunity_id}/notes", json={"body": "Chiamare lunedì"})
     assert noted.status_code == 200

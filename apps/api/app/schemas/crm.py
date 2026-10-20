@@ -3,7 +3,6 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, model_validator
 
-
 CRM_STATUSES = (
     "discovered",
     "analyzed",
@@ -16,6 +15,7 @@ CRM_STATUSES = (
     "proposal",
     "won",
     "lost",
+    "uncontactable",
 )
 
 ACTIVITY_TYPES = ("note", "status_change", "call", "email", "meeting", "other")
@@ -77,6 +77,7 @@ class OpportunitySummary(BaseModel):
     region: str | None
     website_url: str | None
     domain: str | None
+    places_checked_at: datetime | None = None
     status: str
     is_favorite: bool
     tags: list[TagResponse]
@@ -108,6 +109,7 @@ class DashboardCounts(BaseModel):
     proposal: int = 0
     won: int = 0
     lost: int = 0
+    uncontactable: int = 0
 
 
 class DashboardResponse(BaseModel):

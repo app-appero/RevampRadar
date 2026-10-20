@@ -3,7 +3,6 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-
 MAX_RESULTS_STANDARD = 50
 MAX_RESULTS_EXTENDED = 200
 
@@ -57,6 +56,7 @@ class CompanySummary(BaseModel):
     website_url: str | None
     phone: str | None
     email: str | None
+    places_checked_at: datetime | None = None
     source: str
     status: str
     domain: str | None = None

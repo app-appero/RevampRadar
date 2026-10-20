@@ -1,6 +1,6 @@
 from app.config import Settings
-from app.discovery.normalize import normalize_candidate, normalize_phone
 from app.discovery.italy_geo import compose_location
+from app.discovery.normalize import normalize_candidate, normalize_phone
 from app.discovery.osm import (
     OpenStreetMapProvider,
     _build_overpass_query,
@@ -786,13 +786,18 @@ def test_places_enrich_fills_missing_website_and_phone(client, db_session, monke
     monkeypatch.setattr(
         places_module,
         "find_place",
-        lambda settings, key, **kw: {"website": "http://www.hotelmediterraneo.it", "phone": "+39 0000", "place_id": "p"},
+        lambda settings, key, **kw: {
+            "website": "http://www.hotelmediterraneo.it",
+            "phone": "+39 0000",
+            "place_id": "p",
+        },
     )
     response = client.post(f"/companies/{company_id}/places-enrich")
     assert response.status_code == 200
     body = response.json()
     assert body["website_url"] and "hotelmediterraneo.it" in body["website_url"]
     assert body["phone"] == "+39 0923 911299"  # non sovrascritto
+    assert body["places_checked_at"] is not None
 
 
 def test_places_enrich_requires_key(client, db_session) -> None:
@@ -801,6 +806,56 @@ def test_places_enrich_requires_key(client, db_session) -> None:
     db_session.commit()
     response = client.post(f"/companies/{company.id}/places-enrich")
     assert response.status_code == 422
+    assert db_session.get(Company, company.id).places_checked_at is None
+
+
+def test_places_no_match_marks_uncontactable_and_checked(client, db_session, monkeypatch) -> None:
+    import app.discovery.places as places_module
+    from app.models.entities import Opportunity
+    from app.services.ai_settings import update_ai_credentials
+
+    update_ai_credentials(
+        db_session, provider=None, anthropic_api_key=None, openai_api_key=None, google_places_api_key="AIza-test"
+    )
+    company = Company(name="Senza contatti", source="fake", external_id="x/23", status="discovered")
+    db_session.add(company)
+    db_session.commit()
+    monkeypatch.setattr(places_module, "find_place", lambda settings, key, **kw: None)
+
+    response = client.post(f"/companies/{company.id}/places-enrich")
+
+    assert response.status_code == 200
+    db_session.refresh(company)
+    assert company.places_checked_at is not None
+    opportunity = db_session.query(Opportunity).filter_by(company_id=company.id).one()
+    assert opportunity.status == "uncontactable"
+    row = next(item for item in client.get("/opportunities").json() if item["company_id"] == str(company.id))
+    assert row["places_checked_at"] is not None
+
+
+def test_places_match_without_contact_details_is_successful_check(client, db_session, monkeypatch) -> None:
+    import app.discovery.places as places_module
+    from app.models.entities import Opportunity
+    from app.services.ai_settings import update_ai_credentials
+
+    update_ai_credentials(
+        db_session, provider=None, anthropic_api_key=None, openai_api_key=None, google_places_api_key="AIza-test"
+    )
+    company = Company(name="Bar senza contatti", source="fake", external_id="x/24", status="discovered")
+    db_session.add(company)
+    db_session.commit()
+    monkeypatch.setattr(
+        places_module,
+        "find_place",
+        lambda settings, key, **kw: {"website": None, "phone": None, "place_id": "p"},
+    )
+
+    response = client.post(f"/companies/{company.id}/places-enrich")
+
+    assert response.status_code == 200
+    assert response.json()["places_checked_at"] is not None
+    opportunity = db_session.query(Opportunity).filter_by(company_id=company.id).one()
+    assert opportunity.status == "uncontactable"
 
 
 def test_places_match_rejects_namesake_far_away() -> None:

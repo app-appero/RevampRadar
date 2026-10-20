@@ -17,6 +17,7 @@ Gestire le opportunità senza trasformare RevampRadar in un CRM generalista.
 - Proposal
 - Won
 - Lost
+- Impossibili da contattare
 
 ## Funzioni
 
@@ -63,7 +64,11 @@ Nell'MVP non servono:
 Le caselle su ogni riga e “Seleziona tutti i risultati della ricerca” selezionano
 solo le aziende restituite dai filtri correnti. Cambiare filtri azzera la selezione.
 “Analizza siti” avvia audit sequenziali per le selezionate con sito;
-“Recupera sito e telefono” cerca su Google Places solo le selezionate senza sito.
+“Recupera solo non visti” cerca su Google Places solo le selezionate senza sito che
+non sono già state verificate. La tabella mostra separatamente l'esito della
+verifica (“Visto” / “Non visto”) dallo stato CRM. Una verifica completata che non
+trova né sito né telefono sposta automaticamente l'opportunità in “Impossibili da
+contattare”; errori tecnici e chiave mancante non contano come verifica.
 I pulsanti mostrano il numero di aziende idonee e il progresso dell'operazione.
 Durante un job sequenziale è possibile annullare: la chiamata già in corso termina,
 ma non vengono avviate le aziende successive.

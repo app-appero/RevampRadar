@@ -321,7 +321,9 @@ export function PipelinePage() {
           </div>
           <BulkEnrichPanel selection={{
             withWebsite: selectedRows.filter((item) => item.has_website).map((item) => item.company_id),
-            withoutWebsite: selectedRows.filter((item) => !item.has_website).map((item) => item.company_id),
+            unseenWithoutWebsite: selectedRows
+              .filter((item) => !item.has_website && !item.places_checked_at)
+              .map((item) => item.company_id),
           }} />
         </section>
 
@@ -332,6 +334,7 @@ export function PipelinePage() {
                 <th className="px-4 py-3">Seleziona</th>
                 <th className="px-4 py-3">Azienda</th>
                 <th className="px-4 py-3">Stato</th>
+                <th className="px-4 py-3">Verifica sito</th>
                 <th className="px-4 py-3">Segmento</th>
                 <th className="px-4 py-3">Punteggio</th>
                 <th className="px-4 py-3">Priorità</th>
@@ -361,6 +364,20 @@ export function PipelinePage() {
                       </p>
                     </td>
                     <td className="px-4 py-3 text-stone-600">{CRM_STATUS_LABELS[item.status] ?? item.status}</td>
+                    <td className="px-4 py-3">
+                      <span
+                        title={item.places_checked_at ? `Verificata il ${new Date(item.places_checked_at).toLocaleString("it-IT")}` : undefined}
+                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                          item.places_checked_at ? "bg-stone-100 text-stone-700" : "bg-blue-50 text-blue-700"
+                        }`}
+                      >
+                        {item.has_website
+                          ? "Sito presente"
+                          : item.places_checked_at
+                            ? "Visto · senza sito"
+                            : "Non visto"}
+                      </span>
+                    </td>
                     <td className="px-4 py-3">
                       <span
                         className={`rounded-full px-2 py-0.5 text-xs font-medium ${
@@ -427,4 +444,3 @@ function Stat({
     </button>
   );
 }
-

@@ -12,6 +12,7 @@ export const CRM_STATUSES = [
   "proposal",
   "won",
   "lost",
+  "uncontactable",
 ] as const;
 
 export const CRM_STATUS_LABELS: Record<string, string> = {
@@ -26,6 +27,7 @@ export const CRM_STATUS_LABELS: Record<string, string> = {
   proposal: "Proposta",
   won: "Vinta",
   lost: "Persa",
+  uncontactable: "Impossibili da contattare",
 };
 
 export const ACTIVITY_TYPES = ["call", "email", "meeting", "note", "other"] as const;
@@ -86,6 +88,7 @@ export type OpportunitySummary = {
   region: string | null;
   website_url: string | null;
   domain: string | null;
+  places_checked_at: string | null;
   status: string;
   is_favorite: boolean;
   tags: Tag[];

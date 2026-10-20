@@ -63,6 +63,24 @@ def mark_analyzed_if_discovered(session: Session, company_id: UUID) -> None:
     )
 
 
+def mark_uncontactable_after_places_check(session: Session, company: Company) -> None:
+    if company.website_url or company.websites or company.phone:
+        return
+    opportunity = ensure_opportunity(session, company)
+    if opportunity.status == "uncontactable":
+        return
+    previous = opportunity.status
+    opportunity.status = "uncontactable"
+    session.add(
+        Activity(
+            opportunity_id=opportunity.id,
+            type="status_change",
+            note=f"{previous} → uncontactable: Google Places non ha trovato sito o telefono.",
+            occurred_at=datetime.now(UTC),
+        )
+    )
+
+
 # Alias espliciti: niente stemming che possa unire settori diversi (es. bar/barbiere).
 _CATEGORY_ALIASES = {
     "barbieri": "barbiere",
