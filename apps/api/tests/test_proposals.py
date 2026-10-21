@@ -420,6 +420,7 @@ def test_sender_profile_defaults_and_update(client) -> None:
     body = first.json()
     assert body["display_name"] == "Luca Bianchi"
     assert body["website_url"].startswith("https://")
+    assert body["website_in_signature"] is True
     assert any(item["label"] == "Upwork" for item in body["freelancer_links"])
 
     updated = client.put(
@@ -428,7 +429,10 @@ def test_sender_profile_defaults_and_update(client) -> None:
             "display_name": "Sara Verdi",
             "intro": "Realizzo siti per hotel e B&B.",
             "website_url": "https://saraverdi.test",
-            "freelancer_links": [{"label": "Malt", "url": "https://www.malt.fr/profile/sara"}],
+            "website_in_signature": False,
+            "freelancer_links": [
+                {"label": "Malt", "url": "https://www.malt.fr/profile/sara", "include_in_signature": False}
+            ],
             "social_links": [{"label": "LinkedIn", "url": "https://www.linkedin.com/in/saraverdi"}],
             "other_links": [{"label": "GitHub", "url": "https://github.com/saraverdi"}],
         },
@@ -436,6 +440,8 @@ def test_sender_profile_defaults_and_update(client) -> None:
     assert updated.status_code == 200
     assert updated.json()["display_name"] == "Sara Verdi"
     assert updated.json()["other_links"][0]["label"] == "GitHub"
+    assert updated.json()["website_in_signature"] is False
+    assert updated.json()["freelancer_links"][0]["include_in_signature"] is False
     fetched = client.get("/settings/profile")
     assert fetched.json()["intro"].startswith("Realizzo siti")
     assert fetched.json()["freelancer_links"][0]["label"] == "Malt"
@@ -460,6 +466,27 @@ def test_signature_includes_other_links_under_their_own_heading() -> None:
     social_block_start = signature.index("Social:")
     other_block_start = signature.index("Altro:")
     assert "github.com" not in signature[social_block_start:other_block_start]
+
+
+def test_signature_hides_individually_disabled_rows() -> None:
+    from app.proposals.sender import SenderLink, SenderProfileView, format_signature
+
+    sender = SenderProfileView(
+        display_name="Sara Verdi",
+        intro="Realizzo siti.",
+        website_url="https://saraverdi.test",
+        website_in_signature=False,
+        freelancer_links=(
+            SenderLink(label="Malt", url="https://malt.test/sara", include_in_signature=False),
+        ),
+        social_links=(SenderLink(label="LinkedIn", url="https://linkedin.test/sara"),),
+    )
+
+    signature = format_signature(sender)
+
+    assert "saraverdi.test" not in signature
+    assert "Malt" not in signature
+    assert "LinkedIn" in signature
 
 
 def test_render_email_template_replaces_known_tokens_and_leaves_rest_untouched() -> None:
@@ -512,4 +539,3 @@ def test_custom_refactor_template_is_used_when_generating_a_proposal(client, db_
     generated = client.post(f"/audits/{audit_id}/proposal")
     assert generated.status_code == 200
     assert generated.json()["email_body"].startswith("Salve hotelsole.test!")
-

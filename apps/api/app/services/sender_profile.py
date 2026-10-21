@@ -18,6 +18,7 @@ def get_or_create_sender_profile(session: Session) -> SenderProfile:
         display_name=DEFAULT_SENDER.display_name,
         intro=DEFAULT_SENDER.intro,
         website_url=DEFAULT_SENDER.website_url,
+        website_in_signature=True,
         freelancer_links=links_to_payload(DEFAULT_SENDER.freelancer_links),
         social_links=links_to_payload(DEFAULT_SENDER.social_links),
         other_links=links_to_payload(DEFAULT_SENDER.other_links),
@@ -33,6 +34,7 @@ def update_sender_profile(session: Session, payload: SenderProfileUpdate) -> Sen
     profile.display_name = payload.display_name.strip()
     profile.intro = payload.intro.strip()
     profile.website_url = payload.website_url.strip()
+    profile.website_in_signature = payload.website_in_signature
     profile.freelancer_links = [item.model_dump() for item in payload.freelancer_links]
     profile.social_links = [item.model_dump() for item in payload.social_links]
     profile.other_links = [item.model_dump() for item in payload.other_links]
@@ -46,6 +48,7 @@ def profile_view(profile: SenderProfile) -> SenderProfileView:
         display_name=profile.display_name,
         intro=profile.intro,
         website_url=profile.website_url,
+        website_in_signature=profile.website_in_signature,
         freelancer_links=links_from_payload(profile.freelancer_links),
         social_links=links_from_payload(profile.social_links),
         other_links=links_from_payload(profile.other_links),

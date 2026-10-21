@@ -8,6 +8,7 @@ from dataclasses import dataclass
 class SenderLink:
     label: str
     url: str
+    include_in_signature: bool = True
 
 
 @dataclass(frozen=True)
@@ -18,6 +19,7 @@ class SenderProfileView:
     freelancer_links: tuple[SenderLink, ...]
     social_links: tuple[SenderLink, ...]
     other_links: tuple[SenderLink, ...] = ()
+    website_in_signature: bool = True
 
 
 DEFAULT_SENDER = SenderProfileView(
@@ -47,17 +49,26 @@ def links_from_payload(raw: list | None) -> tuple[SenderLink, ...]:
         label = str(item.get("label") or "").strip()
         url = str(item.get("url") or "").strip()
         if label and url:
-            items.append(SenderLink(label=label, url=url))
+            items.append(
+                SenderLink(
+                    label=label,
+                    url=url,
+                    include_in_signature=item.get("include_in_signature") is not False,
+                )
+            )
     return tuple(items)
 
 
 def links_to_payload(links: tuple[SenderLink, ...]) -> list[dict]:
-    return [{"label": item.label, "url": item.url} for item in links]
+    return [
+        {"label": item.label, "url": item.url, "include_in_signature": item.include_in_signature}
+        for item in links
+    ]
 
 
 def format_signature(sender: SenderProfileView) -> str:
     lines = [sender.display_name]
-    if sender.website_url:
+    if sender.website_url and sender.website_in_signature:
         lines.append(sender.website_url)
     freelancer = _format_link_block("Piattaforme", sender.freelancer_links)
     socials = _format_link_block("Social", sender.social_links)
@@ -118,13 +129,14 @@ def email_claims_lost_business(body: str) -> bool:
 
 
 def ensure_signature(body: str, sender: SenderProfileView) -> str:
-    if sender.website_url and sender.website_url in body:
+    if sender.website_url and sender.website_in_signature and sender.website_url in body:
         return body.rstrip()
     return body.rstrip() + "\n\n" + format_signature(sender)
 
 
 def _format_link_block(title: str, links: tuple[SenderLink, ...]) -> str:
-    if not links:
+    included_links = [item for item in links if item.include_in_signature]
+    if not included_links:
         return ""
-    rows = "\n".join(f"{item.label}: {item.url}" for item in links)
+    rows = "\n".join(f"{item.label}: {item.url}" for item in included_links)
     return f"{title}:\n{rows}"

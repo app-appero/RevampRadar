@@ -2,6 +2,24 @@ import { ApiError, getApiBaseUrl } from "./health";
 
 export type AuditStatus = "queued" | "running" | "completed" | "failed";
 
+export type CompanyAuditHistoryItem = {
+  id: string;
+  created_at: string;
+  status: string;
+  website_score: number | null;
+  technical_score: number | null;
+  performance_score: number | null;
+  ui_score: number | null;
+  ux_score: number | null;
+  mobile_score: number | null;
+  conversion_score: number | null;
+  seo_score: number | null;
+  trust_score: number | null;
+  business_score: number | null;
+  opportunity_score: number | null;
+  priority: string | null;
+};
+
 export type AuditFinding = {
   id: string;
   category: string;
@@ -72,6 +90,7 @@ export type AIAnalysis = {
 
 export type Audit = {
   id: string;
+  company_id: string | null;
   status: AuditStatus;
   request_url: string;
   normalized_url: string;
@@ -159,6 +178,19 @@ export async function fetchAudit(id: string): Promise<Audit> {
     throw new ApiError("Impossibile raggiungere il backend.");
   }
   return parseAudit(response);
+}
+
+export async function fetchCompanyAuditHistory(companyId: string): Promise<CompanyAuditHistoryItem[]> {
+  let response: Response;
+  try {
+    response = await fetch(`${getApiBaseUrl()}/audits/companies/${companyId}`);
+  } catch {
+    throw new ApiError("Impossibile raggiungere il backend.");
+  }
+  if (!response.ok) {
+    throw new ApiError(`Errore ${response.status}`, response.status);
+  }
+  return (await response.json()) as CompanyAuditHistoryItem[];
 }
 
 export function screenshotSrc(path: string): string {

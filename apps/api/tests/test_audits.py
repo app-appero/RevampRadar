@@ -29,6 +29,75 @@ def test_create_and_get_audit(client, monkeypatch) -> None:
     assert body["ai_analysis"] is None
 
 
+def test_audit_response_includes_company_id_and_company_history(client, db_session, monkeypatch) -> None:
+    from datetime import UTC, datetime
+
+    from app.models.entities import Audit, Company, OpportunityScore, WebsiteScore
+
+    monkeypatch.setattr("app.api.audits.execute_audit", lambda audit_id: None)
+    company = Company(name="Hotel Sole", source="fake", status="discovered")
+    db_session.add(company)
+    db_session.commit()
+    company_id = company.id
+    audit_ids = []
+    for index, created_at in enumerate((datetime(2026, 1, 2, tzinfo=UTC), datetime(2026, 1, 1, tzinfo=UTC))):
+        response = client.post(
+            "/audits",
+            json={"url": "https://hotelsole.test", "company_id": str(company_id)},
+        )
+        assert response.status_code == 202
+        audit_id = UUID(response.json()["id"])
+        audit_ids.append(audit_id)
+        audit = db_session.get(Audit, audit_id)
+        assert audit is not None
+        audit.created_at = created_at
+        db_session.add(
+            WebsiteScore(
+                audit_id=audit_id,
+                technical_score=50 + index,
+                performance_score=60,
+                ui_score=None,
+                ux_score=65,
+                mobile_score=55,
+                conversion_score=45,
+                seo_score=70,
+                trust_score=75,
+                overall_score=58 + index,
+                explanation="Test score",
+                formula_version="1.0.0",
+            )
+        )
+        db_session.add(
+            OpportunityScore(
+                audit_id=audit_id,
+                website_score=58 + index,
+                business_score=68,
+                opportunity_score=72 + index,
+                confidence=0.7,
+                priority="HIGH",
+                explanation="Test opportunity",
+                top_reasons=[],
+                positive_factors=[],
+                negative_factors=[],
+                recommended_service="Redesign",
+                formula_version="1.0.0",
+            )
+        )
+    db_session.commit()
+
+    latest = client.get(f"/audits/{audit_ids[0]}")
+    history = client.get(f"/audits/companies/{company_id}")
+
+    assert latest.json()["company_id"] == str(company_id)
+    assert history.status_code == 200
+    rows = history.json()
+    assert [row["id"] for row in rows] == [str(audit_ids[0]), str(audit_ids[1])]
+    assert rows[0]["website_score"] == 58
+    assert rows[0]["technical_score"] == 50
+    assert rows[0]["business_score"] == 68
+    assert rows[0]["opportunity_score"] == 72
+
+
 def test_get_audit_includes_persisted_scores(client, db_session, monkeypatch) -> None:
     monkeypatch.setattr("app.api.audits.execute_audit", lambda audit_id: None)
     created = client.post("/audits", json={"url": "https://example.com"})

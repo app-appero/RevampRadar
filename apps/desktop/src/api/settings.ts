@@ -3,12 +3,14 @@ import { ApiError, getApiBaseUrl } from "./health";
 export type ProfileLink = {
   label: string;
   url: string;
+  include_in_signature: boolean;
 };
 
 export type SenderProfile = {
   display_name: string;
   intro: string;
   website_url: string;
+  website_in_signature: boolean;
   freelancer_links: ProfileLink[];
   social_links: ProfileLink[];
   other_links: ProfileLink[];

@@ -17,10 +17,12 @@ from app.discovery.service import (
     list_company_categories,
     load_discovery_run,
     resolve_company_location,
+    update_company_contacts,
 )
 from app.jobs.bulk_scan import latest_bulk_scan
 from app.models.entities import Company, DiscoveryRun
 from app.schemas.discovery import (
+    CompanyContactsUpdate,
     CompanyDetail,
     CompanySummary,
     CreateDiscoveryRequest,
@@ -146,6 +148,22 @@ def post_company_geocode(company_id: UUID, db: Session = Depends(get_db)) -> Com
         raise HTTPException(status_code=404, detail="Azienda non trovata.")
     try:
         company = resolve_company_location(db, company, get_settings())
+    except DiscoveryServiceError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return _company_detail(company)
+
+
+@router.put("/companies/{company_id}/contacts", response_model=CompanyDetail)
+def put_company_contacts(
+    company_id: UUID,
+    payload: CompanyContactsUpdate,
+    db: Session = Depends(get_db),
+) -> CompanyDetail:
+    company = get_company(db, company_id)
+    if company is None:
+        raise HTTPException(status_code=404, detail="Azienda non trovata.")
+    try:
+        company = update_company_contacts(db, company, phone=payload.phone, email=payload.email)
     except DiscoveryServiceError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return _company_detail(company)

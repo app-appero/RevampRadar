@@ -27,6 +27,8 @@ import { ProposalCard } from "../components/ProposalCard";
 import { ApiError } from "../api/health";
 import { PageBackLink } from "../components/HistoryNav";
 import { ExternalLink } from "../components/ExternalLink";
+import { CompanyContacts } from "../components/CompanyContacts";
+import { CompanyAuditHistory } from "../components/CompanyAuditHistory";
 
 export function CompanyPage() {
   const { companyId } = useParams();
@@ -198,13 +200,12 @@ export function CompanyPage() {
               <Field label="Tag OSM" value={formatOsmTags(company.osm_tags) || null} />
               <Field label="Apertura (OSM)" value={company.osm_start_date} />
               <Field label="Orari (OSM)" value={company.osm_opening_hours} />
-              <Field label="Telefono" value={company.phone} />
-              <Field label="Email" value={company.email} />
               <SocialLinksField links={company.social_links} />
               <Field label="Fonte" value={`${company.source}${company.external_id ? ` · ${company.external_id}` : ""}`} />
               <Field label="Sito" value={company.website_url} href={company.website_url} />
               <Field label="Dominio" value={company.domain} />
             </section>
+            <CompanyContacts companyId={company.id} />
             {!company.phone && !company.email && (company.social_links?.length ?? 0) > 0 ? (
               <p className="text-sm text-stone-500">
                 Nessun telefono/email su OSM: come contatto alternativo{" "}
@@ -236,7 +237,7 @@ export function CompanyPage() {
               >
                 Cerca su Google Maps
               </ExternalLink>
-              {!company.website_url || !company.phone ? (
+              {!company.website_url || !company.phone || !company.email ? (
                 <button
                   type="button"
                   disabled={placesEnrich.isPending}
@@ -244,10 +245,10 @@ export function CompanyPage() {
                     setError(null);
                     placesEnrich.mutate();
                   }}
-                  title="Cerca l'attività su Google Places e completa sito e telefono mancanti"
+                  title="Cerca telefono e sito su Google Places e un'email pubblica sul sito aziendale"
                   className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-800 hover:bg-stone-50 disabled:opacity-50"
                 >
-                  {placesEnrich.isPending ? "Verifica…" : "Verifica su Google"}
+                  {placesEnrich.isPending ? "Recupero contatti…" : "Recupera contatti"}
                 </button>
               ) : null}
               {!company.city && company.latitude != null && company.longitude != null ? (
@@ -304,6 +305,7 @@ export function CompanyPage() {
                 </button>
               ) : null}
             </div>
+            {company.website_url || company.website_id ? <CompanyAuditHistory companyId={company.id} /> : null}
 
             {aiDialogFor ? (
               <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">

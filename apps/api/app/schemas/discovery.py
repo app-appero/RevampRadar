@@ -74,6 +74,11 @@ class CompanyDetail(CompanySummary):
     website_id: UUID | None = None
 
 
+class CompanyContactsUpdate(BaseModel):
+    phone: str | None = Field(default=None, max_length=64)
+    email: str | None = Field(default=None, max_length=255)
+
+
 class DiscoveryRunSummary(BaseModel):
     id: UUID
     industry: str

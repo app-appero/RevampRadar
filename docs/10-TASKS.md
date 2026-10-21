@@ -96,6 +96,7 @@
 - [x] M5-006 Activities
 - [x] M5-007 Pipeline UI
 - [x] M5-008 Filters
+- [x] M5-009 Editable company contacts and audit comparison history
 
 ## M6 — Proposal Engine
 

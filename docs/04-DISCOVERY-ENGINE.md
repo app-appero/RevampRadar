@@ -79,3 +79,8 @@ Ogni ricerca deve essere persistita con:
 Non costruire un crawler general purpose del web.
 
 Partire da fonti strutturate/API e mantenere il motore sostituibile.
+
+Per l'arricchimento dei contatti, Google Places fornisce sito e telefono; se manca
+l'email, è ammessa una ricerca limitata all'homepage e a un massimo di due pagine
+di contatto sullo stesso dominio. Le richieste riusano lo scanner con protezione
+SSRF e non seguono link verso altri domini.

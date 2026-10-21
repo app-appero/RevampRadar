@@ -79,6 +79,7 @@ def _to_response(profile: SenderProfile) -> SenderProfileResponse:
         display_name=profile.display_name,
         intro=profile.intro,
         website_url=profile.website_url,
+        website_in_signature=profile.website_in_signature,
         freelancer_links=profile.freelancer_links or [],
         social_links=profile.social_links or [],
         other_links=profile.other_links or [],

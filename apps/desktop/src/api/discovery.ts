@@ -12,6 +12,7 @@ export type CompanySummary = {
   website_url: string | null;
   phone: string | null;
   email: string | null;
+  places_checked_at?: string | null;
   source: string;
   status: string;
   domain: string | null;
@@ -296,6 +297,23 @@ export async function placesEnrichCompany(id: string): Promise<CompanyDetail> {
   let response: Response;
   try {
     response = await fetch(`${getApiBaseUrl()}/companies/${id}/places-enrich`, { method: "POST" });
+  } catch {
+    throw new ApiError("Impossibile raggiungere il backend.");
+  }
+  return parseJson<CompanyDetail>(response);
+}
+
+export async function updateCompanyContacts(
+  id: string,
+  payload: { phone: string; email: string },
+): Promise<CompanyDetail> {
+  let response: Response;
+  try {
+    response = await fetch(`${getApiBaseUrl()}/companies/${id}/contacts`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
   } catch {
     throw new ApiError("Impossibile raggiungere il backend.");
   }

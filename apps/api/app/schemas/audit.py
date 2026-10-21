@@ -93,6 +93,7 @@ class AIAnalysisResponse(BaseModel):
 
 class AuditResponse(BaseModel):
     id: UUID
+    company_id: UUID | None = None
     status: str
     request_url: str
     normalized_url: str
@@ -112,3 +113,21 @@ class AuditResponse(BaseModel):
     website_score: WebsiteScoreResponse | None = None
     opportunity_score: OpportunityScoreResponse | None = None
     ai_analysis: AIAnalysisResponse | None = None
+
+
+class CompanyAuditHistoryItem(BaseModel):
+    id: UUID
+    created_at: datetime
+    status: str
+    website_score: int | None = None
+    technical_score: int | None = None
+    performance_score: int | None = None
+    ui_score: int | None = None
+    ux_score: int | None = None
+    mobile_score: int | None = None
+    conversion_score: int | None = None
+    seo_score: int | None = None
+    trust_score: int | None = None
+    business_score: int | None = None
+    opportunity_score: int | None = None
+    priority: str | None = None

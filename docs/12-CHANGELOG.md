@@ -29,7 +29,8 @@
 - Screenshot: clic per ingrandire in overlay; l’URL del sito si apre nel browser.
 - Provider AI: Claude (default) o OpenAI, uno alla volta via `AI_PROVIDER`.
 - Audit: barra di avanzamento in % su singolo sito, discovery OSM e analisi in batch.
-- Impostazioni: nome, sito, piattaforme freelance e social in firma email; il range resta solo visibile all'operatore.
+- Impostazioni: nome, sito, piattaforme freelance e social in firma email, con interruttori per escludere singole righe; il range resta solo visibile all'operatore.
+- Scheda azienda: telefono ed email modificabili anche dopo l'analisi; lo storico audit mostra date, score e andamento comparativo.
 - Intelligence: recensioni App Store dal feed ufficiale Apple (sentiment e temi); Play resta URL + package id.
 - Mappa: pin OSM colorati per Opportunity Score e gruppi geografici (k-means su lat/lon, senza probabilità di chiusura).
 - Discovery: ricerca estesa fino a 200 risultati, include attività senza sito; elenco impaginato.

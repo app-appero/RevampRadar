@@ -25,6 +25,7 @@ export function SettingsPage() {
   const [displayName, setDisplayName] = useState("");
   const [intro, setIntro] = useState("");
   const [websiteUrl, setWebsiteUrl] = useState("");
+  const [websiteInSignature, setWebsiteInSignature] = useState(true);
   const [freelancerLinks, setFreelancerLinks] = useState<ProfileLink[]>([]);
   const [socialLinks, setSocialLinks] = useState<ProfileLink[]>([]);
   const [otherLinks, setOtherLinks] = useState<ProfileLink[]>([]);
@@ -35,9 +36,10 @@ export function SettingsPage() {
     setDisplayName(profile.display_name);
     setIntro(profile.intro);
     setWebsiteUrl(profile.website_url);
-    setFreelancerLinks(profile.freelancer_links);
-    setSocialLinks(profile.social_links);
-    setOtherLinks(profile.other_links);
+    setWebsiteInSignature(profile.website_in_signature ?? true);
+    setFreelancerLinks(profile.freelancer_links.map((item) => ({ ...item, include_in_signature: item.include_in_signature ?? true })));
+    setSocialLinks(profile.social_links.map((item) => ({ ...item, include_in_signature: item.include_in_signature ?? true })));
+    setOtherLinks(profile.other_links.map((item) => ({ ...item, include_in_signature: item.include_in_signature ?? true })));
   }, [profileQuery.data]);
 
   const save = useMutation({
@@ -46,6 +48,7 @@ export function SettingsPage() {
         display_name: displayName.trim(),
         intro: intro.trim(),
         website_url: websiteUrl.trim(),
+        website_in_signature: websiteInSignature,
         freelancer_links: freelancerLinks.filter((item) => item.label.trim() && item.url.trim()),
         social_links: socialLinks.filter((item) => item.label.trim() && item.url.trim()),
         other_links: otherLinks.filter((item) => item.label.trim() && item.url.trim()),
@@ -103,13 +106,16 @@ export function SettingsPage() {
 
         <label className="block space-y-1">
           <span className="text-sm font-medium text-stone-700">Il tuo sito</span>
-          <input
-            value={websiteUrl}
-            onChange={(event) => setWebsiteUrl(event.target.value)}
-            placeholder="https://"
-            className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-stone-900"
-            required
-          />
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <input
+              value={websiteUrl}
+              onChange={(event) => setWebsiteUrl(event.target.value)}
+              placeholder="https://"
+              className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-stone-900"
+              required
+            />
+            <SignatureToggle checked={websiteInSignature} onChange={setWebsiteInSignature} label="Sito in firma" />
+          </div>
         </label>
 
         <LinkList
@@ -489,6 +495,15 @@ function LinkList({
             placeholder="https://"
             className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-stone-900"
           />
+          <SignatureToggle
+            checked={item.include_in_signature}
+            onChange={(checked) => {
+              const next = [...links];
+              next[index] = { ...item, include_in_signature: checked };
+              onChange(next);
+            }}
+            label="In firma"
+          />
           <button
             type="button"
             className="text-sm text-stone-600 underline"
@@ -501,10 +516,32 @@ function LinkList({
       <button
         type="button"
         className="text-sm underline"
-        onClick={() => onChange([...links, { label: "", url: "" }])}
+        onClick={() => onChange([...links, { label: "", url: "", include_in_signature: true }])}
       >
         Aggiungi
       </button>
     </fieldset>
+  );
+}
+
+function SignatureToggle({
+  checked,
+  onChange,
+  label,
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  label: string;
+}) {
+  return (
+    <label className="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg border border-stone-300 px-3 py-2 text-sm text-stone-700">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+        className="accent-stone-900"
+      />
+      {label}
+    </label>
   );
 }

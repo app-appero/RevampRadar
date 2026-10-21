@@ -792,6 +792,7 @@ def test_places_enrich_fills_missing_website_and_phone(client, db_session, monke
             "place_id": "p",
         },
     )
+    monkeypatch.setattr("app.discovery.contacts.extract_public_email", lambda settings, url: None)
     response = client.post(f"/companies/{company_id}/places-enrich")
     assert response.status_code == 200
     body = response.json()
@@ -800,11 +801,99 @@ def test_places_enrich_fills_missing_website_and_phone(client, db_session, monke
     assert body["places_checked_at"] is not None
 
 
+def test_places_enrich_recovers_email_from_existing_website_without_places_key(client, db_session, monkeypatch) -> None:
+    from app.models.entities import Company
+
+    company = Company(
+        name="Ristorante Arche",
+        source="fake",
+        external_id="x/26",
+        status="discovered",
+        website_url="https://ristorantearche.test",
+        phone="+39 045 800 7415",
+    )
+    db_session.add(company)
+    db_session.commit()
+    monkeypatch.setattr(
+        "app.discovery.contacts.extract_public_email",
+        lambda settings, url: "info@ristorantearche.test",
+    )
+
+    response = client.post(f"/companies/{company.id}/places-enrich")
+
+    assert response.status_code == 200
+    assert response.json()["email"] == "info@ristorantearche.test"
+    assert response.json()["phone"] == "+39 045 800 7415"
+    assert response.json()["places_checked_at"] is None
+
+
+def test_places_enrich_uses_related_website_without_places_key(client, db_session, monkeypatch) -> None:
+    from app.models.entities import Company, Website
+
+    company = Company(
+        name="Osteria Arco",
+        source="fake",
+        external_id="x/27",
+        status="discovered",
+        phone="+39 045 800 7416",
+        websites=[
+            Website(
+                url="https://osteriaarco.test",
+                normalized_url="https://osteriaarco.test",
+                domain="osteriaarco.test",
+            )
+        ],
+    )
+    db_session.add(company)
+    db_session.commit()
+    monkeypatch.setattr(
+        "app.discovery.contacts.extract_public_email",
+        lambda settings, url: "info@osteriaarco.test",
+    )
+
+    response = client.post(f"/companies/{company.id}/places-enrich")
+
+    assert response.status_code == 200
+    assert response.json()["email"] == "info@osteriaarco.test"
+    assert response.json()["phone"] == "+39 045 800 7416"
+    assert response.json()["places_checked_at"] is None
+
+
 def test_places_enrich_requires_key(client, db_session) -> None:
     company = Company(name="Senza Chiave", source="fake", external_id="x/21", status="discovered")
     db_session.add(company)
     db_session.commit()
     response = client.post(f"/companies/{company.id}/places-enrich")
+    assert response.status_code == 422
+
+
+def test_company_contacts_can_be_manually_saved_and_mark_company_seen(client, db_session) -> None:
+    company = Company(name="Bar 93", source="fake", external_id="x/contact-edit", status="discovered")
+    db_session.add(company)
+    db_session.commit()
+
+    response = client.put(
+        f"/companies/{company.id}/contacts",
+        json={"phone": "+39 045 123 45 67", "email": ""},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["phone"] == "+390451234567"
+    assert body["email"] is None
+    assert body["places_checked_at"] is not None
+
+
+def test_company_contacts_reject_invalid_email(client, db_session) -> None:
+    company = Company(name="Bar 94", source="fake", external_id="x/contact-invalid", status="discovered")
+    db_session.add(company)
+    db_session.commit()
+
+    response = client.put(
+        f"/companies/{company.id}/contacts",
+        json={"phone": "", "email": "not-an-email"},
+    )
+
     assert response.status_code == 422
     assert db_session.get(Company, company.id).places_checked_at is None
 

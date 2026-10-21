@@ -238,10 +238,19 @@ def _facts(audit: Audit, company: Company | None, draft: ProposalDraft, sender) 
         "sender_profile": {
             "display_name": sender.display_name,
             "intro": sender.intro,
-            "website_url": sender.website_url,
-            "freelancer_links": [{"label": item.label, "url": item.url} for item in sender.freelancer_links],
-            "social_links": [{"label": item.label, "url": item.url} for item in sender.social_links],
-            "other_links": [{"label": item.label, "url": item.url} for item in sender.other_links],
+            "website_url": sender.website_url if sender.website_in_signature else "",
+            "freelancer_links": [
+                {"label": item.label, "url": item.url}
+                for item in sender.freelancer_links if item.include_in_signature
+            ],
+            "social_links": [
+                {"label": item.label, "url": item.url}
+                for item in sender.social_links if item.include_in_signature
+            ],
+            "other_links": [
+                {"label": item.label, "url": item.url}
+                for item in sender.other_links if item.include_in_signature
+            ],
         },
         "known_fields_only": True,
     }
@@ -263,10 +272,19 @@ def _greenfield_facts(company: Company, score, draft: ProposalDraft, sender) -> 
         "sender_profile": {
             "display_name": sender.display_name,
             "intro": sender.intro,
-            "website_url": sender.website_url,
-            "freelancer_links": [{"label": item.label, "url": item.url} for item in sender.freelancer_links],
-            "social_links": [{"label": item.label, "url": item.url} for item in sender.social_links],
-            "other_links": [{"label": item.label, "url": item.url} for item in sender.other_links],
+            "website_url": sender.website_url if sender.website_in_signature else "",
+            "freelancer_links": [
+                {"label": item.label, "url": item.url}
+                for item in sender.freelancer_links if item.include_in_signature
+            ],
+            "social_links": [
+                {"label": item.label, "url": item.url}
+                for item in sender.social_links if item.include_in_signature
+            ],
+            "other_links": [
+                {"label": item.label, "url": item.url}
+                for item in sender.other_links if item.include_in_signature
+            ],
         },
         "known_fields_only": True,
     }

@@ -16,6 +16,8 @@ import { ProgressBar } from "../components/ProgressBar";
 import { ProposalCard } from "../components/ProposalCard";
 import { ScreenshotGallery } from "../components/ScreenshotGallery";
 import { ExternalLink } from "../components/ExternalLink";
+import { CompanyAuditHistory } from "../components/CompanyAuditHistory";
+import { CompanyContacts } from "../components/CompanyContacts";
 
 export function AuditPage() {
   const { auditId } = useParams();
@@ -75,6 +77,13 @@ export function AuditPage() {
                 </ExternalLink>
               </p>
             </header>
+
+            {audit.company_id && audit.status === "completed" ? (
+              <>
+                <CompanyContacts companyId={audit.company_id} />
+                <CompanyAuditHistory companyId={audit.company_id} currentAuditId={audit.id} />
+              </>
+            ) : null}
 
             {inProgress ? (
               <ProgressBar

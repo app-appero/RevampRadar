@@ -376,14 +376,14 @@ export function PipelinePage() {
                           item.places_checked_at ? "bg-stone-100 text-stone-700" : "bg-blue-50 text-blue-700"
                         }`}
                       >
-                        {item.has_website
-                          ? "Sito presente"
-                          : item.places_checked_at
-                            ? item.has_email
-                              ? "Visto"
-                              : item.has_phone
-                                ? "Visto - senza email"
-                                : "Visto - senza contatti"
+                        {item.places_checked_at
+                          ? item.has_email
+                            ? "Visto"
+                            : item.has_phone
+                              ? "Visto - senza email"
+                              : "Visto - senza contatti"
+                          : item.has_website
+                            ? "Sito presente"
                             : "Non visto"}
                       </span>
                     </td>

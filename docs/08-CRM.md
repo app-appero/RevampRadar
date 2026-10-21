@@ -38,8 +38,10 @@ Gestire le opportunità senza trasformare RevampRadar in un CRM generalista.
 Mostrare:
 
 - dati azienda;
+- telefono ed email modificabili, con aggiornamento della verifica contatti;
 - sito;
 - audit;
+- storico comparativo degli audit, ordinato dal più recente, con tutti gli score e andamento Website/Opportunity Score;
 - screenshot;
 - score;
 - finding;
@@ -79,6 +81,12 @@ ma non vengono avviate le aziende successive.
 Il backend ricontrolla l'idoneità e non interpreta una selezione vuota come globale.
 I job sono in memoria (come il recupero preesistente); gli audit e i dati recuperati
 restano persistiti. Nessuna nuova dipendenza.
+
+I contatti possono essere inseriti o corretti manualmente anche dalla pagina
+azienda e, dopo un audit completato, dalla pagina del risultato. Salvando almeno
+un telefono o un'email l'azienda risulta verificata: email presente = “Visto”,
+solo telefono = “Visto - senza email”. La tabella comparativa include ogni audit
+collegato all'azienda e mantiene il più recente in cima.
 
 I filtri della Pipeline sono conservati nella sessione del client: aprire un
 dettaglio azienda e tornare indietro, oppure ricaricare la pagina, ripristina

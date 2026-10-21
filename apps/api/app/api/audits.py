@@ -6,18 +6,19 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session, selectinload
 
 from app.db import get_db
-from app.models.entities import Audit
+from app.models.entities import Audit, Website
+from app.scanner.browser import is_preview_shot, shot_label
 from app.schemas.audit import (
     AIAnalysisResponse,
     AuditResponse,
     AuditSummaryResponse,
+    CompanyAuditHistoryItem,
     CreateAuditRequest,
     FindingResponse,
     OpportunityScoreResponse,
     ScreenshotResponse,
     WebsiteScoreResponse,
 )
-from app.scanner.browser import is_preview_shot, shot_label
 from app.services.audit_service import AuditServiceError, create_audit, execute_audit
 
 router = APIRouter(prefix="/audits", tags=["audits"])
@@ -53,6 +54,41 @@ def list_audits(limit: int = Query(12, ge=1, le=50), db: Session = Depends(get_d
         .all()
     )
     return [_to_summary(item) for item in rows]
+
+
+@router.get("/companies/{company_id}", response_model=list[CompanyAuditHistoryItem])
+def get_company_audit_history(company_id: UUID, db: Session = Depends(get_db)) -> list[CompanyAuditHistoryItem]:
+    rows = (
+        db.query(Audit)
+        .join(Website)
+        .options(
+            selectinload(Audit.website_score),
+            selectinload(Audit.opportunity_score),
+        )
+        .filter(Website.company_id == company_id)
+        .order_by(Audit.created_at.desc(), Audit.id.desc())
+        .all()
+    )
+    return [
+        CompanyAuditHistoryItem(
+            id=item.id,
+            created_at=item.created_at,
+            status=item.status,
+            website_score=item.website_score.overall_score if item.website_score else None,
+            technical_score=item.website_score.technical_score if item.website_score else None,
+            performance_score=item.website_score.performance_score if item.website_score else None,
+            ui_score=item.website_score.ui_score if item.website_score else None,
+            ux_score=item.website_score.ux_score if item.website_score else None,
+            mobile_score=item.website_score.mobile_score if item.website_score else None,
+            conversion_score=item.website_score.conversion_score if item.website_score else None,
+            seo_score=item.website_score.seo_score if item.website_score else None,
+            trust_score=item.website_score.trust_score if item.website_score else None,
+            business_score=item.opportunity_score.business_score if item.opportunity_score else None,
+            opportunity_score=item.opportunity_score.opportunity_score if item.opportunity_score else None,
+            priority=item.opportunity_score.priority if item.opportunity_score else None,
+        )
+        for item in rows
+    ]
 
 
 @router.get("/{audit_id}", response_model=AuditResponse)
@@ -92,6 +128,7 @@ def _load_audit(db: Session, audit_id: UUID) -> Audit | None:
 def _to_response(audit: Audit) -> AuditResponse:
     return AuditResponse(
         id=audit.id,
+        company_id=audit.website.company_id,
         status=audit.status,
         request_url=audit.request_url,
         normalized_url=audit.website.normalized_url,

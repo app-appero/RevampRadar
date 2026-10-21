@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -19,6 +20,30 @@ class DiscoveryServiceError(Exception):
     def __init__(self, message: str, status_code: int = 400) -> None:
         super().__init__(message)
         self.status_code = status_code
+
+
+def update_company_contacts(
+    session: Session,
+    company: Company,
+    *,
+    phone: str | None,
+    email: str | None,
+) -> Company:
+    from app.discovery.normalize import normalize_email, normalize_phone
+
+    normalized_email = normalize_email(email)
+    if email and (
+        normalized_email is None
+        or re.fullmatch(r"[^@\s]+@[^@\s.]+(?:\.[^@\s.]+)+", normalized_email) is None
+    ):
+        raise DiscoveryServiceError("Inserisci un indirizzo email valido.", status_code=422)
+    company.phone = normalize_phone(phone)
+    company.email = normalized_email
+    if company.phone or company.email:
+        company.places_checked_at = company.places_checked_at or datetime.now(UTC)
+    session.commit()
+    session.refresh(company)
+    return company
 
 
 def create_discovery_run(
@@ -170,53 +195,55 @@ def resolve_company_location(session: Session, company: Company, settings: Setti
 
 
 def enrich_company_from_places(session: Session, company: Company, settings: Settings) -> Company:
-    """Completa sito e telefono mancanti da Google Places, senza sovrascrivere nulla."""
+    """Completa sito/telefono da Places ed email dal sito, senza sovrascrivere dati."""
     from app.discovery.places import find_place
     from app.services.ai_settings import get_or_create_ai_credentials
 
-    key = (get_or_create_ai_credentials(session).google_places_api_key or "").strip()
-    if not key:
-        raise DiscoveryServiceError(
-            "Manca la chiave Google Places: inseriscila in Impostazioni.", status_code=422
-        )
-    try:
-        found = find_place(
-            settings,
-            key,
-            name=company.name,
-            city=company.city,
-            latitude=company.latitude,
-            longitude=company.longitude,
-        )
-    except RuntimeError as exc:
-        raise DiscoveryServiceError(str(exc), status_code=502) from exc
-    company.places_checked_at = datetime.now(UTC)
-    if not found:
-        from app.services.crm_service import mark_uncontactable_after_places_check
+    website_url = company.website_url or (company.websites[0].normalized_url if company.websites else None)
+    found = None
+    places_checked = False
+    if not website_url or not company.phone:
+        key = (get_or_create_ai_credentials(session).google_places_api_key or "").strip()
+        if key:
+            try:
+                found = find_place(
+                    settings,
+                    key,
+                    name=company.name,
+                    city=company.city,
+                    latitude=company.latitude,
+                    longitude=company.longitude,
+                )
+            except RuntimeError as exc:
+                raise DiscoveryServiceError(str(exc), status_code=502) from exc
+            company.places_checked_at = datetime.now(UTC)
+            places_checked = True
+        elif not website_url:
+            raise DiscoveryServiceError(
+                "Manca la chiave Google Places: inseriscila in Impostazioni.", status_code=422
+            )
 
-        mark_uncontactable_after_places_check(session, company)
-        session.commit()
-        session.refresh(company)
-        return company
-    changed = False
-    if not company.website_url and found.get("website"):
+    if not company.website_url and found and found.get("website"):
         try:
             company.website_url = normalize_url(found["website"]).normalized
         except UrlValidationError:
             company.website_url = None
         else:
-            changed = True
             _link_website(session, company, company.website_url)
-    if not company.phone and found.get("phone"):
+    if not company.phone and found and found.get("phone"):
         company.phone = found["phone"][:64]
-        changed = True
-    from app.services.crm_service import mark_uncontactable_after_places_check
 
-    mark_uncontactable_after_places_check(session, company)
-    if not changed:
-        session.commit()
-        session.refresh(company)
-        return company
+    website_url = company.website_url or (company.websites[0].normalized_url if company.websites else None)
+    if not company.email and website_url:
+        from app.discovery.contacts import extract_public_email
+
+        company.email = extract_public_email(settings, website_url)
+
+    if places_checked:
+        from app.services.crm_service import mark_uncontactable_after_places_check
+
+        mark_uncontactable_after_places_check(session, company)
+
     session.commit()
     session.refresh(company)
     return company
