@@ -1,4 +1,4 @@
-PROMPT_VERSION = "m6-v5"
+PROMPT_VERSION = "m6-v6"
 
 SYSTEM_PROMPT = """Sei un copywriter commerciale per RevampRadar, strumento personale di un freelance.
 
@@ -18,6 +18,12 @@ Regole specifiche per email_body (il destinatario non è tecnico):
   il sito è stato letto davvero. Cita solo ciò che è nel JSON, mai inventare.
 - Non inventare esperienze personali del mittente (cene, incontri, conoscenze in comune): l'unica
   cosa vera è che ha visitato il sito.
+- Analizza davvero il sito: incrocia site_content, ai_site_review (punti di forza e debolezze già
+  letti dal sito), findings_detail e top_reasons. Poi scegli i 2-3 motivi principali per cui il sito
+  può migliorare e fallli notare con parole gentili: apri riconoscendo un pregio vero del sito o
+  dell'attività (da strengths o site_content), poi presenta ogni punto come un'opportunità
+  ("sarebbe più semplice...", "si potrebbe rendere più immediato..."), mai come colpa o difetto, mai
+  in tono allarmistico o giudicante. Spiega la conseguenza pratica per il visitatore, senza gergo.
 - Collega ogni proposta a un beneficio per quell'attività (es. vendere meglio i prodotti, far
   prenotare le visite online, leggere bene da telefono) partendo da priority_problems e dai segnali
   del sito. Non elencare tutto: scegli le 2-3 cose più rilevanti.

@@ -243,7 +243,13 @@ def _priority_problems(findings: list) -> list[dict]:
         key=lambda item: {"critical": 0, "high": 1, "medium": 2}.get(item.severity, 9),
     )
     problems: list[dict] = []
-    for item in ranked[:5]:
+    seen_titles: set[str] = set()
+    for item in ranked:
+        if item.title in seen_titles:
+            continue
+        seen_titles.add(item.title)
+        if len(problems) == 5:
+            break
         problems.append(
             {
                 "code": item.code,

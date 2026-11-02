@@ -178,8 +178,14 @@ def _top_reasons(
         [item for item in findings if item.severity in {"critical", "high", "medium"}],
         key=lambda item: {"critical": 0, "high": 1, "medium": 2}[item.severity],
     )
-    for item in ranked[:3]:
+    seen_titles: set[str] = set()
+    for item in ranked:
+        if item.title in seen_titles:
+            continue
+        seen_titles.add(item.title)
         reasons.append(item.title)
+        if len(seen_titles) == 3:
+            break
     if business.score < 35:
         reasons.append("Segnali commerciali deboli o assenti: l'azienda potrebbe avere poco potenziale.")
     elif business.score >= 55:

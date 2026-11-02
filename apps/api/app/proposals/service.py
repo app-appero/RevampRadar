@@ -254,8 +254,30 @@ def _facts(
     sender,
     site_content: dict | None = None,
 ) -> dict:
+    ai_result = ((audit.ai_data or {}).get("result")) or {}
+    seen: set[str] = set()
+    findings_detail = []
+    for item in audit.findings:
+        if item.severity not in {"critical", "high", "medium"} or item.title in seen:
+            continue
+        seen.add(item.title)
+        findings_detail.append(
+            {
+                "severity": item.severity,
+                "title": item.title,
+                "description": item.description,
+                "recommendation": item.recommendation,
+            }
+        )
     return {
         "site_content": site_content or {},
+        "findings_detail": findings_detail[:8],
+        "ai_site_review": {
+            "strengths": ai_result.get("strengths") or [],
+            "weaknesses": ai_result.get("weaknesses") or [],
+            "recommendations": ai_result.get("recommendations") or [],
+        },
+        "top_reasons": (audit.opportunity_score.top_reasons or []) if audit.opportunity_score else [],
         "domain": audit.website.domain if audit.website else None,
         "url": audit.website.normalized_url if audit.website else audit.request_url,
         "company_name": company.name if company else None,
