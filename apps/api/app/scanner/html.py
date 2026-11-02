@@ -32,6 +32,7 @@ class HtmlScanResult:
     app_links: list[dict] = field(default_factory=list)
     generator: str | None = None
     saas_signals: list[str] = field(default_factory=list)
+    content: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         return {
@@ -52,6 +53,7 @@ class HtmlScanResult:
             "app_links": self.app_links,
             "generator": self.generator,
             "saas_signals": self.saas_signals,
+            "content": self.content,
         }
 
 
@@ -147,6 +149,7 @@ def scan_html(html: str, page_url: str) -> HtmlScanResult:
         app_links=app_links,
         generator=generator or None,
         saas_signals=saas_signals,
+        content=extract_content_digest(soup, html_lower),
     )
 
 
@@ -261,3 +264,58 @@ def _social_links(soup: BeautifulSoup, page_url: str) -> list[dict]:
         if len(found) >= 12:
             break
     return found
+
+
+_BLOCK_TAGS = ("script", "style", "noscript", "svg", "template", "iframe")
+_COMMERCE_HINTS = ("add-to-cart", "add_to_cart", "woocommerce", "carrello", "/cart", "/shop", "/negozio", "/store")
+_BOOKING_HINTS = ("prenota", "booking", "reservation", "/prenotazion")
+
+
+def extract_content_digest(soup: BeautifulSoup, html_lower: str) -> dict:
+    """Riassunto testuale della homepage: serve a scrivere email che parlino davvero dell'attività."""
+    soup = BeautifulSoup(str(soup), "html.parser")
+    for node in soup.find_all(_BLOCK_TAGS):
+        node.decompose()
+
+    headings: list[str] = []
+    for node in soup.find_all(["h1", "h2", "h3"]):
+        text = " ".join(node.get_text(" ", strip=True).split())[:140]
+        if text and text not in headings:
+            headings.append(text)
+        if len(headings) >= 15:
+            break
+
+    nav_labels: list[str] = []
+    for nav in soup.find_all("nav"):
+        for anchor in nav.find_all("a"):
+            text = " ".join(anchor.get_text(" ", strip=True).split())[:40]
+            if text and text not in nav_labels:
+                nav_labels.append(text)
+    nav_labels = nav_labels[:25]
+
+    paragraphs: list[str] = []
+    seen: set[str] = set()
+    total = 0
+    for node in soup.find_all(["p", "li"]):
+        text = " ".join(node.get_text(" ", strip=True).split())
+        if len(text) < 40 or text in seen:
+            continue
+        seen.add(text)
+        text = text[:400]
+        paragraphs.append(text)
+        total += len(text)
+        if total >= 2500:
+            break
+
+    signals: list[str] = []
+    labels = " ".join(nav_labels).lower()
+    if any(hint in html_lower for hint in _COMMERCE_HINTS):
+        signals.append("e-commerce / vendita online")
+    if any(hint in html_lower or hint in labels for hint in _BOOKING_HINTS):
+        signals.append("prenotazioni online")
+    return {
+        "headings": headings,
+        "nav_labels": nav_labels,
+        "text_excerpt": paragraphs,
+        "signals": signals,
+    }

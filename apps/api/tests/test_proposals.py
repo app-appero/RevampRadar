@@ -539,3 +539,31 @@ def test_custom_refactor_template_is_used_when_generating_a_proposal(client, db_
     generated = client.post(f"/audits/{audit_id}/proposal")
     assert generated.status_code == 200
     assert generated.json()["email_body"].startswith("Salve hotelsole.test!")
+
+
+def test_polish_proposal_retries_once_then_accepts_clean_email(monkeypatch) -> None:
+    from app.config import Settings
+    from app.proposals.ai import polish_proposal
+    from app.proposals.builder import ProposalDraft
+    from app.proposals.sender import DEFAULT_SENDER
+
+    bodies = iter(["Ci vediamo per 10 minuti?", "Ho letto la storia del vostro frantoio e ne parliamo con calma."])
+    calls: list[dict] = []
+
+    class FakeProvider:
+        def complete_json(self, system, user, temperature=0.2):
+            import json
+
+            calls.append(json.loads(user))
+            return json.dumps({"email_body": next(bodies)})
+
+    monkeypatch.setattr("app.proposals.ai.get_ai_provider", lambda settings: FakeProvider())
+    draft = ProposalDraft(
+        summary="s", priority_problems=[], recommended_service="x", strategy="st",
+        email_subject="o", email_body="base", brief="b", range_min=1000, range_max=2000,
+        currency="EUR", range_note="n",
+    )
+    polished = polish_proposal(Settings(), draft, {"site_content": {}}, DEFAULT_SENDER)
+    assert polished is not None
+    assert "frantoio" in polished.email_body
+    assert len(calls) == 2 and "correction" in calls[1] and calls[0]["base_email"] == "base"

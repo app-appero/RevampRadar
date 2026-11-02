@@ -75,3 +75,20 @@ def test_findings_for_weak_page() -> None:
     assert "HTML_MISSING_TITLE" in codes
     assert "HTML_MISSING_H1" in codes
     assert "SEO_NO_ROBOTS" in codes
+
+
+def test_scan_html_extracts_content_digest() -> None:
+    from app.scanner.html import scan_html
+
+    html = (
+        "<html><body><nav><a href='/shop'>Shop</a><a href='/prenota'>Prenota visita</a></nav>"
+        "<h1>Frantoio di famiglia</h1><h2>La nostra storia</h2>"
+        "<p>Produciamo olio extravergine da tre generazioni nelle colline toscane.</p>"
+        "<script>var x = 'non deve comparire nel testo del sito web';</script></body></html>"
+    )
+    content = scan_html(html, "https://olio.it").content
+    assert content["headings"] == ["Frantoio di famiglia", "La nostra storia"]
+    assert content["nav_labels"] == ["Shop", "Prenota visita"]
+    assert content["text_excerpt"] == ["Produciamo olio extravergine da tre generazioni nelle colline toscane."]
+    assert "e-commerce / vendita online" in content["signals"]
+    assert "prenotazioni online" in content["signals"]

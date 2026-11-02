@@ -32,6 +32,7 @@ def polish_proposal(
         return None
     payload = {
         "facts": facts,
+        "base_email": draft.email_body,
         "draft": {
             "summary": draft.summary,
             "strategy": draft.strategy,
@@ -45,6 +46,11 @@ def polish_proposal(
         },
         "constraints": [
             "Non inventare dati aziendali assenti dai facts.",
+            "Scrivi email_body da zero: base_email indica solo intento, tono e presentazione del mittente. "
+            "Ancorala a 2-3 dettagli concreti presi da facts.site_content (storia, prodotti, servizi, "
+            "attività) senza copiare frasi intere.",
+            "Non inventare esperienze personali del mittente (pasti, visite, conoscenze in comune): "
+            "puoi dire solo di aver visitato il sito.",
             "Non modificare range o servizio consigliato.",
             "Non inserire prezzi in email_body o email_subject.",
             "Conserva presentazione e firma del mittente.",
@@ -58,25 +64,32 @@ def polish_proposal(
             "un problema tecnico o grafico è un possibile margine di miglioramento, non una perdita dimostrata.",
         ],
     }
-    try:
-        content = provider.complete_json(
-            SYSTEM_PROMPT,
-            json.dumps(payload, ensure_ascii=False),
-            temperature=0.3,
-        )
-        parsed = parse_json_object(content)
-    except Exception as exc:
-        logger.warning("Proposal AI polish failed: %s", exc)
-        if errors is not None:
-            errors.append(str(exc))
-        return None
-    email_body = str(parsed.get("email_body") or draft.email_body)
-    if (
-        email_leaks_price(email_body, draft.range_min, draft.range_max)
-        or email_proposes_time_slot(email_body)
-        or email_leaks_score(email_body)
-        or email_claims_lost_business(email_body)
-    ):
+    parsed: dict = {}
+    email_body = draft.email_body
+    violation: str | None = None
+    for _attempt in range(2):
+        user_payload = dict(payload)
+        if violation:
+            user_payload["correction"] = (
+                f"La versione precedente non è valida: {violation}. Riscrivi email_body correggendo solo questo."
+            )
+        try:
+            content = provider.complete_json(
+                SYSTEM_PROMPT,
+                json.dumps(user_payload, ensure_ascii=False),
+                temperature=0.7,
+            )
+            parsed = parse_json_object(content)
+        except Exception as exc:
+            logger.warning("Proposal AI polish failed: %s", exc)
+            if errors is not None:
+                errors.append(str(exc))
+            return None
+        email_body = str(parsed.get("email_body") or draft.email_body)
+        violation = _email_violation(email_body, draft)
+        if violation is None:
+            break
+    if violation is not None:
         email_body = draft.email_body
     email_body = ensure_signature(email_body, sender)
     return ProposalDraft(
@@ -92,3 +105,15 @@ def polish_proposal(
         currency=draft.currency,
         range_note=draft.range_note,
     )
+
+
+def _email_violation(email_body: str, draft: ProposalDraft) -> str | None:
+    if email_leaks_price(email_body, draft.range_min, draft.range_max):
+        return "contiene prezzi o range"
+    if email_proposes_time_slot(email_body):
+        return "propone orari o durate specifiche per una chiamata"
+    if email_leaks_score(email_body):
+        return "cita punteggi interni"
+    if email_claims_lost_business(email_body):
+        return "afferma che il sito fa perdere clienti o vendite"
+    return None

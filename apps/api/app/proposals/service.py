@@ -77,7 +77,11 @@ def create_or_replace_proposal(
     ai_errors: list[str] = []
     if use_ai is not False:
         polished = polish_proposal(
-            resolved, draft, _facts(audit, company, draft, sender), sender, errors=ai_errors
+            resolved,
+            draft,
+            _facts(audit, company, draft, sender, _site_content(audit, resolved)),
+            sender,
+            errors=ai_errors,
         )
         if polished is not None:
             draft = polished
@@ -221,8 +225,37 @@ def _apply(
     proposal.range_note = draft.range_note
 
 
-def _facts(audit: Audit, company: Company | None, draft: ProposalDraft, sender) -> dict:
+def _site_content(audit: Audit, settings: Settings) -> dict:
+    """Contenuto della homepage: dall'audit se presente, altrimenti riletto dal sito (best effort)."""
+    html_data = audit.html_data or {}
+    content = html_data.get("content")
+    if not content:
+        try:
+            from app.scanner.html import scan_html
+            from app.scanner.http import scan_http
+
+            url = audit.website.normalized_url if audit.website else audit.request_url
+            page = scan_http(url, settings)
+            if page.ok and page.html:
+                content = scan_html(page.html, page.final_url or url).content
+        except Exception:
+            content = None
     return {
+        "title": html_data.get("title"),
+        "meta_description": html_data.get("meta_description"),
+        **(content or {}),
+    }
+
+
+def _facts(
+    audit: Audit,
+    company: Company | None,
+    draft: ProposalDraft,
+    sender,
+    site_content: dict | None = None,
+) -> dict:
+    return {
+        "site_content": site_content or {},
         "domain": audit.website.domain if audit.website else None,
         "url": audit.website.normalized_url if audit.website else audit.request_url,
         "company_name": company.name if company else None,
