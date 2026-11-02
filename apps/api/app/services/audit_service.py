@@ -48,6 +48,8 @@ def create_audit(session: Session, raw_url: str, company_id: UUID | None = None)
     website = _get_or_create_website(session, normalized)
     if company is not None and website.company_id is None:
         website.company_id = company.id
+    elif website.company_id is None:
+        website.company_id = _create_manual_company(session, website).id
     audit = Audit(
         website_id=website.id,
         status="queued",
@@ -61,6 +63,52 @@ def create_audit(session: Session, raw_url: str, company_id: UUID | None = None)
     session.refresh(audit)
     session.refresh(website)
     return audit
+
+
+def _create_manual_company(session: Session, website: Website) -> Company:
+    """Un'analisi singola crea l'azienda, così entra in pipeline come le altre."""
+    from app.services.crm_service import ensure_opportunity
+
+    domain = website.domain.removeprefix("www.")
+    company = (
+        session.query(Company).filter_by(source="manual_audit", external_id=domain).one_or_none()
+    )
+    if company is None:
+        company = Company(
+            name=domain,
+            website_url=website.normalized_url,
+            source="manual_audit",
+            external_id=domain,
+            status="discovered",
+        )
+        session.add(company)
+        session.flush()
+    ensure_opportunity(session, company)
+    return company
+
+
+def _fill_company_contacts(session: Session, website: Website, html: str | None, settings: Settings) -> None:
+    """Completa email/telefono mancanti dal sito appena analizzato, senza sovrascrivere."""
+    if website.company_id is None:
+        return
+    company = session.get(Company, website.company_id)
+    if company is None or (company.email and company.phone):
+        return
+    from app.discovery.contacts import email_in_html, extract_public_email, phone_in_html
+
+    if html:
+        if not company.email:
+            company.email = email_in_html(html)
+        if not company.phone:
+            company.phone = phone_in_html(html)
+    if not company.email:
+        try:
+            company.email = extract_public_email(settings, website.normalized_url)
+        except Exception:
+            pass
+    if not company.website_url:
+        company.website_url = website.normalized_url
+    session.flush()
 
 
 def execute_audit(audit_id: UUID, settings: Settings | None = None) -> None:
@@ -118,6 +166,9 @@ def _run_scan(session: Session, audit: Audit, website: Website, settings: Settin
             settings,
         )
         audit.seo_data = seo_result.to_dict()
+
+    if http_result.ok:
+        _fill_company_contacts(session, website, http_result.html, settings)
 
     _set_progress(session, audit, 38, "Finding tecnici")
     findings = build_findings(http_result, html_result, seo_result)

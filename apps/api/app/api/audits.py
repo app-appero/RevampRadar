@@ -96,6 +96,11 @@ def get_audit(audit_id: UUID, db: Session = Depends(get_db)) -> AuditResponse:
     audit = _load_audit(db, audit_id)
     if audit is None:
         raise HTTPException(status_code=404, detail="Audit non trovato.")
+    if audit.website.company_id is None:
+        from app.services.crm_service import backfill_orphan_websites
+
+        backfill_orphan_websites(db)
+        db.refresh(audit.website)
     return _to_response(audit)
 
 

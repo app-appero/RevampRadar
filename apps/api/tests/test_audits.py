@@ -163,3 +163,43 @@ def test_list_recent_audits(client, monkeypatch) -> None:
 def test_missing_audit_returns_404(client) -> None:
     response = client.get("/audits/11111111-1111-1111-1111-111111111111")
     assert response.status_code == 404
+
+
+def test_single_audit_creates_company_in_pipeline(client, monkeypatch) -> None:
+    monkeypatch.setattr("app.api.audits.execute_audit", lambda audit_id: None)
+    first = client.post("/audits", json={"url": "https://www.olio.it/"}).json()
+    again = client.post("/audits", json={"url": "https://www.olio.it/"}).json()
+    assert first["company_id"] is not None
+    assert again["company_id"] == first["company_id"]
+
+    found = client.get("/opportunities", params={"q": "olio"}).json()
+    assert [item["company_id"] for item in found] == [first["company_id"]]
+
+
+def test_fill_company_contacts_from_html(db_session) -> None:
+    from app.config import get_settings
+    from app.services.audit_service import _fill_company_contacts, create_audit
+
+    audit = create_audit(db_session, "https://olio.it")
+    website = audit.website
+    html = '<a href="mailto:Info@Olio.it">m</a><a href="tel:+39 0123 456789">t</a>'
+    _fill_company_contacts(db_session, website, html, get_settings())
+    company = website.company
+    assert company.email == "info@olio.it"
+    assert company.phone == "+390123456789"
+
+
+def test_old_orphan_audit_gets_company_on_read(client, db_session) -> None:
+    from app.models.entities import Audit, Website
+
+    website = Website(url="https://old.it", normalized_url="https://old.it", domain="old.it")
+    db_session.add(website)
+    db_session.flush()
+    audit = Audit(website_id=website.id, status="completed", request_url="https://old.it", scanner_version="x")
+    db_session.add(audit)
+    db_session.commit()
+
+    body = client.get(f"/audits/{audit.id}").json()
+    assert body["company_id"] is not None
+    found = client.get("/opportunities", params={"q": "old"}).json()
+    assert [i["company_id"] for i in found] == [body["company_id"]]

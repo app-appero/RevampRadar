@@ -6,7 +6,7 @@ from urllib.parse import urljoin, urlparse
 from bs4 import BeautifulSoup
 
 from app.config import Settings
-from app.discovery.normalize import normalize_email
+from app.discovery.normalize import normalize_email, normalize_phone
 from app.scanner.http import scan_http
 
 _EMAIL = re.compile(r"(?<![\w.+-])[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}(?![\w.-])", re.IGNORECASE)
@@ -73,3 +73,19 @@ def _email_in_html(html: str) -> str | None:
         if email and not email.endswith(("@example.com", "@example.org", "@example.test")):
             return email
     return None
+
+
+def phone_in_html(html: str) -> str | None:
+    """Primo numero esplicito in un link ``tel:`` (nessuna euristica sul testo)."""
+    soup = BeautifulSoup(html, "html.parser")
+    for anchor in soup.find_all("a", href=True):
+        href = str(anchor["href"]).strip()
+        if href.casefold().startswith("tel:"):
+            phone = normalize_phone(href[4:].split("?", 1)[0].replace("%20", ""))
+            if phone and sum(ch.isdigit() for ch in phone) >= 6:
+                return phone[:64]
+    return None
+
+
+def email_in_html(html: str) -> str | None:
+    return _email_in_html(html)

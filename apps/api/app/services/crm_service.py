@@ -37,7 +37,24 @@ def ensure_opportunity(session: Session, company: Company) -> Opportunity:
     return opportunity
 
 
+def backfill_orphan_websites(session: Session) -> None:
+    """Siti già analizzati senza azienda (analisi singole precedenti): li porta in pipeline."""
+    from app.models.entities import Website
+    from app.services.audit_service import _create_manual_company
+
+    orphans = (
+        session.query(Website)
+        .filter(Website.company_id.is_(None), Website.audits.any())
+        .all()
+    )
+    for website in orphans:
+        website.company_id = _create_manual_company(session, website).id
+    if orphans:
+        session.commit()
+
+
 def backfill_opportunities(session: Session) -> None:
+    backfill_orphan_websites(session)
     missing = session.query(Company).outerjoin(Opportunity).filter(Opportunity.id.is_(None)).all()
     for company in missing:
         session.add(Opportunity(company_id=company.id, status="discovered", is_favorite=False))
