@@ -16,6 +16,7 @@ CRM_STATUSES = (
     "won",
     "lost",
     "uncontactable",
+    "not_now",
 )
 
 ACTIVITY_TYPES = ("note", "status_change", "call", "email", "meeting", "other")

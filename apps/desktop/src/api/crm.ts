@@ -13,6 +13,7 @@ export const CRM_STATUSES = [
   "won",
   "lost",
   "uncontactable",
+  "not_now",
 ] as const;
 
 export const CRM_STATUS_LABELS: Record<string, string> = {
@@ -28,6 +29,7 @@ export const CRM_STATUS_LABELS: Record<string, string> = {
   won: "Vinta",
   lost: "Persa",
   uncontactable: "Impossibili da contattare",
+  not_now: "Al momento NON da contattare",
 };
 
 export const ACTIVITY_TYPES = ["call", "email", "meeting", "note", "other"] as const;

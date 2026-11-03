@@ -52,6 +52,7 @@ def test_pipeline_statuses_match_docs() -> None:
         "won",
         "lost",
         "uncontactable",
+        "not_now",
     )
 
 
