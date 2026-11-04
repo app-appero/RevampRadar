@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from datetime import UTC, datetime
+from urllib.parse import urlparse
 from uuid import UUID
 
 from sqlalchemy import func
@@ -28,6 +29,7 @@ def update_company_contacts(
     *,
     phone: str | None,
     email: str | None,
+    social_links: list[tuple[str, str]] | None = None,
 ) -> Company:
     from app.discovery.normalize import normalize_email, normalize_phone
 
@@ -39,11 +41,35 @@ def update_company_contacts(
         raise DiscoveryServiceError("Inserisci un indirizzo email valido.", status_code=422)
     company.phone = normalize_phone(phone)
     company.email = normalized_email
+    if social_links is not None:
+        extra = dict(company.extra or {})
+        extra["social_links"] = _clean_social_links(social_links)
+        company.extra = extra
     if company.phone or company.email:
         company.places_checked_at = company.places_checked_at or datetime.now(UTC)
     session.commit()
     session.refresh(company)
     return company
+
+
+def _clean_social_links(links: list[tuple[str, str]]) -> list[dict[str, str]]:
+    cleaned: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for label, raw_url in links:
+        url = raw_url.strip()
+        if not url:
+            continue
+        if "://" not in url:
+            url = f"https://{url}"
+        parsed = urlparse(url)
+        if parsed.scheme not in {"http", "https"} or "." not in parsed.netloc or len(url) > 2048:
+            raise DiscoveryServiceError(f"Link social non valido: {raw_url.strip()}", status_code=422)
+        if url in seen:
+            continue
+        seen.add(url)
+        name = label.strip()[:40] or parsed.netloc.removeprefix("www.").split(".")[0].capitalize()
+        cleaned.append({"label": name, "url": url})
+    return cleaned
 
 
 def create_discovery_run(

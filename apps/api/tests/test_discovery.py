@@ -1023,3 +1023,35 @@ def test_places_enrich_moves_company_to_refactor_segment(client, db_session, mon
     assert client.post(f"/companies/{company_id}/places-enrich").status_code == 200
     assert company_id in ids("refactor")
     assert company_id not in ids("greenfield")
+
+
+def test_company_social_links_are_editable(client, db_session) -> None:
+    from app.models.entities import Company
+
+    company = Company(name="Olio", source="manual_audit", external_id="olio.it", status="discovered")
+    db_session.add(company)
+    db_session.commit()
+
+    saved = client.put(
+        f"/companies/{company.id}/contacts",
+        json={
+            "phone": None,
+            "email": None,
+            "social_links": [
+                {"label": "Instagram", "url": "instagram.com/olio"},
+                {"label": "", "url": "https://facebook.com/olio"},
+                {"label": "dup", "url": "https://facebook.com/olio"},
+            ],
+        },
+    )
+    assert saved.status_code == 200
+    assert saved.json()["social_links"] == [
+        {"label": "Instagram", "url": "https://instagram.com/olio"},
+        {"label": "Facebook", "url": "https://facebook.com/olio"},
+    ]
+    kept = client.put(f"/companies/{company.id}/contacts", json={"phone": "0123456", "email": None})
+    assert len(kept.json()["social_links"]) == 2
+    cleared = client.put(f"/companies/{company.id}/contacts", json={"social_links": []})
+    assert cleared.json()["social_links"] == []
+    bad = client.put(f"/companies/{company.id}/contacts", json={"social_links": [{"label": "x", "url": "ftp://a.b"}]})
+    assert bad.status_code == 422

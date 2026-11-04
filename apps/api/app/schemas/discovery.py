@@ -77,6 +77,7 @@ class CompanyDetail(CompanySummary):
 class CompanyContactsUpdate(BaseModel):
     phone: str | None = Field(default=None, max_length=64)
     email: str | None = Field(default=None, max_length=255)
+    social_links: list[SocialLink] | None = Field(default=None, max_length=12)
 
 
 class DiscoveryRunSummary(BaseModel):

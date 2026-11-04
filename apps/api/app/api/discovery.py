@@ -163,7 +163,17 @@ def put_company_contacts(
     if company is None:
         raise HTTPException(status_code=404, detail="Azienda non trovata.")
     try:
-        company = update_company_contacts(db, company, phone=payload.phone, email=payload.email)
+        company = update_company_contacts(
+            db,
+            company,
+            phone=payload.phone,
+            email=payload.email,
+            social_links=(
+                [(item.label, item.url) for item in payload.social_links]
+                if payload.social_links is not None
+                else None
+            ),
+        )
     except DiscoveryServiceError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return _company_detail(company)
@@ -212,7 +222,11 @@ def _website(company: Company):
 def _company_summary(company: Company) -> CompanySummary:
     website = _website(company)
     tags = _company_osm_tags(company)
-    social = social_contact_links(tags)
+    manual = (company.extra or {}).get("social_links")
+    if isinstance(manual, list):
+        social = [(str(item["label"]), str(item["url"])) for item in manual if item.get("url")]
+    else:
+        social = social_contact_links(tags)
     return CompanySummary(
         id=company.id,
         name=company.name,

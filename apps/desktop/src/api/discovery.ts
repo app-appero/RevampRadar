@@ -305,7 +305,7 @@ export async function placesEnrichCompany(id: string): Promise<CompanyDetail> {
 
 export async function updateCompanyContacts(
   id: string,
-  payload: { phone: string; email: string },
+  payload: { phone: string; email: string; social_links?: SocialLink[] },
 ): Promise<CompanyDetail> {
   let response: Response;
   try {

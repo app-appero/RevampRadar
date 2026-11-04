@@ -2,7 +2,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { ApiError } from "../api/health";
-import { fetchCompany, updateCompanyContacts } from "../api/discovery";
+import { fetchCompany, updateCompanyContacts, type SocialLink } from "../api/discovery";
 
 export function CompanyContacts({ companyId }: { companyId: string }) {
   const queryClient = useQueryClient();
@@ -13,15 +13,17 @@ export function CompanyContacts({ companyId }: { companyId: string }) {
   });
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
+  const [socials, setSocials] = useState<SocialLink[]>([]);
 
   useEffect(() => {
     if (!companyQuery.data) return;
     setPhone(companyQuery.data.phone ?? "");
     setEmail(companyQuery.data.email ?? "");
+    setSocials(companyQuery.data.social_links ?? []);
   }, [companyQuery.data]);
 
   const save = useMutation({
-    mutationFn: () => updateCompanyContacts(companyId, { phone, email }),
+    mutationFn: () => updateCompanyContacts(companyId, { phone, email, social_links: socials }),
     onSuccess: (company) => {
       queryClient.setQueryData(queryKey, company);
       void queryClient.invalidateQueries({ queryKey: ["companies"] });
@@ -81,6 +83,50 @@ export function CompanyContacts({ companyId }: { companyId: string }) {
             className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-stone-900"
           />
         </label>
+        <div className="space-y-2 sm:col-span-2">
+          <span className="text-sm font-medium text-stone-700">Social</span>
+          {socials.map((item, index) => (
+            <div key={index} className="flex gap-2">
+              <input
+                value={item.label}
+                onChange={(event) =>
+                  setSocials(socials.map((row, i) => (i === index ? { ...row, label: event.target.value } : row)))
+                }
+                maxLength={40}
+                placeholder="Facebook, Instagram…"
+                aria-label="Nome social"
+                className="w-36 rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-stone-900"
+              />
+              <input
+                value={item.url}
+                onChange={(event) =>
+                  setSocials(socials.map((row, i) => (i === index ? { ...row, url: event.target.value } : row)))
+                }
+                maxLength={2048}
+                placeholder="https://…"
+                aria-label="Link social"
+                className="min-w-0 flex-1 rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-stone-900"
+              />
+              <button
+                type="button"
+                onClick={() => setSocials(socials.filter((_, i) => i !== index))}
+                className="rounded-lg border border-stone-300 px-3 py-2 text-sm text-stone-700 hover:bg-stone-50"
+                aria-label="Rimuovi social"
+              >
+                Rimuovi
+              </button>
+            </div>
+          ))}
+          {socials.length < 12 ? (
+            <button
+              type="button"
+              onClick={() => setSocials([...socials, { label: "", url: "" }])}
+              className="rounded-lg border border-stone-300 px-3 py-1.5 text-sm text-stone-700 hover:bg-stone-50"
+            >
+              Aggiungi social
+            </button>
+          ) : null}
+        </div>
         <div className="flex flex-wrap items-center gap-3 sm:col-span-2">
           <button
             type="submit"
