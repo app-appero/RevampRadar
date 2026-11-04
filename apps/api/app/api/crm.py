@@ -1,7 +1,8 @@
 from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session
 
 from app.db import get_db
@@ -41,6 +42,7 @@ from app.services.crm_service import (
     update_opportunity,
     website_for,
 )
+from app.services.pipeline_io import PipelineImportError, build_export, import_export
 
 router = APIRouter(tags=["crm"])
 
@@ -142,6 +144,50 @@ def get_opportunities(
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     scores, growth_scores = _score_maps(db, [item.company_id for item in items])
     return [_summary(item, scores.get(item.company_id), growth_scores.get(item.company_id)) for item in items]
+
+
+@router.get("/opportunities/export")
+def export_opportunities(
+    db: Session = Depends(get_db),
+    status: str | None = None,
+    favorite: bool | None = None,
+    shortlist: bool = False,
+    q: str | None = None,
+    category: str | None = None,
+    city: str | None = None,
+    tag: str | None = None,
+    min_score: int | None = Query(default=None, ge=0, le=100),
+    priority: str | None = None,
+    segment: str | None = None,
+    contactable: bool | None = None,
+) -> dict[str, Any]:
+    """JSON completo delle aziende che rispettano i filtri correnti della Pipeline."""
+    try:
+        return build_export(
+            db,
+            status=status,
+            favorite=favorite,
+            shortlist=shortlist,
+            query=q,
+            category=category,
+            city=city,
+            tag=tag,
+            min_score=min_score,
+            priority=priority,
+            segment=segment,
+            contactable=contactable,
+        )
+    except CrmServiceError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+
+
+@router.post("/opportunities/import")
+def import_opportunities(payload: Any = Body(...), db: Session = Depends(get_db)) -> dict[str, Any]:
+    """Reimporta il JSON arricchito aggiornando le aziende indicate (mai in modo distruttivo)."""
+    try:
+        return import_export(db, payload)
+    except PipelineImportError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
 
 
 @router.get("/opportunities/categories")

@@ -11,6 +11,7 @@ import {
   type OpportunityFilters,
 } from "../api/crm";
 import { BulkEnrichPanel } from "../components/BulkEnrichPanel";
+import { PipelineJsonPanel } from "../components/PipelineJsonPanel";
 import { ConfirmDelete } from "../components/ConfirmDelete";
 import { PriorityChip } from "../components/mobile";
 import { ApiError } from "../api/health";
@@ -340,6 +341,8 @@ export function PipelinePage() {
             Nascondi incontattabili
           </label>
         </form>
+
+        <PipelineJsonPanel filters={filters} />
 
         <section className="hidden space-y-3 md:block">
           <div className="flex items-center gap-4 text-sm">

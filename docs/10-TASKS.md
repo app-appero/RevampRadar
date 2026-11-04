@@ -97,6 +97,7 @@
 - [x] M5-007 Pipeline UI
 - [x] M5-008 Filters
 - [x] M5-009 Editable company contacts and audit comparison history
+- [x] M5-010 Pipeline JSON export/import (arricchimento esterno con GPT)
 
 ## M6 — Proposal Engine
 

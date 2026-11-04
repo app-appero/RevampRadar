@@ -204,6 +204,26 @@ export async function fetchOpportunityCategories(filters: OpportunityFilters): P
   return [...groups.values()].sort((a, b) => a.label.localeCompare(b.label, "it"));
 }
 
+export type PipelineImportResult = {
+  total: number;
+  updated: number;
+  unchanged: number;
+  errors: { company: string; error: string }[];
+};
+
+// JSON completo delle aziende che rispettano i filtri correnti (per arricchimento esterno).
+export function exportOpportunities(filters: OpportunityFilters = {}): Promise<{ total: number }> {
+  return request(`/opportunities/export?${opportunityParams(filters)}`);
+}
+
+export function importOpportunities(payload: unknown): Promise<PipelineImportResult> {
+  return request("/opportunities/import", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function fetchOpportunities(filters: OpportunityFilters = {}): Promise<OpportunitySummary[]> {
   if (filters.category) {
     // Attende il controllo di compatibilita anche al ripristino di filtri salvati.

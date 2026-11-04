@@ -101,3 +101,7 @@ Il range progetto resta deterministico e visibile solo all'operatore. L'email al
 
 La mappa usa lat/lon persistiti da OpenStreetMap (nodo o `center` Overpass). I punti si colorano con l'Opportunity Score già calcolato. Il clustering è k-means non supervisionato sulle sole coordinate, in Python senza dipendenze ML: descrive gruppi spaziali (città, categoria, score medio, quota app). Non stima la probabilità che un prospect accetti. Le aziende scoperte prima della persistenza coordinate restano senza pin finché non si rilancia una discovery OSM.
 
+
+## ADR-021 — Export/import JSON della pipeline per arricchimento esterno
+
+La Pipeline esporta in JSON (`GET /opportunities/export`, stessi filtri della lista) tutto ciò che l'app sa di ogni azienda: anagrafica, contatti, social, stato CRM, preferiti, tag, note, attività, punteggi e problemi del sito. Il file può essere dato a un assistente esterno (GPT) che compila i dati mancanti. `POST /opportunities/import` aggiorna le aziende per `company_id` (fallback nome+città se univoco) in modo non distruttivo: valori vuoti non cancellano nulla, tag/social/note si aggiungono senza duplicati, lo stato passa dal normale log attività. Punteggi, audit e attività sono sola lettura nel file. Nessuna dipendenza nuova: l'import è un JSON nel body, non multipart.
