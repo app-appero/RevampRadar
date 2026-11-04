@@ -1,3 +1,5 @@
+import { useIsFetching, useQueryClient } from "@tanstack/react-query";
+import { getApiMode, remoteAvailable, setApiMode } from "../api/apiTarget";
 import { FormEvent, useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 
@@ -64,11 +66,11 @@ export function SettingsPage() {
   }
 
   return (
-    <main className="mx-auto flex max-w-5xl flex-col gap-8 px-6 py-10">
+    <main className="mx-auto flex max-w-5xl flex-col gap-8 px-4 py-6 md:px-6 md:py-10">
       <header className="space-y-2">
-        <p className="text-sm font-medium tracking-wide text-stone-500 uppercase">Profilo</p>
-        <h1 className="text-3xl font-semibold tracking-tight">Impostazioni</h1>
-        <p className="max-w-2xl text-stone-600">
+        <p className="hidden text-sm font-medium tracking-wide text-stone-500 uppercase md:block">Profilo</p>
+        <h1 className="text-[28px] leading-tight font-semibold tracking-tight md:text-3xl">Impostazioni</h1>
+        <p className="hidden max-w-2xl text-stone-600 md:block">
           Nome, sito, piattaforme freelance e social finiscono in firma nell’email
           al prospect. Il range di prezzo resta solo visibile a te, nella scheda proposta.
         </p>
@@ -82,7 +84,9 @@ export function SettingsPage() {
         </p>
       ) : null}
 
-      <form onSubmit={onSubmit} className="space-y-6 rounded-2xl border border-stone-200 bg-white p-6">
+      <BackendCard />
+
+      <form onSubmit={onSubmit} className="space-y-6 rounded-2xl border border-stone-200 bg-white p-4 md:p-6">
         <label className="block space-y-1">
           <span className="text-sm font-medium text-stone-700">Il tuo nome</span>
           <input
@@ -543,5 +547,37 @@ function SignatureToggle({
       />
       {label}
     </label>
+  );
+}
+
+/** Solo mobile: backend e aggiornamento dati (l'header mobile ha solo stato API e impostazioni, come da canvas). */
+function BackendCard() {
+  const queryClient = useQueryClient();
+  const refreshing = useIsFetching() > 0;
+  const remote = getApiMode() === "remote";
+  return (
+    <section className="space-y-3 rounded-2xl border border-stone-200 bg-white p-4 md:hidden">
+      <h2 className="text-[15px] font-semibold">Backend</h2>
+      <p className="text-sm text-stone-600">{remote ? "Backend remoto" : "Backend locale"}</p>
+      <div className="flex gap-2.5">
+        <button
+          type="button"
+          disabled={refreshing}
+          onClick={() => void queryClient.invalidateQueries()}
+          className="h-12 flex-1 rounded-xl border border-stone-400 text-[15px] font-semibold disabled:opacity-50"
+        >
+          {refreshing ? "Aggiorno…" : "Aggiorna dati"}
+        </button>
+        {remoteAvailable() ? (
+          <button
+            type="button"
+            onClick={() => setApiMode(remote ? "local" : "remote")}
+            className="h-12 flex-1 rounded-xl border border-stone-400 text-[15px] font-semibold"
+          >
+            {remote ? "Passa a locale" : "Passa a remoto"}
+          </button>
+        ) : null}
+      </div>
+    </section>
   );
 }

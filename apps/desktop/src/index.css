@@ -11,7 +11,7 @@
   --color-white: #1c1917;
   --color-stone-50: #141210;
   --color-stone-100: #292524;
-  --color-stone-200: #35302d;
+  --color-stone-200: #292524;
   --color-stone-300: #44403c;
   --color-stone-400: #78716c;
   --color-stone-500: #a8a29e;
@@ -67,4 +67,64 @@ body {
 .rr-map a {
   color: #1c1915;
   text-decoration: underline;
+}
+
+/* Mobile: touch target comodi, niente zoom automatico di iOS/Android sui campi
+   e tabelle trasformate in schede (classe rr-cards sul contenitore). */
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    min-height: 44px;
+    font-size: 16px;
+  }
+  button,
+  [role="button"] {
+    min-height: 40px;
+  }
+  .rr-cards {
+    overflow: visible;
+    border: 0;
+    background: transparent;
+  }
+  .rr-cards table,
+  .rr-cards tbody {
+    display: block;
+  }
+  .rr-cards thead {
+    display: none;
+  }
+  .rr-cards tr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem 0.5rem;
+    margin-bottom: 0.75rem;
+    padding: 0.75rem 0.5rem;
+    border: 1px solid var(--color-stone-200);
+    border-radius: 1rem;
+    background: var(--color-white);
+  }
+  .rr-cards td {
+    display: block;
+    padding: 0.125rem 0.5rem;
+  }
+  .rr-cards td.rr-check {
+    order: -2;
+    flex: 0 0 auto;
+  }
+  .rr-cards td.rr-primary {
+    order: -1;
+    flex: 1 1 calc(100% - 3rem);
+    min-width: 0;
+  }
+}
+
+@media (max-width: 767px) {
+  .overflow-x-auto {
+    scrollbar-width: none;
+  }
+  .overflow-x-auto::-webkit-scrollbar {
+    display: none;
+  }
 }

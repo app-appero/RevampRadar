@@ -132,7 +132,7 @@ export function MapPage() {
             : null;
 
   return (
-    <main className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-6 py-8">
+    <main className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 md:px-6 md:py-8">
       <header className="space-y-2">
         <PageBackLink fallback="/" label="Indietro" />
         <p className="text-sm font-medium tracking-wide text-stone-500 uppercase">Territorio</p>

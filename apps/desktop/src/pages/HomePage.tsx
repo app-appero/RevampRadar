@@ -8,12 +8,14 @@ import { fetchDashboard } from "../api/crm";
 import { ApiError } from "../api/health";
 import { deleteAllAudits, deleteAllDiscoveries, deleteAudit, deleteDiscovery } from "../api/purge";
 import { ConfirmDelete } from "../components/ConfirmDelete";
+import { PriorityChip, SiteScoreChip, formatRelativeDay } from "../components/mobile";
 
 export function HomePage() {
   const navigate = useNavigate();
   const [url, setUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [showAll, setShowAll] = useState(false);
   const auditsQuery = useQuery({
     queryKey: ["recent-audits"],
     queryFn: () => fetchRecentAudits(8),
@@ -59,13 +61,16 @@ export function HomePage() {
   const dash = dashboardQuery.data;
 
   return (
-    <main className="mx-auto flex max-w-5xl flex-col gap-10 px-6 py-12">
+    <main className="mx-auto flex max-w-5xl flex-col gap-6 md:gap-10 px-4 py-6 md:px-6 md:py-12">
       <header className="space-y-2">
-        <p className="text-sm font-medium tracking-wide text-stone-500 uppercase">
+        <p className="hidden text-sm font-medium tracking-wide text-stone-500 uppercase md:block">
           Single Website Analyzer
         </p>
-        <h1 className="text-4xl font-semibold tracking-tight">Analizza un sito</h1>
-        <p className="max-w-xl text-stone-600">
+        <h1 className="text-[28px] leading-tight font-semibold tracking-tight md:text-4xl">Analizza un sito</h1>
+        <p className="text-[15px] leading-snug text-stone-600 md:hidden">
+          Incolla un URL: misuriamo il sito e ti diciamo se vale la pena contattare l'azienda.
+        </p>
+        <p className="hidden max-w-xl text-stone-600 md:block">
           Inserisci un URL. RevampRadar produce un audit tecnico, screenshot,
           Website Score e un Opportunity Score spiegabile.
         </p>
@@ -73,7 +78,7 @@ export function HomePage() {
 
       <form
         onSubmit={(event) => void onSubmit(event)}
-        className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm"
+        className="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm md:p-6"
       >
         <label htmlFor="url" className="text-sm font-medium text-stone-700">
           URL del sito
@@ -84,17 +89,16 @@ export function HomePage() {
             name="url"
             value={url}
             onChange={(event) => setUrl(event.target.value)}
-            placeholder="es. hotel-esempio.it"
-            className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-stone-900"
+            placeholder="https://www.esempio.it"
+            className="h-12 w-full rounded-xl border border-stone-300 bg-transparent px-3.5 text-base outline-none focus:border-stone-900 md:h-auto md:rounded-lg md:py-2 md:text-sm"
             disabled={submitting}
-            autoFocus
           />
           <button
             type="submit"
             disabled={submitting || url.trim().length === 0}
-            className="rounded-lg bg-stone-900 px-4 py-2 text-sm font-medium whitespace-nowrap text-white hover:bg-stone-800 disabled:opacity-50"
+            className="h-[50px] rounded-xl bg-stone-900 px-4 text-base font-semibold whitespace-nowrap text-white hover:bg-stone-800 disabled:opacity-50 md:h-auto md:rounded-lg md:py-2 md:text-sm md:font-medium"
           >
-            {submitting ? "Avvio…" : "Avvia analisi"}
+            {submitting ? "Avvio…" : (<><span className="md:hidden">Analizza sito</span><span className="hidden md:inline">Avvia analisi</span></>)}
           </button>
         </div>
         {error ? (
@@ -103,7 +107,7 @@ export function HomePage() {
       </form>
 
       {dash ? (
-        <section className="grid gap-3 sm:grid-cols-3">
+        <section className="hidden grid-cols-3 gap-3 md:grid">
           <Stat to="/pipeline" label="Opportunità" value={dash.total} />
           <Stat to="/pipeline" label="Da contattare" value={dash.to_contact} />
           <Stat to="/pipeline" label="Alta priorità" value={dash.high_priority} />
@@ -113,9 +117,18 @@ export function HomePage() {
       <section className="grid gap-8 lg:grid-cols-2">
         <div>
           <div className="flex items-start justify-between gap-3">
-            <h2 className="text-lg font-medium">Audit recenti</h2>
+            <h2 className="text-base font-semibold md:text-lg md:font-medium">
+              <span className="md:hidden">Analisi recenti</span>
+              <span className="hidden md:inline">Audit recenti</span>
+            </h2>
+            {(auditsQuery.data?.length ?? 0) > 3 ? (
+              <button type="button" onClick={() => setShowAll((v) => !v)} className="flex min-h-11 items-center text-[13px] text-stone-600 md:hidden">
+                {showAll ? "Mostra meno" : "Vedi tutte"}
+              </button>
+            ) : null}
             {(auditsQuery.data?.length ?? 0) > 0 ? (
               <ConfirmDelete
+                className="hidden md:block"
                 label="Elimina tutti"
                 warning="Verranno eliminati TUTTI gli audit (punteggi, problemi, screenshot e proposte collegate). Le aziende restano nella pipeline."
                 requireText="ELIMINA"
@@ -124,27 +137,36 @@ export function HomePage() {
               />
             ) : null}
           </div>
-          <p className="mt-1 text-sm text-stone-500">Riprendi un’analisi senza perdere il filo.</p>
+          <p className="mt-1 hidden text-sm text-stone-500 md:block">Riprendi un’analisi senza perdere il filo.</p>
           <ul className="mt-4 space-y-2">
-            {(auditsQuery.data ?? []).map((audit) => (
-              <li key={audit.id} className="space-y-2">
+            {(auditsQuery.data ?? []).map((audit, index) => (
+              <li key={audit.id} className={`space-y-2 ${!showAll && index >= 3 ? "hidden md:block" : ""}`}>
                 <Link
                   to={`/audits/${audit.id}`}
-                  className="flex items-baseline justify-between gap-3 rounded-xl border border-stone-200 bg-white px-4 py-3 hover:border-stone-400"
+                  className="flex flex-col gap-2 rounded-xl border border-stone-200 bg-white px-4 py-3 hover:border-stone-400 md:flex-row md:items-baseline md:justify-between md:gap-3"
                 >
-                  <span>
-                    <span className="font-medium">{audit.domain}</span>
-                    <span className="ml-2 text-xs text-stone-500">
+                  <span className="flex items-baseline justify-between gap-3 md:block">
+                    <span className="text-[15px] font-semibold md:text-base md:font-medium">{audit.domain}</span>
+                    <span className="text-xs text-stone-500 md:ml-2">
                       {audit.status === "queued" || audit.status === "running"
                         ? `${audit.progress_percent ?? 0}%`
-                        : audit.status}
+                        : (
+                          <>
+                            <span className="md:hidden">{formatRelativeDay(audit.completed_at ?? audit.created_at)}</span>
+                            <span className="hidden md:inline">{audit.status}</span>
+                          </>
+                        )}
                     </span>
                   </span>
-                  <span className="text-sm text-stone-600">
+                  <span className="flex flex-wrap gap-2 md:hidden">
+                    <SiteScoreChip score={audit.website_score} />
+                    <PriorityChip priority={audit.priority} prefix="Opportunità" />
+                  </span>
+                  <span className="hidden text-sm text-stone-600 md:inline">
                     {audit.opportunity_score != null ? `Opp. ${audit.opportunity_score}` : "—"}
                   </span>
                 </Link>
-                <div className="flex justify-end">
+                <div className="hidden justify-end md:flex">
                   <ConfirmDelete
                     label="Elimina"
                     warning={`Verrà eliminato l'audit di ${audit.domain} con punteggi, problemi, screenshot e proposta.`}
@@ -159,7 +181,7 @@ export function HomePage() {
             <p className="mt-3 text-sm text-stone-500">Nessun audit ancora. Analizza un URL sopra.</p>
           ) : null}
         </div>
-        <div>
+        <div className="hidden md:block">
           <div className="flex items-start justify-between gap-3">
             <h2 className="text-lg font-medium">Discovery recenti</h2>
             {(discoveriesQuery.data?.length ?? 0) > 0 ? (
@@ -220,9 +242,9 @@ function Stat({ to, label, value }: { to: string; label: string; value: number }
   return (
     <Link
       to={to}
-      className="rounded-2xl border border-stone-200 bg-white px-4 py-3 hover:border-stone-400"
+      className="rounded-2xl border border-stone-200 bg-white px-3 py-3 hover:border-stone-400 md:px-4"
     >
-      <p className="text-xs tracking-wide text-stone-500 uppercase">{label}</p>
+      <p className="text-[11px] tracking-wide text-stone-500 uppercase md:text-xs">{label}</p>
       <p className="mt-1 text-2xl font-semibold">{value}</p>
     </Link>
   );

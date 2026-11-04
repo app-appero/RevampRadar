@@ -1,3 +1,4 @@
+import { formatRelativeDay } from "../components/mobile";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
@@ -173,13 +174,17 @@ export function AgendaPage() {
 
   const cells = useMemo(() => calendarCells(month), [month]);
   const today = new Date();
+  const todayItems = items.filter((item) => !item.is_overdue && isSameDay(new Date(item.due_at), today));
+  const upcomingItems = items.filter(
+    (item) => !item.is_overdue && !isSameDay(new Date(item.due_at), today) && new Date(item.due_at) > today,
+  );
 
   return (
-    <main className="mx-auto flex max-w-6xl flex-col gap-8 px-6 py-10">
+    <main className="mx-auto flex max-w-6xl flex-col gap-8 px-4 py-6 md:px-6 md:py-10">
       <header className="space-y-2">
-        <p className="text-sm font-medium tracking-wide text-stone-500 uppercase">CRM</p>
-        <h1 className="text-3xl font-semibold tracking-tight">Agenda</h1>
-        <p className="max-w-2xl text-stone-600">
+        <p className="hidden text-sm font-medium tracking-wide text-stone-500 uppercase md:block">CRM</p>
+        <h1 className="text-[28px] leading-tight font-semibold tracking-tight md:text-3xl">Agenda</h1>
+        <p className="hidden max-w-2xl text-stone-600 md:block">
           Pianifica richiami e meeting con le aziende in pipeline. Segna come fatto quando hai
           contattato il cliente.
         </p>
@@ -188,7 +193,7 @@ export function AgendaPage() {
       {error ? <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{error}</p> : null}
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
-        <section className="rounded-2xl border border-stone-200 bg-white p-4">
+        <section className="hidden rounded-2xl border border-stone-200 bg-white p-4 md:block">
           <div className="mb-4 flex items-center justify-between">
             <button
               type="button"
@@ -265,8 +270,8 @@ export function AgendaPage() {
 
         <section className="space-y-6">
           {overdue.length > 0 ? (
-            <div className="space-y-2">
-              <h2 className="text-sm font-medium tracking-wide text-red-700 uppercase">
+            <div className="hidden space-y-2 md:block">
+              <h2 className="text-[13px] font-semibold tracking-wide text-red-700 uppercase md:text-sm md:font-medium">
                 In ritardo ({overdue.length})
               </h2>
               <ul className="space-y-2">
@@ -283,7 +288,34 @@ export function AgendaPage() {
             </div>
           ) : null}
 
-          <div className="space-y-2">
+          <div className="space-y-5 md:hidden">
+            {[
+              { title: "In ritardo", list: overdue, tone: "late" as const },
+              { title: "Oggi", list: todayItems, tone: "today" as const },
+              { title: "Prossimi giorni", list: upcomingItems, tone: "next" as const },
+            ]
+              .filter((group) => group.tone !== "late" || group.list.length > 0)
+              .map((group) => (
+                <div key={group.title} className="space-y-2.5">
+                  <h2
+                    className={`text-[13px] font-semibold tracking-wide uppercase ${
+                      group.tone === "late" ? "text-[#fdba74]" : "text-stone-700"
+                    }`}
+                  >
+                    {group.title}
+                  </h2>
+                  {group.list.length === 0 ? (
+                    <p className="rounded-[14px] border border-dashed border-stone-300 px-4 py-5 text-center text-sm text-stone-500">
+                      Nessuna attività.
+                    </p>
+                  ) : (
+                    group.list.map((item) => <AgendaRow key={item.id} item={item} tone={group.tone} />)
+                  )}
+                </div>
+              ))}
+          </div>
+
+          <div className="hidden space-y-2 md:block">
             <h2 className="text-sm font-medium tracking-wide text-stone-500 uppercase">
               {selectedDay
                 ? selectedDay.toLocaleDateString("it-IT", {
@@ -316,7 +348,7 @@ export function AgendaPage() {
             )}
           </div>
 
-          <div className="space-y-2 border-t border-stone-200 pt-6">
+          <div className="hidden space-y-2 border-t border-stone-200 pt-6 md:block">
             <h2 className="text-sm font-medium tracking-wide text-stone-500 uppercase">
               Storico ({history.length})
             </h2>
@@ -444,5 +476,49 @@ function HistoryCard({
         </div>
       </div>
     </li>
+  );
+}
+
+function AgendaRow({ item, tone }: { item: AgendaItem; tone: "late" | "today" | "next" }) {
+  const due = new Date(item.due_at);
+  const when =
+    tone === "next"
+      ? due.toLocaleDateString("it-IT", { weekday: "short", day: "numeric" }).replace(/^./, (c) => c.toUpperCase())
+      : due.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+  const subtitle =
+    tone === "late"
+      ? `${ACTIVITY_LABELS[item.type] ?? item.type} · era previsto ${formatRelativeDay(item.due_at).toLowerCase()}`
+      : `${ACTIVITY_LABELS[item.type] ?? item.type}${item.note ? ` · ${item.note}` : ""}`;
+  return (
+    <Link
+      to={`/companies/${item.company_id}`}
+      className={`flex items-center gap-3 rounded-[14px] border bg-white px-3.5 py-3 ${
+        tone === "late" ? "border-[#7c2d12]" : "border-stone-200"
+      }`}
+    >
+      {tone !== "late" ? (
+        <span className={`w-[54px] shrink-0 font-bold ${tone === "next" ? "text-[13px] text-stone-700" : "text-[15px]"}`}>
+          {when}
+        </span>
+      ) : null}
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <strong className="truncate text-[15px]">{item.company_name}</strong>
+        <span className="truncate text-xs text-stone-600">{subtitle}</span>
+      </span>
+      <svg
+        viewBox="0 0 24 24"
+        width="18"
+        height="18"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+        className="shrink-0 text-stone-500"
+      >
+        <path d="m9 6 6 6-6 6" />
+      </svg>
+    </Link>
   );
 }

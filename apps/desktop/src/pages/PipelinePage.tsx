@@ -12,6 +12,7 @@ import {
 } from "../api/crm";
 import { BulkEnrichPanel } from "../components/BulkEnrichPanel";
 import { ConfirmDelete } from "../components/ConfirmDelete";
+import { PriorityChip } from "../components/mobile";
 import { ApiError } from "../api/health";
 import { deleteAllCompanies, deleteCompany } from "../api/purge";
 
@@ -95,6 +96,7 @@ export function PipelinePage() {
   }, [category, categoriesQuery.data, categoriesQuery.isSuccess, categoriesQuery.isFetching, setCategory]);
   // La selezione appartiene alla ricerca corrente, mai a risultati nascosti.
   const filterKey = JSON.stringify(filters);
+  const [showFilters, setShowFilters] = useState(false);
   const [selection, setSelection] = useState<{ key: string; ids: string[] }>({ key: "", ids: [] });
   if (selection.key !== filterKey) {
     setSelection({ key: filterKey, ids: [] });
@@ -118,11 +120,11 @@ export function PipelinePage() {
   });
 
   return (
-      <main className="mx-auto flex max-w-6xl flex-col gap-8 px-6 py-10">
+      <main className="mx-auto flex max-w-6xl flex-col gap-8 px-4 py-6 md:px-6 md:py-10">
         <header className="space-y-2">
-          <p className="text-sm font-medium tracking-wide text-stone-500 uppercase">CRM</p>
-          <h1 className="text-3xl font-semibold tracking-tight">Pipeline</h1>
-          <p className="max-w-2xl text-stone-600">
+          <p className="hidden text-sm font-medium tracking-wide text-stone-500 uppercase md:block">CRM</p>
+          <h1 className="text-[28px] leading-tight font-semibold tracking-tight md:text-3xl">Pipeline</h1>
+          <p className="hidden max-w-2xl text-stone-600 md:block">
             Qualifica le aziende scoperte: stato commerciale, shortlist, score e filtri.
           </p>
         </header>
@@ -134,7 +136,20 @@ export function PipelinePage() {
         ) : null}
 
         {dash ? (
-          <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <>
+          <section className="grid grid-cols-3 gap-2.5 md:hidden">
+            {[
+              { label: "Da contattare", value: dash.to_contact },
+              { label: "Contattati", value: dash.counts.contacted ?? 0 },
+              { label: "Proposte", value: dash.counts.proposal ?? 0 },
+            ].map((item) => (
+              <div key={item.label} className="rounded-[14px] border border-stone-200 bg-white p-3">
+                <div className="text-2xl font-bold tracking-tight">{item.value}</div>
+                <div className="text-xs text-stone-600">{item.label}</div>
+              </div>
+            ))}
+          </section>
+          <section className="hidden gap-3 md:grid md:grid-cols-2 lg:grid-cols-4">
             <Stat
               label="Totale"
               value={dash.total}
@@ -177,15 +192,16 @@ export function PipelinePage() {
               }}
             />
           </section>
+        </>
         ) : null}
 
-        <div className="flex flex-wrap gap-2">
+        <div className={`${showFilters ? "flex" : "hidden"} -mx-4 gap-2 overflow-x-auto px-4 md:mx-0 md:flex md:flex-wrap md:overflow-visible md:px-0`}>
           {SEGMENTS.map((item) => (
             <button
               key={item.value}
               type="button"
               onClick={() => setSegment(item.value)}
-              className={`rounded-full px-3 py-1.5 text-xs font-medium ${
+              className={`shrink-0 rounded-full px-3.5 py-2 text-[13px] font-medium md:py-1.5 md:text-xs ${
                 segment === item.value ? "bg-stone-900 text-white" : "bg-stone-100 text-stone-700 hover:bg-stone-200"
               }`}
             >
@@ -195,7 +211,20 @@ export function PipelinePage() {
         </div>
 
         {dash ? (
-          <div className="flex flex-wrap gap-2">
+          <div className="-mx-4 flex gap-2 overflow-x-auto px-4 md:mx-0 md:flex-wrap md:overflow-visible md:px-0">
+            <button
+              type="button"
+              onClick={() => {
+                setStatus("");
+                setShortlist(false);
+                setFavorite(false);
+              }}
+              className={`shrink-0 rounded-full px-3.5 py-2 text-[13px] font-medium whitespace-nowrap md:hidden ${
+                status === "" && !shortlist && !favorite ? "bg-stone-900 text-white" : "bg-stone-100 text-stone-700"
+              }`}
+            >
+              Tutte · {dash.total}
+            </button>
             {CRM_STATUSES.map((item) => (
               <button
                 key={item}
@@ -205,7 +234,7 @@ export function PipelinePage() {
                   setShortlist(false);
                   setFavorite(false);
                 }}
-                className={`rounded-full px-3 py-1 text-xs font-medium ${
+                className={`shrink-0 rounded-full px-3.5 py-2 text-[13px] font-medium whitespace-nowrap md:py-1 md:text-xs ${
                   status === item ? "bg-stone-900 text-white" : "bg-stone-100 text-stone-700 hover:bg-stone-200"
                 }`}
               >
@@ -218,7 +247,7 @@ export function PipelinePage() {
 
 
         {(dash?.total ?? 0) > 0 ? (
-          <div className="flex justify-end">
+          <div className="hidden justify-end md:flex">
             <ConfirmDelete
               label="Elimina tutta la pipeline"
               warning="Verranno eliminate TUTTE le aziende con audit, punteggi, proposte, note, attività e tutte le discovery."
@@ -236,7 +265,10 @@ export function PipelinePage() {
             <button type="button" className="ml-2 underline" onClick={() => void categoriesQuery.refetch()}>Riprova</button>
           </p>
         ) : null}
-        <form onSubmit={(event) => event.preventDefault()} className="grid gap-3 rounded-2xl border border-stone-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-4">
+        <button type="button" onClick={() => setShowFilters((v) => !v)} aria-expanded={showFilters} className="h-11 rounded-xl border border-stone-300 text-sm font-semibold text-stone-700 md:hidden">
+          {showFilters ? "Nascondi filtri" : "Filtri"}
+        </button>
+        <form onSubmit={(event) => event.preventDefault()} className={`${showFilters ? "grid" : "hidden"} gap-3 rounded-2xl border border-stone-200 bg-white p-4 sm:grid-cols-2 md:grid lg:grid-cols-4`}>
           <input
             value={q}
             onChange={(event) => setQ(event.target.value)}
@@ -309,7 +341,7 @@ export function PipelinePage() {
           </label>
         </form>
 
-        <section className="space-y-3">
+        <section className="hidden space-y-3 md:block">
           <div className="flex items-center gap-4 text-sm">
             <label className="flex items-center gap-2">
               <input type="checkbox" checked={allSelected} disabled={!rows.length || listQuery.isFetching}
@@ -332,7 +364,39 @@ export function PipelinePage() {
           })} />
         </section>
 
-        <div className="overflow-x-auto rounded-2xl border border-stone-200 bg-white">
+        <ul className="flex flex-col gap-2.5 md:hidden">
+          {rows.map((item) => {
+            const isGreenfield = item.segment === "greenfield";
+            const priority = isGreenfield ? item.growth_priority : item.priority;
+            return (
+              <li key={item.id}>
+                <Link
+                  to={`/companies/${item.company_id}`}
+                  className="flex flex-col gap-2 rounded-2xl border border-stone-200 bg-white p-3.5"
+                >
+                  <span className="flex items-center justify-between gap-2">
+                    <strong className="min-w-0 truncate text-[15px]">
+                      {item.is_favorite ? "★ " : ""}
+                      {item.company_name}
+                    </strong>
+                    <PriorityChip priority={priority} />
+                  </span>
+                  <span className="flex items-center justify-between gap-2 text-[13px] text-stone-600">
+                    <span className="truncate">
+                      {isGreenfield ? "Da creare · Nessun sito" : `Da rifare${item.website_score != null ? ` · Sito ${item.website_score}` : ""}`}
+                    </span>
+                    <span className="shrink-0 font-semibold text-stone-900">{CRM_STATUS_LABELS[item.status] ?? item.status}</span>
+                  </span>
+                </Link>
+              </li>
+            );
+          })}
+          {listQuery.isSuccess && rows.length === 0 ? (
+            <li className="px-1 py-4 text-sm text-stone-500">Nessuna opportunità con questi filtri.</li>
+          ) : null}
+        </ul>
+
+        <div className="hidden overflow-x-auto rounded-2xl md:block border border-stone-200 bg-white">
           <table className="w-full text-left text-sm">
             <thead className="bg-stone-50 text-xs tracking-wide text-stone-500 uppercase">
               <tr>
@@ -354,12 +418,12 @@ export function PipelinePage() {
                 const priority = isGreenfield ? item.growth_priority : item.priority;
                 return (
                   <tr key={item.id} className="border-t border-stone-100">
-                    <td className="px-4 py-3">
+                    <td className="rr-check px-4 py-3">
                       <input type="checkbox" aria-label={`Seleziona ${item.company_name}`}
                         checked={selectedIds.includes(item.company_id)} disabled={listQuery.isFetching}
                         onChange={(event) => toggleRow(item.company_id, event.target.checked)} />
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="rr-primary px-4 py-3">
                       <Link to={`/companies/${item.company_id}`} className="font-medium hover:underline">
                         {item.is_favorite ? "★ " : ""}
                         {item.company_name}

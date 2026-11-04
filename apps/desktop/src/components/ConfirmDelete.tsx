@@ -8,9 +8,21 @@ type Props = {
   pending?: boolean;
   /** Se presente, per confermare va digitata questa parola (per le eliminazioni totali). */
   requireText?: string;
+  /** Classi del contenitore (es. nascondere su mobile). */
+  className?: string;
 };
 
-export function ConfirmDelete({ label, warning, onConfirm, pending, requireText }: Props) {
+export function ConfirmDelete({ className, ...props }: Props) {
+  return className ? (
+    <div className={className}>
+      <ConfirmDeleteInner {...props} />
+    </div>
+  ) : (
+    <ConfirmDeleteInner {...props} />
+  );
+}
+
+function ConfirmDeleteInner({ label, warning, onConfirm, pending, requireText }: Omit<Props, "className">) {
   const [open, setOpen] = useState(false);
   const [typed, setTyped] = useState("");
   const canConfirm = !requireText || typed.trim() === requireText;

@@ -1,8 +1,10 @@
+import { useState, type ReactNode } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 
 import {
   fetchAudit,
+  type Audit,
   type AIAnalysis,
   type AuditFinding,
   type OpportunityScore,
@@ -11,6 +13,7 @@ import {
 import { fetchAuditIntelligence } from "../api/intelligence";
 import { fetchAuditProposal, generateProposal, type Proposal } from "../api/proposals";
 import { IntelligencePanel } from "../components/IntelligencePanel";
+import { formatRelativeDay, priorityLabel } from "../components/mobile";
 import { PageBackLink } from "../components/HistoryNav";
 import { ProgressBar } from "../components/ProgressBar";
 import { ProposalCard } from "../components/ProposalCard";
@@ -31,6 +34,7 @@ export function AuditPage() {
     },
   });
 
+  const [showDetails, setShowDetails] = useState(false);
   const audit = auditQuery.data;
   const inProgress = audit?.status === "queued" || audit?.status === "running";
   const proposalQuery = useQuery({
@@ -53,7 +57,7 @@ export function AuditPage() {
   });
 
   return (
-      <main className="mx-auto flex max-w-5xl flex-col gap-8 px-6 py-10">
+      <main className="mx-auto flex max-w-5xl flex-col gap-4 px-5 pt-4 pb-28 md:gap-8 md:px-6 md:py-10">
         <PageBackLink fallback="/" label="Indietro" />
 
         {auditQuery.isError ? (
@@ -68,21 +72,44 @@ export function AuditPage() {
           <>
             <header className="space-y-2">
               <div className="flex flex-wrap items-center gap-3">
-                <h1 className="text-3xl font-semibold tracking-tight">{audit.domain}</h1>
-                <StatusPill status={audit.status} />
+                <h1 className="text-[17px] font-bold tracking-tight break-all md:text-3xl md:font-semibold">{audit.domain}</h1>
+                <span className={audit.status === "completed" ? "hidden md:inline" : ""}>
+                  <StatusPill status={audit.status} />
+                </span>
               </div>
-              <p className="text-stone-600">
+              <p className="text-xs text-stone-600 md:hidden">Analizzato {formatRelativeDay(audit.completed_at ?? audit.started_at).toLowerCase()}</p>
+              <p className="hidden text-stone-600 md:block">
                 <ExternalLink href={audit.normalized_url} className="underline">
                   {audit.normalized_url}
                 </ExternalLink>
               </p>
             </header>
 
-            {audit.company_id && audit.status === "completed" ? (
-              <>
-                <CompanyContacts companyId={audit.company_id} />
-                <CompanyAuditHistory companyId={audit.company_id} currentAuditId={audit.id} />
-              </>
+            {audit.opportunity_score || audit.website_score ? (
+              <ScoresSection
+                website={audit.website_score}
+                opportunity={audit.opportunity_score}
+                ai={audit.ai_analysis}
+                showDetails={showDetails}
+                extra={
+                  <>
+                    {audit.opportunity_score && audit.opportunity_score.top_reasons.length > 0 ? (
+                      <section className="space-y-2.5 rounded-2xl border border-stone-200 bg-white p-4">
+                        <h2 className="text-[15px] font-semibold">Perché vale la pena contattarlo</h2>
+                        <ul className="space-y-2 text-sm leading-snug text-stone-800">
+                          {audit.opportunity_score.top_reasons.map((reason, index) => (
+                            <li key={index} className="flex gap-2.5">
+                              <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-800" />
+                              {reason}
+                            </li>
+                          ))}
+                        </ul>
+                      </section>
+                    ) : null}
+                    <TechChecks audit={audit} />
+                  </>
+                }
+              />
             ) : null}
 
             {inProgress ? (
@@ -99,6 +126,24 @@ export function AuditPage() {
               </p>
             ) : null}
 
+            <button
+              type="button"
+              onClick={() => setShowDetails((value) => !value)}
+              aria-expanded={showDetails}
+              className="h-12 rounded-xl border border-stone-300 text-sm font-semibold text-stone-700 md:hidden"
+            >
+              {showDetails ? "Nascondi dettagli completi" : "Mostra dettagli completi"}
+            </button>
+
+            <div className={`${showDetails ? "flex flex-col gap-8" : "hidden"} md:contents`}>
+
+            {audit.company_id && audit.status === "completed" ? (
+              <>
+                <CompanyContacts companyId={audit.company_id} />
+                <CompanyAuditHistory companyId={audit.company_id} currentAuditId={audit.id} />
+              </>
+            ) : null}
+
             {audit.screenshots.length > 0 ? (
               <ScreenshotGallery shots={audit.screenshots} />
             ) : !inProgress ? (
@@ -106,14 +151,6 @@ export function AuditPage() {
                 Nessuno screenshot. Se tra i finding c’è “Screenshot non disponibile”,
                 Chromium non era pronto: rilancia l’analisi dopo che l’API Docker è avviata.
               </p>
-            ) : null}
-
-            {audit.opportunity_score || audit.website_score ? (
-              <ScoresSection
-                website={audit.website_score}
-                opportunity={audit.opportunity_score}
-                ai={audit.ai_analysis}
-              />
             ) : null}
 
             {intelligenceQuery.data ? <IntelligencePanel data={intelligenceQuery.data} /> : null}
@@ -161,6 +198,28 @@ export function AuditPage() {
                 </ul>
               )}
             </section>
+            </div>
+
+            {audit.status === "completed" ? (
+              <div className="fixed inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-10 flex gap-2.5 border-t border-stone-200 bg-white px-5 py-3 md:hidden">
+                {audit.company_id ? (
+                  <Link
+                    to={`/companies/${audit.company_id}`}
+                    className="flex h-12 flex-1 items-center justify-center rounded-xl bg-stone-900 text-[15px] font-semibold text-white"
+                  >
+                    Scheda azienda
+                  </Link>
+                ) : null}
+                <button
+                  type="button"
+                  disabled={generate.isPending}
+                  onClick={() => generate.mutate()}
+                  className="h-12 flex-1 rounded-xl border border-stone-400 text-[15px] font-semibold text-stone-900 disabled:opacity-50"
+                >
+                  {generate.isPending ? "Genero…" : "Genera proposta"}
+                </button>
+              </div>
+            ) : null}
           </>
         ) : null}
       </main>
@@ -262,14 +321,44 @@ function ScoresSection({
   website,
   opportunity,
   ai,
+  showDetails,
+  extra,
 }: {
   website: WebsiteScore | null;
   opportunity: OpportunityScore | null;
   ai: AIAnalysis | null;
+  showDetails: boolean;
+  extra: ReactNode;
 }) {
   return (
     <section className="space-y-4">
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 md:hidden">
+        {website ? (
+          <div className="flex flex-col gap-1 rounded-2xl border border-stone-200 bg-white p-3.5">
+            <span className="text-xs font-semibold text-stone-600">Website Score</span>
+            <span className="text-4xl leading-none font-bold tracking-tight">
+              {website.overall_score}
+              <span className="text-base font-medium text-stone-500">/100</span>
+            </span>
+            <div className="mt-1.5 h-1.5 rounded-full bg-stone-200">
+              <div className="h-1.5 rounded-full bg-amber-500" style={{ width: `${Math.min(100, website.overall_score)}%` }} />
+            </div>
+            <span className="mt-1 text-xs text-stone-600">Qualità del sito</span>
+          </div>
+        ) : null}
+        {opportunity ? (
+          <div className="flex flex-col gap-1 rounded-2xl bg-emerald-100 p-3.5 text-[#ffffff]">
+            <span className="text-xs font-semibold text-emerald-800">Opportunity Score</span>
+            <span className="text-4xl leading-none font-bold tracking-tight">{priorityLabel(opportunity.priority)}</span>
+            <div className="mt-1.5 h-1.5 rounded-full bg-[#065f46]">
+              <div className="h-1.5 rounded-full bg-emerald-700" style={{ width: `${Math.min(100, opportunity.opportunity_score)}%` }} />
+            </div>
+            <span className="mt-1 text-xs text-[#d1fae5]">Valore commerciale</span>
+          </div>
+        ) : null}
+      </div>
+      <div className="space-y-4 md:hidden">{extra}</div>
+      <div className="hidden gap-4 md:grid md:grid-cols-3">
         {website ? (
           <ScoreCard
             label="Website Score"
@@ -298,7 +387,7 @@ function ScoresSection({
       </div>
 
       {opportunity ? (
-        <div className="rounded-2xl border border-stone-200 bg-white p-5">
+        <div className={`${showDetails ? "" : "hidden"} rounded-2xl border border-stone-200 bg-white p-5 md:block`}>
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="text-lg font-medium">Perché è un’opportunità</h2>
             <p className="text-xs text-stone-500">
@@ -318,7 +407,7 @@ function ScoresSection({
       ) : null}
 
       {website ? (
-        <div className="grid gap-3 sm:grid-cols-4">
+        <div className={`${showDetails ? "grid" : "hidden"} gap-3 sm:grid-cols-4 md:grid`}>
           <Metric label="Tecnica" value={String(website.technical_score)} />
           <Metric label="SEO" value={String(website.seo_score)} />
           <Metric label="Mobile" value={String(website.mobile_score)} />
@@ -514,5 +603,41 @@ function FindingCard({ finding }: { finding: AuditFinding }) {
       ) : null}
       <p className="mt-2 text-sm text-stone-800">{finding.recommendation}</p>
     </li>
+  );
+}
+
+function TechChecks({ audit }: { audit: Audit }) {
+  const website = audit.website_score;
+  const rows: { label: string; value: string; tone: "ok" | "warn" | "bad" }[] = [];
+  if (audit.http) {
+    rows.push({ label: "HTTPS", value: audit.http.https ? "OK" : "Assente", tone: audit.http.https ? "ok" : "bad" });
+    const ms = audit.http.response_time_ms;
+    if (typeof ms === "number") {
+      rows.push({ label: "Tempo risposta", value: `${(ms / 1000).toFixed(1).replace(".", ",")} s`, tone: ms > 1500 ? "warn" : "ok" });
+    }
+  }
+  if (website) {
+    rows.push({ label: "Mobile", value: `${website.mobile_score}/100`, tone: website.mobile_score < 60 ? "warn" : "ok" });
+    rows.push({ label: "SEO", value: `${website.seo_score}/100`, tone: website.seo_score < 40 ? "bad" : website.seo_score < 60 ? "warn" : "ok" });
+  }
+  if (rows.length === 0) return null;
+  const tones = {
+    ok: "bg-emerald-100 text-emerald-800",
+    warn: "bg-amber-100 text-amber-800",
+    bad: "bg-red-100 text-red-800",
+  };
+  return (
+    <section className="rounded-2xl border border-stone-200 bg-white p-4">
+      <h2 className="mb-1.5 text-[15px] font-semibold">Controlli tecnici</h2>
+      {rows.map((row, index) => (
+        <div
+          key={row.label}
+          className={`flex min-h-9 items-center justify-between text-sm ${index < rows.length - 1 ? "border-b border-stone-100" : ""}`}
+        >
+          <span>{row.label}</span>
+          <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${tones[row.tone]}`}>{row.value}</span>
+        </div>
+      ))}
+    </section>
   );
 }

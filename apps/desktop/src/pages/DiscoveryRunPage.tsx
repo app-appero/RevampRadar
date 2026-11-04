@@ -13,6 +13,7 @@ import {
   type CompanySummary,
 } from "../api/discovery";
 import { PageBackLink } from "../components/HistoryNav";
+import { PriorityChip } from "../components/mobile";
 import { ProgressBar } from "../components/ProgressBar";
 
 const PAGE_SIZE = 20;
@@ -60,7 +61,7 @@ export function DiscoveryRunPage() {
   });
 
   return (
-      <main className="mx-auto flex max-w-5xl flex-col gap-8 px-6 py-10">
+      <main className="mx-auto flex max-w-5xl flex-col gap-4 px-5 pt-4 pb-28 md:gap-8 md:px-6 md:py-10">
         <PageBackLink fallback="/discovery" label="Indietro" />
 
         {query.isError ? (
@@ -73,7 +74,7 @@ export function DiscoveryRunPage() {
           <>
             <header className="space-y-2">
               <div className="flex flex-wrap items-center gap-3">
-                <h1 className="text-3xl font-semibold tracking-tight">
+                <h1 className="text-[28px] leading-tight font-semibold tracking-tight md:text-3xl">
                   {run.industry} — {run.location}
                 </h1>
                 <span className="rounded-full bg-stone-100 px-3 py-1 text-xs font-medium text-stone-700">
@@ -172,7 +173,26 @@ function BulkScanPanel({ scan }: { scan: BulkScan }) {
       {scan.status === "failed" && scan.error_message ? (
         <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{scan.error_message}</p>
       ) : null}
-      <div className="overflow-x-auto rounded-2xl border border-stone-200 bg-white">
+      <ul className="flex flex-col gap-2.5 md:hidden">
+        {scan.items.map((item) => (
+          <li key={item.id}>
+            <Link
+              to={`/companies/${item.company_id}`}
+              className="flex items-center gap-3 rounded-[14px] border border-stone-200 bg-white px-3.5 py-3"
+            >
+              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <strong className="truncate text-[15px]">{item.company_name}</strong>
+                <span className="truncate text-xs text-stone-600">
+                  {item.domain ?? item.city ?? "—"}
+                  {item.website_score != null ? ` · Sito ${item.website_score}` : ""}
+                </span>
+              </span>
+              <PriorityChip priority={item.priority} />
+            </Link>
+          </li>
+        ))}
+      </ul>
+      <div className="hidden overflow-x-auto rounded-2xl border border-stone-200 bg-white md:block">
         <table className="w-full text-left text-sm">
           <thead className="bg-stone-50 text-xs tracking-wide text-stone-500 uppercase">
             <tr>
@@ -186,7 +206,7 @@ function BulkScanPanel({ scan }: { scan: BulkScan }) {
           <tbody>
             {scan.items.map((item) => (
               <tr key={item.id} className="border-t border-stone-100">
-                <td className="px-4 py-3">
+                <td className="rr-primary px-4 py-3">
                   <Link to={`/companies/${item.company_id}`} className="font-medium hover:underline">
                     {item.company_name}
                   </Link>
@@ -220,11 +240,11 @@ export function CompaniesPage() {
   });
 
   return (
-      <main className="mx-auto flex max-w-5xl flex-col gap-8 px-6 py-10">
+      <main className="mx-auto flex max-w-5xl flex-col gap-8 px-4 py-6 md:px-6 md:py-10">
         <PageBackLink fallback="/discovery" label="Indietro" />
         <header>
-          <h1 className="text-3xl font-semibold tracking-tight">Aziende</h1>
-          <p className="mt-1 text-sm text-stone-500">Tutte le aziende persistite dalle ricerche.</p>
+          <h1 className="text-[28px] leading-tight font-semibold tracking-tight md:text-3xl">Aziende</h1>
+          <p className="mt-1 hidden text-sm text-stone-500 md:block">Tutte le aziende persistite dalle ricerche.</p>
         </header>
         {query.isError ? (
           <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">
@@ -239,6 +259,7 @@ export function CompaniesPage() {
 function CompanyTable({ companies, empty }: { companies: CompanySummary[]; empty: boolean }) {
   const [page, setPage] = useState(1);
   const [categoryFilter, setCategoryFilter] = useState("");
+  const [segmentFilter, setSegmentFilter] = useState<"all" | "refactor" | "greenfield">("all");
   const categories = useMemo(
     () =>
       Array.from(new Set(companies.map((item) => item.category).filter((item): item is string => Boolean(item)))).sort(
@@ -246,10 +267,11 @@ function CompanyTable({ companies, empty }: { companies: CompanySummary[]; empty
       ),
     [companies],
   );
-  const filtered = useMemo(
-    () => (categoryFilter ? companies.filter((item) => item.category === categoryFilter) : companies),
-    [companies, categoryFilter],
-  );
+  const filtered = useMemo(() => {
+    const byCategory = categoryFilter ? companies.filter((item) => item.category === categoryFilter) : companies;
+    if (segmentFilter === "all") return byCategory;
+    return byCategory.filter((item) => Boolean(item.website_url || item.domain) === (segmentFilter === "refactor"));
+  }, [companies, categoryFilter, segmentFilter]);
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const current = Math.min(page, totalPages);
   const slice = useMemo(() => {
@@ -292,7 +314,54 @@ function CompanyTable({ companies, empty }: { companies: CompanySummary[]; empty
       ) : (
         <p className="text-xs text-stone-500">Nessuna azienda per questo settore.</p>
       )}
-      <div className="overflow-x-auto rounded-2xl border border-stone-200 bg-white">
+      <div className="flex gap-2 md:hidden">
+        {(
+          [
+            ["all", "Tutte"],
+            ["refactor", "Da rifare"],
+            ["greenfield", "Da creare"],
+          ] as const
+        ).map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => {
+              setSegmentFilter(value);
+              setPage(1);
+            }}
+            className={`shrink-0 rounded-full px-3.5 py-2 text-[13px] font-medium ${
+              segmentFilter === value ? "bg-stone-900 text-white" : "bg-stone-100 text-stone-700"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <ul className="flex flex-col gap-2.5 md:hidden">
+        {slice.map((company) => {
+          const hasSite = Boolean(company.website_url || company.domain);
+          return (
+            <li key={company.id}>
+              <Link
+                to={`/companies/${company.id}`}
+                className="flex items-center gap-3 rounded-[14px] border border-stone-200 bg-white px-3.5 py-3"
+              >
+                <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <strong className="truncate text-[15px]">{company.name}</strong>
+                  <span className="truncate text-xs text-stone-600">
+                    {hasSite ? (company.domain ?? company.website_url) : "Nessun sito"}
+                    {company.city ? ` · ${company.city}` : ""}
+                  </span>
+                </span>
+                <span className="shrink-0 rounded-full bg-stone-100 px-2.5 py-0.5 text-xs font-semibold text-stone-700">
+                  {hasSite ? "Da rifare" : "Da creare"}
+                </span>
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+      <div className="hidden overflow-x-auto rounded-2xl border border-stone-200 bg-white md:block">
         <table className="w-full text-left text-sm">
           <thead className="bg-stone-50 text-xs tracking-wide text-stone-500 uppercase">
             <tr>
@@ -304,7 +373,7 @@ function CompanyTable({ companies, empty }: { companies: CompanySummary[]; empty
           <tbody>
             {slice.map((company) => (
               <tr key={company.id} className="border-t border-stone-100">
-                <td className="px-4 py-3">
+                <td className="rr-primary px-4 py-3">
                   <Link to={`/companies/${company.id}`} className="font-medium hover:underline">
                     {company.name}
                   </Link>

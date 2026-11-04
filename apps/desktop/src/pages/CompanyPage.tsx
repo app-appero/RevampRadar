@@ -1,3 +1,4 @@
+import { PriorityChip, SiteScoreChip } from "../components/mobile";
 import { FormEvent, useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -22,7 +23,7 @@ import { fetchCompanyGrowthScore } from "../api/growth";
 import { generateGreenfieldProposal, generateProposal, fetchCompanyProposal } from "../api/proposals";
 import { fetchAiSettings } from "../api/settings";
 import { IntelligencePanel } from "../components/IntelligencePanel";
-import { fetchCompany, formatOsmTags, geocodeCompany, placesEnrichCompany } from "../api/discovery";
+import { fetchCompany, formatOsmTags, geocodeCompany, placesEnrichCompany, type CompanyDetail } from "../api/discovery";
 import { ProposalCard } from "../components/ProposalCard";
 import { ApiError } from "../api/health";
 import { PageBackLink } from "../components/HistoryNav";
@@ -67,6 +68,7 @@ export function CompanyPage() {
     queryKey: ["ai-settings"],
     queryFn: fetchAiSettings,
   });
+  const [showDetails, setShowDetails] = useState(false);
   const [aiDialogFor, setAiDialogFor] = useState<"refactor" | "greenfield" | null>(null);
   const analyze = useMutation({
     mutationFn: async () => {
@@ -162,6 +164,11 @@ export function CompanyPage() {
   const company = query.data;
   const opportunity = crmQuery.data;
 
+  function openDetails(targetId: string) {
+    setShowDetails(true);
+    window.setTimeout(() => document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+  }
+
   function invalidateCrm(data?: OpportunityDetail) {
     if (data) {
       queryClient.setQueryData(["company-opportunity", companyId], data);
@@ -172,7 +179,7 @@ export function CompanyPage() {
   }
 
   return (
-      <main className="mx-auto flex max-w-3xl flex-col gap-8 px-6 py-10">
+      <main className="mx-auto flex max-w-3xl flex-col gap-4 px-5 pt-4 pb-28 md:gap-8 md:px-6 md:py-10">
         <PageBackLink fallback="/pipeline" label="Indietro" />
 
         {query.isError || crmQuery.isError ? (
@@ -184,17 +191,79 @@ export function CompanyPage() {
         {company ? (
           <>
             <header className="space-y-2">
-              <p className="text-sm font-medium tracking-wide text-stone-500 uppercase">
+              <p className="hidden text-sm font-medium tracking-wide text-stone-500 uppercase md:block">
                 {opportunity
                   ? `${opportunity.is_favorite ? "★ " : ""}${CRM_STATUS_LABELS[opportunity.status] ?? opportunity.status}`
                   : company.status}
               </p>
-              <h1 className="text-3xl font-semibold tracking-tight">{company.name}</h1>
-              <p className="text-stone-600">
+              <h1 className="text-lg font-bold tracking-tight md:text-3xl md:font-semibold">{company.name}</h1>
+              <p className="text-xs text-stone-600 md:hidden">
+                {[company.category, company.city].filter(Boolean).join(" · ") || "Località non indicata"}
+              </p>
+              <p className="hidden text-stone-600 md:block">
                 {[company.city, company.region, company.country].filter(Boolean).join(" · ") || "Località non indicata"}
               </p>
             </header>
 
+            {opportunity ? (
+              <div className="flex flex-wrap gap-2 md:hidden">
+                <SiteScoreChip score={opportunity.website_score} />
+                <PriorityChip
+                  priority={opportunity.segment === "greenfield" ? opportunity.growth_priority : opportunity.priority}
+                  prefix="Opportunità"
+                />
+                <span className="inline-flex rounded-full bg-stone-100 px-2.5 py-0.5 text-xs font-semibold text-stone-700">
+                  {opportunity.segment === "greenfield" ? "Da creare" : "Da rifare"}
+                </span>
+              </div>
+            ) : null}
+
+            {opportunity ? <CrmStatusCard opportunity={opportunity} onChanged={invalidateCrm} /> : null}
+
+            <MobileContacts company={company} onEdit={() => openDetails("company-contacts")} />
+
+            <section className="space-y-2 rounded-2xl border border-stone-200 bg-white p-4 md:hidden">
+              <h2 className="text-[15px] font-semibold">Proposta</h2>
+              {proposalQuery.data ? (
+                <>
+                  <p className="text-sm leading-snug text-stone-700">
+                    Oggetto: {proposalQuery.data.email_subject}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => openDetails("company-proposal")}
+                    className="flex h-[46px] w-full items-center justify-center rounded-xl border border-stone-400 text-[15px] font-semibold"
+                  >
+                    Apri proposta
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm leading-snug text-stone-700">Nessuna proposta ancora generata.</p>
+                  {opportunity?.latest_audit_id || !company.website_url ? (
+                    <button
+                      type="button"
+                      disabled={generateProposalMut.isPending || generateGreenfieldMut.isPending}
+                      onClick={() => startGenerateProposal(company.website_url ? "refactor" : "greenfield")}
+                      className="flex h-[46px] w-full items-center justify-center rounded-xl border border-stone-400 text-[15px] font-semibold disabled:opacity-50"
+                    >
+                      {generateProposalMut.isPending || generateGreenfieldMut.isPending ? "Generazione…" : "Genera proposta"}
+                    </button>
+                  ) : null}
+                </>
+              )}
+            </section>
+
+            <button
+              type="button"
+              onClick={() => setShowDetails((value) => !value)}
+              aria-expanded={showDetails}
+              className="h-12 rounded-xl border border-stone-300 text-sm font-semibold text-stone-700 md:hidden"
+            >
+              {showDetails ? "Nascondi dettagli completi" : "Mostra dettagli completi"}
+            </button>
+
+            <div className={`${showDetails ? "flex flex-col gap-8" : "hidden"} md:contents`}>
             <section className="grid gap-4 sm:grid-cols-2">
               <Field label="Categoria" value={company.category} />
               <Field label="Tag OSM" value={formatOsmTags(company.osm_tags) || null} />
@@ -205,7 +274,9 @@ export function CompanyPage() {
               <Field label="Sito" value={company.website_url} href={company.website_url} />
               <Field label="Dominio" value={company.domain} />
             </section>
-            <CompanyContacts companyId={company.id} />
+            <div id="company-contacts">
+              <CompanyContacts companyId={company.id} />
+            </div>
             {!company.phone && !company.email && (company.social_links?.length ?? 0) > 0 ? (
               <p className="text-sm text-stone-500">
                 Nessun telefono/email su OSM: come contatto alternativo{" "}
@@ -214,7 +285,7 @@ export function CompanyPage() {
             ) : null}
 
             {opportunity ? (
-              <section className="grid gap-4 sm:grid-cols-3">
+              <section className="hidden gap-4 md:grid md:grid-cols-3">
                 <Field label="Website Score" value={opportunity.website_score?.toString()} />
                 <Field label="Opportunity Score" value={opportunity.opportunity_score?.toString()} />
                 <Field
@@ -230,10 +301,10 @@ export function CompanyPage() {
 
             {error ? <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{error}</p> : null}
 
-            <div className="flex flex-wrap gap-3">
+            <div className="grid grid-cols-1 gap-2.5 sm:flex sm:flex-wrap sm:gap-3">
               <ExternalLink
                 href={googleMapsSearchUrl(company.name, company.city, company.latitude, company.longitude)}
-                className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-800 hover:bg-stone-50"
+                className="flex min-h-12 items-center justify-center rounded-xl border border-stone-300 px-4 py-2 text-[15px] font-semibold text-stone-800 sm:min-h-0 sm:rounded-lg sm:text-sm sm:font-medium hover:bg-stone-50"
               >
                 Cerca su Google Maps
               </ExternalLink>
@@ -246,7 +317,7 @@ export function CompanyPage() {
                     placesEnrich.mutate();
                   }}
                   title="Cerca telefono e sito su Google Places e un'email pubblica sul sito aziendale"
-                  className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-800 hover:bg-stone-50 disabled:opacity-50"
+                  className="flex min-h-12 items-center justify-center rounded-xl border border-stone-300 px-4 py-2 text-[15px] font-semibold text-stone-800 sm:min-h-0 sm:rounded-lg sm:text-sm sm:font-medium hover:bg-stone-50 disabled:opacity-50"
                 >
                   {placesEnrich.isPending ? "Recupero contatti…" : "Recupera contatti"}
                 </button>
@@ -260,7 +331,7 @@ export function CompanyPage() {
                     geocode.mutate();
                   }}
                   title="Chiede a OpenStreetMap la città a partire dalle coordinate già note"
-                  className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-800 hover:bg-stone-50 disabled:opacity-50"
+                  className="flex min-h-12 items-center justify-center rounded-xl border border-stone-300 px-4 py-2 text-[15px] font-semibold text-stone-800 sm:min-h-0 sm:rounded-lg sm:text-sm sm:font-medium hover:bg-stone-50 disabled:opacity-50"
                 >
                   {geocode.isPending ? "Recupero…" : "Recupera città"}
                 </button>
@@ -272,14 +343,14 @@ export function CompanyPage() {
                   setError(null);
                   analyze.mutate();
                 }}
-                className="w-fit rounded-lg bg-stone-900 px-4 py-2 text-sm font-medium text-white hover:bg-stone-800 disabled:opacity-50"
+                className="min-h-12 w-full rounded-xl bg-stone-900 px-4 py-2 text-[15px] font-semibold text-white sm:min-h-0 sm:w-fit sm:rounded-lg sm:text-sm sm:font-medium hover:bg-stone-800 disabled:opacity-50"
               >
                 {analyze.isPending ? "Avvio…" : "Analizza sito"}
               </button>
               {opportunity?.latest_audit_id ? (
                 <Link
                   to={`/audits/${opportunity.latest_audit_id}`}
-                  className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-800 hover:bg-stone-50"
+                  className="flex min-h-12 items-center justify-center rounded-xl border border-stone-300 px-4 py-2 text-[15px] font-semibold text-stone-800 sm:min-h-0 sm:rounded-lg sm:text-sm sm:font-medium hover:bg-stone-50"
                 >
                   Apri ultimo audit
                 </Link>
@@ -289,7 +360,7 @@ export function CompanyPage() {
                   type="button"
                   disabled={generateProposalMut.isPending}
                   onClick={() => startGenerateProposal("refactor")}
-                  className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-800 hover:bg-stone-50 disabled:opacity-50"
+                  className="flex min-h-12 items-center justify-center rounded-xl border border-stone-300 px-4 py-2 text-[15px] font-semibold text-stone-800 sm:min-h-0 sm:rounded-lg sm:text-sm sm:font-medium hover:bg-stone-50 disabled:opacity-50"
                 >
                   {generateProposalMut.isPending ? "Generazione…" : "Genera proposta"}
                 </button>
@@ -306,6 +377,8 @@ export function CompanyPage() {
               ) : null}
             </div>
             {company.website_url || company.website_id ? <CompanyAuditHistory companyId={company.id} /> : null}
+
+            </div>
 
             {aiDialogFor ? (
               <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
@@ -326,7 +399,7 @@ export function CompanyPage() {
                     <button
                       type="button"
                       onClick={() => chooseAiForDialog(false)}
-                      className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-800 hover:bg-stone-50"
+                      className="flex min-h-12 items-center justify-center rounded-xl border border-stone-300 px-4 py-2 text-[15px] font-semibold text-stone-800 sm:min-h-0 sm:rounded-lg sm:text-sm sm:font-medium hover:bg-stone-50"
                     >
                       Versione di default
                     </button>
@@ -341,6 +414,7 @@ export function CompanyPage() {
                 </div>
               </div>
             ) : null}
+            <div className={`${showDetails ? "flex flex-col gap-8" : "hidden"} md:contents`}>
             {!company.website_url ? (
               <p className="text-sm text-stone-500">
                 Nessun sito collegato: non è possibile avviare l'audit. Questa azienda rientra nel segmento
@@ -379,13 +453,24 @@ export function CompanyPage() {
             {intelligenceQuery.data ? <IntelligencePanel data={intelligenceQuery.data} /> : null}
 
             {proposalQuery.data ? (
-              <section className="space-y-3">
+              <section id="company-proposal" className="space-y-3">
                 <h2 className="text-lg font-medium">Proposta commerciale</h2>
                 <ProposalCard proposal={proposalQuery.data} />
               </section>
             ) : null}
 
             {opportunity ? <CrmPanel opportunity={opportunity} onChanged={invalidateCrm} /> : null}
+            </div>
+
+            <div className="fixed inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-10 flex border-t border-stone-200 bg-white px-5 py-3 md:hidden">
+              <button
+                type="button"
+                onClick={() => openDetails("crm-attivita")}
+                className="h-12 flex-1 rounded-xl bg-stone-900 text-[15px] font-semibold text-white"
+              >
+                Pianifica follow-up
+              </button>
+            </div>
           </>
         ) : null}
       </main>
@@ -495,7 +580,7 @@ function CrmPanel({
           onClick={() =>
             mutate.mutate(() => updateOpportunity(opportunity.id, { is_favorite: !opportunity.is_favorite }))
           }
-          className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-800 hover:bg-stone-50"
+          className="flex min-h-12 items-center justify-center rounded-xl border border-stone-300 px-4 py-2 text-[15px] font-semibold text-stone-800 sm:min-h-0 sm:rounded-lg sm:text-sm sm:font-medium hover:bg-stone-50"
         >
           {opportunity.is_favorite ? "Togli dai preferiti" : "Aggiungi ai preferiti"}
         </button>
@@ -554,7 +639,7 @@ function CrmPanel({
         </ul>
       </div>
 
-      <div className="space-y-2">
+      <div id="crm-attivita" className="space-y-2">
         <h2 className="text-lg font-medium">Attività</h2>
         <div className="flex gap-2 text-sm">
           <button
@@ -707,5 +792,119 @@ function SocialLinksField({ links }: { links?: { label: string; url: string }[] 
         <p className="mt-1 text-sm font-medium">—</p>
       )}
     </div>
+  );
+}
+
+const rowIcon = {
+  width: 20,
+  height: 20,
+  viewBox: "0 0 24 24",
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 1.9,
+  strokeLinecap: "round",
+  strokeLinejoin: "round",
+  "aria-hidden": true,
+} as const;
+
+/** Mobile: stato CRM in evidenza (come da canvas). */
+function CrmStatusCard({
+  opportunity,
+  onChanged,
+}: {
+  opportunity: OpportunityDetail;
+  onChanged: (data?: OpportunityDetail) => void;
+}) {
+  const [error, setError] = useState<string | null>(null);
+  const update = useMutation({
+    mutationFn: (status: string) => updateOpportunity(opportunity.id, { status }),
+    onSuccess: (data) => {
+      setError(null);
+      onChanged(data);
+    },
+    onError: (err) => setError(err instanceof ApiError ? err.message : "Aggiornamento non riuscito."),
+  });
+  return (
+    <section className="space-y-2 rounded-2xl border border-stone-200 bg-white p-4 md:hidden">
+      <label htmlFor="stato-crm" className="text-[13px] font-semibold text-stone-700">
+        Stato CRM
+      </label>
+      <select
+        id="stato-crm"
+        value={opportunity.status}
+        disabled={update.isPending}
+        onChange={(event) => update.mutate(event.target.value)}
+        className="block h-12 w-full rounded-xl border border-stone-300 bg-white px-3 text-base"
+      >
+        {CRM_STATUSES.map((status) => (
+          <option key={status} value={status}>
+            {CRM_STATUS_LABELS[status]}
+          </option>
+        ))}
+      </select>
+      {error ? <p className="text-sm text-red-800">{error}</p> : null}
+    </section>
+  );
+}
+
+/** Mobile: contatti in righe con azione (email, telefono, social), come da canvas. */
+function MobileContacts({ company, onEdit }: { company: CompanyDetail; onEdit: () => void }) {
+  const socials = company.social_links ?? [];
+  const row = "flex min-h-12 items-center justify-between gap-2 border-b border-stone-100 last:border-b-0";
+  const action = "flex h-11 w-11 shrink-0 items-center justify-center text-stone-700";
+  return (
+    <section className="rounded-2xl border border-stone-200 bg-white p-4 md:hidden">
+      <h2 className="mb-1 text-[15px] font-semibold">Contatti</h2>
+      {company.email ? (
+        <div className={row}>
+          <div className="flex min-w-0 flex-col">
+            <span className="text-sm font-semibold">Email</span>
+            <span className="truncate text-xs text-stone-600">{company.email}</span>
+          </div>
+          <a href={`mailto:${company.email}`} aria-label="Scrivi email" className={action}>
+            <svg {...rowIcon}>
+              <rect x="3" y="5" width="18" height="14" rx="2" />
+              <path d="m3 7 9 6 9-6" />
+            </svg>
+          </a>
+        </div>
+      ) : null}
+      {company.phone ? (
+        <div className={row}>
+          <div className="flex min-w-0 flex-col">
+            <span className="text-sm font-semibold">Telefono</span>
+            <span className="truncate text-xs text-stone-600">{company.phone}</span>
+          </div>
+          <a href={`tel:${company.phone}`} aria-label="Chiama" className={action}>
+            <svg {...rowIcon}>
+              <path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z" />
+            </svg>
+          </a>
+        </div>
+      ) : null}
+      {socials.map((item) => (
+        <div key={item.url} className={row}>
+          <div className="flex min-w-0 flex-col">
+            <span className="text-sm font-semibold">{item.label || "Social"}</span>
+            <span className="truncate text-xs text-stone-600">{item.url.replace(/^https?:\/\//, "")}</span>
+          </div>
+          <button type="button" onClick={onEdit} aria-label="Modifica contatti" className={action}>
+            <svg {...rowIcon}>
+              <path d="M4 20h4L19 9l-4-4L4 16z" />
+            </svg>
+          </button>
+        </div>
+      ))}
+      {!company.email && !company.phone && socials.length === 0 ? (
+        <div className={row}>
+          <span className="text-sm text-stone-600">Nessun contatto registrato.</span>
+          <button type="button" onClick={onEdit} aria-label="Modifica contatti" className={action}>
+            <svg {...rowIcon}>
+              <path d="M4 20h4L19 9l-4-4L4 16z" />
+            </svg>
+          </button>
+        </div>
+      ) : null}
+    </section>
   );
 }
