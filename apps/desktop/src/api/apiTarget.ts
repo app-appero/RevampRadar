@@ -9,7 +9,11 @@ export function remoteAvailable(): boolean {
   return Boolean(REMOTE_URL);
 }
 
+// Su Android non esiste un backend locale: si usa sempre quello remoto.
+const IS_ANDROID = typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent);
+
 export function getApiMode(): ApiMode {
+  if (IS_ANDROID && remoteAvailable()) return "remote";
   try {
     if (remoteAvailable() && localStorage.getItem(STORAGE_KEY) === "remote") return "remote";
   } catch {

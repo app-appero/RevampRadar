@@ -1,10 +1,53 @@
 @import "tailwindcss";
 
+/*
+ * Tema scuro: Tailwind v4 espone la palette come variabili CSS, quindi
+ * invertiamo qui le scale usate (stone + colori di stato) senza toccare
+ * le classi dei componenti. Anche bg-white diventa una superficie scura
+ * e text-white il colore scuro da usare sui pulsanti chiari.
+ */
+:root {
+  color-scheme: dark;
+  --color-white: #1c1917;
+  --color-stone-50: #141210;
+  --color-stone-100: #292524;
+  --color-stone-200: #35302d;
+  --color-stone-300: #44403c;
+  --color-stone-400: #78716c;
+  --color-stone-500: #a8a29e;
+  --color-stone-600: #d6d3d1;
+  --color-stone-700: #e7e5e4;
+  --color-stone-800: #f5f5f4;
+  --color-stone-900: #fafaf9;
+  --color-red-50: #450a0a;
+  --color-red-100: #7f1d1d;
+  --color-red-200: #991b1b;
+  --color-red-300: #b91c1c;
+  --color-red-700: #fca5a5;
+  --color-red-800: #fecaca;
+  --color-red-900: #fee2e2;
+  --color-amber-50: #451a03;
+  --color-amber-100: #78350f;
+  --color-amber-200: #92400e;
+  --color-amber-700: #fcd34d;
+  --color-amber-800: #fde68a;
+  --color-amber-900: #fef3c7;
+  --color-emerald-100: #064e3b;
+  --color-emerald-700: #6ee7b7;
+  --color-emerald-800: #a7f3d0;
+  --color-sky-100: #0c4a6e;
+  --color-sky-800: #bae6fd;
+  --color-orange-100: #7c2d12;
+  --color-orange-800: #fed7aa;
+  --color-blue-50: #172554;
+  --color-blue-700: #93c5fd;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
-  background: #f4f1ea;
-  color: #1c1915;
+  background: #0c0a09;
+  color: #fafaf9;
   font-family:
     Inter,
     ui-sans-serif,
@@ -13,7 +56,7 @@ body {
 }
 
 .rr-map.leaflet-container {
-  background: #e7e5e4;
+  background: #292524;
   font-family: inherit;
 }
 

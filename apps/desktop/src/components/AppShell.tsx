@@ -26,23 +26,26 @@ export function AppShell() {
   const remote = getApiMode() === "remote";
 
   return (
-    <div className="flex min-h-screen">
-      <aside className="sticky top-0 flex h-screen w-56 shrink-0 flex-col justify-between border-r border-stone-200 bg-white px-4 py-5">
-        <div className="space-y-6">
+    <div className="flex min-h-screen flex-col md:flex-row">
+      <aside className="sticky top-0 z-10 flex w-full shrink-0 flex-col gap-3 border-b border-stone-200 bg-white px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] md:h-screen md:w-56 md:justify-between md:border-r md:border-b-0 md:py-5">
+        <div className="min-w-0 space-y-3 md:space-y-6">
           <div className="space-y-3">
             <Link to="/" className="block text-lg font-semibold tracking-tight">
               RevampRadar
             </Link>
-            <HistoryNav />
+            <span className="hidden md:block"><HistoryNav /></span>
           </div>
-          <nav className="flex flex-col gap-1 text-sm">
+          <nav
+            aria-label="Navigazione principale"
+            className="fixed inset-x-0 bottom-0 z-20 flex border-t border-stone-200 bg-white px-1 pt-1.5 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] text-[11px] md:static md:z-auto md:flex-col md:gap-1 md:border-t-0 md:bg-transparent md:p-0 md:text-sm"
+          >
             {NAV_ITEMS.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
                 end={item.end}
                 className={({ isActive }) =>
-                  `rounded-lg px-3 py-2 font-medium ${
+                  `flex min-h-11 flex-1 items-center justify-center rounded-lg px-1 text-center font-medium md:block md:flex-none md:px-3 md:py-2 md:text-left ${
                     isActive ? "bg-stone-900 text-white" : "text-stone-600 hover:bg-stone-100 hover:text-stone-900"
                   }`
                 }
@@ -53,8 +56,8 @@ export function AppShell() {
           </nav>
         </div>
 
-        <div className="space-y-3 text-xs text-stone-500">
-          <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 text-xs text-stone-500 md:block md:space-y-3">
+          <div className="flex flex-1 items-center justify-between gap-2">
             <span className="truncate" title={getApiBaseUrl()}>
               {remote ? "Backend remoto" : "Backend locale"}
             </span>
@@ -66,7 +69,7 @@ export function AppShell() {
               {connected ? "API ok" : "API"}
             </span>
           </div>
-          <p className="truncate" title={getApiBaseUrl()}>
+          <p className="hidden truncate md:block" title={getApiBaseUrl()}>
             {getApiBaseUrl()}
           </p>
           <button
@@ -74,7 +77,7 @@ export function AppShell() {
             disabled={refreshing}
             onClick={() => void queryClient.invalidateQueries()}
             title="Ricarica dal server i dati di tutte le schermate"
-            className="w-full rounded-lg border border-stone-300 px-3 py-2 font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-50"
+            className="rounded-lg border border-stone-300 px-3 py-2 font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-50 md:w-full"
           >
             {refreshing ? "Aggiorno…" : "Aggiorna"}
           </button>
@@ -83,14 +86,14 @@ export function AppShell() {
               type="button"
               onClick={() => setApiMode(remote ? "local" : "remote")}
               title="Passa tra backend locale e backend remoto (Railway)"
-              className="w-full rounded-lg border border-stone-300 px-3 py-2 font-medium text-stone-700 hover:bg-stone-50"
+              className="hidden w-full rounded-lg border border-stone-300 px-3 py-2 font-medium text-stone-700 hover:bg-stone-50 md:block"
             >
               {remote ? "Remoto → Locale" : "Locale → Remoto"}
             </button>
           ) : null}
         </div>
       </aside>
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-1 pb-20 md:pb-0">
         <Outlet />
       </div>
     </div>

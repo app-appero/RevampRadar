@@ -172,7 +172,7 @@ function BulkScanPanel({ scan }: { scan: BulkScan }) {
       {scan.status === "failed" && scan.error_message ? (
         <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{scan.error_message}</p>
       ) : null}
-      <div className="overflow-hidden rounded-2xl border border-stone-200 bg-white">
+      <div className="overflow-x-auto rounded-2xl border border-stone-200 bg-white">
         <table className="w-full text-left text-sm">
           <thead className="bg-stone-50 text-xs tracking-wide text-stone-500 uppercase">
             <tr>
@@ -292,7 +292,7 @@ function CompanyTable({ companies, empty }: { companies: CompanySummary[]; empty
       ) : (
         <p className="text-xs text-stone-500">Nessuna azienda per questo settore.</p>
       )}
-      <div className="overflow-hidden rounded-2xl border border-stone-200 bg-white">
+      <div className="overflow-x-auto rounded-2xl border border-stone-200 bg-white">
         <table className="w-full text-left text-sm">
           <thead className="bg-stone-50 text-xs tracking-wide text-stone-500 uppercase">
             <tr>

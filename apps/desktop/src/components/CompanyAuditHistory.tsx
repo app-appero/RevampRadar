@@ -106,7 +106,7 @@ function AuditScoreChart({ audits }: { audits: CompanyAuditHistoryItem[] }) {
       <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Andamento degli score negli audit">
         {[0, 50, 100].map((score) => (
           <g key={score}>
-            <line x1={left} x2={width - right} y1={y(score)} y2={y(score)} stroke="#e7e5e4" />
+            <line x1={left} x2={width - right} y1={y(score)} y2={y(score)} stroke="#44403c" />
             <text x={left - 8} y={y(score) + 4} textAnchor="end" fill="#78716c" fontSize="11">{score}</text>
           </g>
         ))}
