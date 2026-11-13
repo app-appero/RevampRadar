@@ -51,6 +51,8 @@ Website Score e Opportunity Score devono rimanere separati.
 
 Nessun login nell'uso personale iniziale.
 
+Precisazione: nessun account utente e nessuna multi-tenancy. Quando l'API è esposta online (es. istanza di sviluppo su Railway) può essere protetta con un HTTP Basic opzionale a livello di middleware (`apps/api/app/auth.py`), attivo solo se `BASIC_AUTH_USER` e `BASIC_AUTH_PASSWORD` sono configurati; `/health` e le immagini degli screenshot restano aperti. Non è un sistema di login: una sola credenziale condivisa, nessun profilo.
+
 ## ADR-010 — Provider abstraction
 
 Discovery e AI devono poter cambiare provider senza riscrivere la business logic.

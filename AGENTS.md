@@ -29,7 +29,7 @@ La documentazione del repository prevale sulle supposizioni dell'agente.
 5. Stack backend: Python + FastAPI.
 6. Database: PostgreSQL.
 7. Docker è usato per lo sviluppo locale dei servizi.
-8. Nessuna autenticazione o multi-tenancy nell'MVP.
+8. Nessun login/account utente né multi-tenancy nell'MVP (solo HTTP Basic opzionale su istanze online, vedi ADR-009).
 9. Website Score e Opportunity Score sono concetti distinti.
 10. Non usare AI per dati deterministici che possono essere misurati direttamente.
 11. Evitare over-engineering.
