@@ -105,3 +105,18 @@ La mappa usa lat/lon persistiti da OpenStreetMap (nodo o `center` Overpass). I p
 ## ADR-021 — Export/import JSON della pipeline per arricchimento esterno
 
 La Pipeline esporta in JSON (`GET /opportunities/export`, stessi filtri della lista) tutto ciò che l'app sa di ogni azienda: anagrafica, contatti, social, stato CRM, preferiti, tag, note, attività, punteggi e problemi del sito. Il file può essere dato a un assistente esterno (GPT) che compila i dati mancanti. `POST /opportunities/import` aggiorna le aziende per `company_id` (fallback nome+città se univoco) in modo non distruttivo: valori vuoti non cancellano nulla, tag/social/note si aggiungono senza duplicati, lo stato passa dal normale log attività. Punteggi, audit e attività sono sola lettura nel file. Nessuna dipendenza nuova: l'import è un JSON nel body, non multipart.
+
+## ADR-022 — Aziende CRM senza analisi
+
+Un'azienda può entrare in pipeline senza audit. `POST /companies` e
+`POST /companies/import` (solo con `create_missing: true`) persistono anagrafica
+e Opportunity e non chiamano scanner, AI, PageSpeed, Places, geocodifica o
+Discovery. Lo stato commerciale resta sull'Opportunity. Non si generano punteggi.
+
+La deduplica distingue corrispondenza certa e conflitto. Dominio condiviso,
+numero centralizzato ed email comune non fondono sedi diverse; il nome da solo
+non identifica. L'import storico (`email_sent`, `dm_sent`, `concept_sent`) registra
+l'evidenza dell'invio già avvenuto, con riferimento esterno univoco, e non spedisce
+messaggi. Una data senza orario resta una data (`occurred_on`). Stati avanzati ed
+esclusioni non vengono retrocessi a `contacted`. `POST /opportunities/import`
+continua a non creare aziende.

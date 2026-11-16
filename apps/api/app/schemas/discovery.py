@@ -52,6 +52,7 @@ class CompanySummary(BaseModel):
     category: str | None
     city: str | None
     region: str | None
+    province: str | None = None
     country: str | None
     website_url: str | None
     phone: str | None

@@ -144,10 +144,15 @@ Usato in firma email. Il range proposta resta sui record `proposals`, non va nel
 ### Activity
 
 - id
-- company_id
+- opportunity_id
 - type
 - note
-- occurred_at
+- occurred_at (solo se l'orario è noto)
+- occurred_on (solo la data, quando l'orario non è noto)
+- due_at
+- completed_at
+- channel, sender, recipient, batch_id (eventi storici già avvenuti)
+- external_ref (univoco, per non duplicare un evento al reimport)
 
 ## Vincoli
 

@@ -8,6 +8,7 @@ export type CompanySummary = {
   category: string | null;
   city: string | null;
   region: string | null;
+  province?: string | null;
   country: string | null;
   website_url: string | null;
   phone: string | null;

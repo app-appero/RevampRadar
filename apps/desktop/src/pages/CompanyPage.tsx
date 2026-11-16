@@ -201,7 +201,8 @@ export function CompanyPage() {
                 {[company.category, company.city].filter(Boolean).join(" · ") || "Località non indicata"}
               </p>
               <p className="hidden text-stone-600 md:block">
-                {[company.city, company.region, company.country].filter(Boolean).join(" · ") || "Località non indicata"}
+                {[company.city, company.province, company.region, company.country].filter(Boolean).join(" · ") ||
+                  "Località non indicata"}
               </p>
             </header>
 
@@ -266,6 +267,7 @@ export function CompanyPage() {
             <div className={`${showDetails ? "flex flex-col gap-8" : "hidden"} md:contents`}>
             <section className="grid gap-4 sm:grid-cols-2">
               <Field label="Categoria" value={company.category} />
+              <Field label="Provincia" value={company.province} />
               <Field label="Tag OSM" value={formatOsmTags(company.osm_tags) || null} />
               <Field label="Apertura (OSM)" value={company.osm_start_date} />
               <Field label="Orari (OSM)" value={company.osm_opening_hours} />
@@ -703,9 +705,10 @@ function CrmPanel({
         <ul className="space-y-2">
           {opportunity.activities.map((item) => {
             const pending = item.due_at && !item.completed_at;
+            const historical = item.type === "email_sent" || item.type === "dm_sent" || item.type === "concept_sent";
             const when = pending
               ? item.due_at
-              : item.occurred_at ?? item.completed_at ?? item.created_at;
+              : item.occurred_at ?? item.completed_at ?? (historical ? null : item.created_at);
             return (
               <li
                 key={item.id}
@@ -720,7 +723,10 @@ function CrmPanel({
                   ) : null}
                 </p>
                 {item.note ? <p className="text-stone-700">{item.note}</p> : null}
-                {when ? (
+                {item.channel ? <p className="text-xs text-stone-500">Canale: {item.channel}</p> : null}
+                {item.occurred_on && !item.occurred_at ? (
+                  <p className="mt-1 text-xs text-stone-500">{formatDateOnly(item.occurred_on)} · orario non indicato</p>
+                ) : when ? (
                   <p className="mt-1 text-xs text-stone-500">{new Date(when).toLocaleString()}</p>
                 ) : null}
               </li>
@@ -730,6 +736,12 @@ function CrmPanel({
       </div>
     </section>
   );
+}
+
+function formatDateOnly(iso: string): string {
+  const [year, month, day] = iso.slice(0, 10).split("-");
+  if (!year || !month || !day) return iso.slice(0, 10);
+  return `${day}/${month}/${year}`;
 }
 
 function googleMapsSearchUrl(

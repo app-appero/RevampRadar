@@ -1,7 +1,7 @@
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import JSON, Uuid
@@ -389,8 +389,15 @@ class Activity(Base):
     type: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
     occurred_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Data reale quando l'orario non è noto: non si scrive un'ora inventata in occurred_at.
+    occurred_on: Mapped[date | None] = mapped_column(Date, nullable=True)
     due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    channel: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    sender: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    recipient: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    batch_id: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    external_ref: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

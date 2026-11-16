@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID
 
 from pydantic import BaseModel, Field, model_validator
@@ -40,8 +40,14 @@ class ActivityResponse(BaseModel):
     type: str
     note: str | None
     occurred_at: datetime | None
+    occurred_on: date | None = None
     due_at: datetime | None
     completed_at: datetime | None
+    channel: str | None = None
+    sender: str | None = None
+    recipient: str | None = None
+    batch_id: str | None = None
+    external_ref: str | None = None
     created_at: datetime
 
 

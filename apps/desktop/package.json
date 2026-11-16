@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "lint": "eslint .",
+    "test": "node --experimental-strip-types src/components/addCompanyForm.check.ts",
     "format": "prettier --write ."
   },
   "dependencies": {

@@ -43,6 +43,9 @@ export const ACTIVITY_LABELS: Record<string, string> = {
   note: "Nota",
   other: "Altro",
   status_change: "Cambio stato",
+  email_sent: "Email inviata (storico)",
+  dm_sent: "Primo DM inviato (storico)",
+  concept_sent: "Concept inviato (storico)",
 };
 
 export type Tag = { id: string; name: string };
@@ -52,8 +55,14 @@ export type Activity = {
   type: string;
   note: string | null;
   occurred_at: string | null;
+  occurred_on?: string | null;
   due_at: string | null;
   completed_at: string | null;
+  channel?: string | null;
+  sender?: string | null;
+  recipient?: string | null;
+  batch_id?: string | null;
+  external_ref?: string | null;
   created_at: string;
 };
 
@@ -214,6 +223,63 @@ export type PipelineImportResult = {
 // JSON completo delle aziende che rispettano i filtri correnti (per arricchimento esterno).
 export function exportOpportunities(filters: OpportunityFilters = {}): Promise<{ total: number }> {
   return request(`/opportunities/export?${opportunityParams(filters)}`);
+}
+
+export type ManualCompanyResult = {
+  outcome: "created" | "existing" | "updated" | "conflict";
+  company_id: string | null;
+  opportunity_id: string | null;
+  status: string | null;
+  error: string | null;
+  warnings: string[];
+  candidates: {
+    company_id: string;
+    opportunity_id: string | null;
+    name: string;
+    city: string | null;
+    region: string | null;
+    website_url: string | null;
+    email: string | null;
+    phone: string | null;
+    reasons: string[];
+  }[];
+};
+
+export async function createManualCompany(
+  path: string,
+  method: "POST",
+  body: unknown,
+): Promise<ManualCompanyResult> {
+  if (path !== "/companies" || method !== "POST") {
+    throw new ApiError("Il salvataggio di un'azienda non passa dall'analisi.");
+  }
+  let response: Response;
+  try {
+    response = await fetch(`${getApiBaseUrl()}${path}`, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    throw new ApiError("Impossibile raggiungere il backend.");
+  }
+  let payload: ManualCompanyResult | { detail?: unknown };
+  try {
+    payload = (await response.json()) as ManualCompanyResult | { detail?: unknown };
+  } catch {
+    throw new ApiError("Risposta del backend non valida.", response.status);
+  }
+  if (response.status === 409 && payload && typeof payload === "object" && "outcome" in payload) {
+    return payload;
+  }
+  if (!response.ok) {
+    const detail =
+      payload && typeof payload === "object" && "detail" in payload && typeof payload.detail === "string"
+        ? payload.detail
+        : `Errore ${response.status}`;
+    throw new ApiError(detail, response.status);
+  }
+  return payload as ManualCompanyResult;
 }
 
 export function importOpportunities(payload: unknown): Promise<PipelineImportResult> {

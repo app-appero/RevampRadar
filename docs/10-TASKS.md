@@ -98,6 +98,7 @@
 - [x] M5-008 Filters
 - [x] M5-009 Editable company contacts and audit comparison history
 - [x] M5-010 Pipeline JSON export/import (arricchimento esterno con GPT)
+- [x] M5-011 Inserimento manuale azienda e import contatti storici, senza analisi
 
 ## M6 — Proposal Engine
 

@@ -391,11 +391,19 @@ def _sorted_activities(activities: list[Activity]) -> list[Activity]:
     pending = [item for item in activities if item.due_at is not None and item.completed_at is None]
     past = [item for item in activities if not (item.due_at is not None and item.completed_at is None)]
     pending.sort(key=lambda item: item.due_at or datetime.min.replace(tzinfo=UTC))
-    past.sort(
-        key=lambda item: item.occurred_at or item.completed_at or item.created_at,
-        reverse=True,
-    )
+    past.sort(key=_activity_moment, reverse=True)
     return pending + past
+
+
+def _activity_moment(item: Activity) -> datetime:
+    """Ordina gli eventi. La mezzanotte resta solo una chiave in memoria, non un orario salvato."""
+    if item.occurred_at is not None:
+        return item.occurred_at
+    if item.occurred_on is not None:
+        return datetime.combine(item.occurred_on, datetime.min.time(), tzinfo=UTC)
+    if item.completed_at is not None:
+        return item.completed_at
+    return item.created_at
 
 
 def _activity_response(item: Activity) -> ActivityResponse:
@@ -404,8 +412,14 @@ def _activity_response(item: Activity) -> ActivityResponse:
         type=item.type,
         note=item.note,
         occurred_at=item.occurred_at,
+        occurred_on=item.occurred_on,
         due_at=item.due_at,
         completed_at=item.completed_at,
+        channel=item.channel,
+        sender=item.sender,
+        recipient=item.recipient,
+        batch_id=item.batch_id,
+        external_ref=item.external_ref,
         created_at=item.created_at,
     )
 

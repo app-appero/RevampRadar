@@ -233,6 +233,7 @@ def _company_summary(company: Company) -> CompanySummary:
         category=company.category,
         city=company.city,
         region=company.region,
+        province=_company_province(company),
         country=company.country,
         website_url=company.website_url or (website.normalized_url if website else None),
         phone=company.phone,
@@ -248,6 +249,11 @@ def _company_summary(company: Company) -> CompanySummary:
         osm_opening_hours=tags.get("opening_hours") if tags else None,
         social_links=[SocialLink(label=label, url=url) for label, url in social],
     )
+
+
+def _company_province(company: Company) -> str | None:
+    value = (company.extra or {}).get("province")
+    return value if isinstance(value, str) and value.strip() else None
 
 
 def _company_osm_tags(company: Company) -> dict[str, str] | None:

@@ -3,6 +3,9 @@
 ## Unreleased
 
 ### Added
+- Pipeline: «Aggiungi azienda» salva l'anagrafica nel CRM (`POST /companies`) senza avviare analisi, scanner, AI o altre chiamate esterne. Sito, email e social sono facoltativi. In caso di corrispondenza certa si riapre la scheda esistente; se è ambigua non si crea né si fonde nulla.
+- Import aziende: `POST /companies/import/preview` classifica le righe senza scrivere; `POST /companies/import` con `create_missing: true` crea le mancanti con lo stesso servizio. Il vecchio `POST /opportunities/import` continua ad aggiornare solo aziende già presenti. Valori vuoti non cancellano dati; stati avanzati ed esclusioni non vengono retrocessi.
+- Storico contatti già avvenuti: attività `email_sent`, `dm_sent` e `concept_sent`, con canale, mittente, destinatario, lotto e riferimento esterno univoco. Una data senza orario non diventa un'ora inventata. Registrare l'evento non invia messaggi.
 - definizione iniziale del prodotto RevampRadar;
 - architettura desktop-first;
 - roadmap M0–M8;

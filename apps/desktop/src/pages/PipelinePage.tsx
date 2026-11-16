@@ -10,6 +10,7 @@ import {
   fetchOpportunityCategories,
   type OpportunityFilters,
 } from "../api/crm";
+import { AddCompanyPanel } from "../components/AddCompanyPanel";
 import { BulkEnrichPanel } from "../components/BulkEnrichPanel";
 import { PipelineJsonPanel } from "../components/PipelineJsonPanel";
 import { ConfirmDelete } from "../components/ConfirmDelete";
@@ -129,6 +130,8 @@ export function PipelinePage() {
             Qualifica le aziende scoperte: stato commerciale, shortlist, score e filtri.
           </p>
         </header>
+
+        <AddCompanyPanel />
 
         {dashboardQuery.isError || listQuery.isError ? (
           <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">
