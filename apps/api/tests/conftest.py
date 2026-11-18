@@ -12,6 +12,22 @@ from app.main import create_app
 from app.models import Base
 
 
+@pytest.fixture(autouse=True)
+def isolated_enrich_jobs() -> Generator[None, None, None]:
+    """I job di arricchimento vivono in un registro in memoria a livello di modulo.
+
+    Senza pulizia, i job creati da un test (es. test_bulk_enrich) restano visibili ai test
+    successivi: falsano i controlli "nessun job avviato" e il limite di un job per tipo.
+    """
+    from app.jobs.bulk_enrich import _JOBS, _LOCK
+
+    with _LOCK:
+        _JOBS.clear()
+    yield
+    with _LOCK:
+        _JOBS.clear()
+
+
 @pytest.fixture
 def sqlite_engine():
     engine = create_engine(
