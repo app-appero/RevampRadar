@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from urllib.parse import urlparse
 from uuid import UUID
 
 from sqlalchemy import func, or_
@@ -151,6 +152,7 @@ def list_opportunities(
     priority: str | None = None,
     segment: str | None = None,
     contactable: bool | None = None,
+    domain: str | None = None,
 ) -> list[Opportunity]:
     backfill_opportunities(session)
     q = (
@@ -175,9 +177,24 @@ def list_opportunities(
         q = q.filter(func.lower(Company.city).like(f"%{city.strip().lower()}%"))
     if tag:
         q = q.join(Opportunity.tag_links).join(OpportunityTag.tag).filter(Tag.name == _normalize_tag(tag))
+    wanted_domain = None
+    if domain is not None and domain.strip():
+        wanted_domain = normalize_domain(domain)
+        if wanted_domain is None:
+            raise CrmServiceError("Dominio non valido: usa la forma esempio.it.", status_code=422)
+        escaped = wanted_domain.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        # Prefiltro SQL largo, poi confronto esatto in Python sull'host (www. ignorato).
+        q = q.filter(
+            or_(
+                Company.websites.any(func.lower(Website.domain).in_([wanted_domain, f"www.{wanted_domain}"])),
+                func.lower(Company.website_url).like(f"%{escaped}%", escape="\\"),
+            )
+        )
     if segment not in (None, "all", "refactor", "greenfield"):
         raise CrmServiceError("Segmento non valido.", status_code=422)
     opportunities = q.order_by(Opportunity.updated_at.desc(), Opportunity.id).all()
+    if wanted_domain is not None:
+        opportunities = [item for item in opportunities if wanted_domain in company_domains(item.company)]
     if category:
         category_key = normalize_category(category)
         opportunities = [item for item in opportunities if normalize_category(item.company.category) == category_key]
@@ -199,6 +216,27 @@ def list_opportunities(
             filtered.append(item)
         opportunities = filtered
     return _sorted_by_score(opportunities, scores, growth_scores)
+
+
+def normalize_domain(value: str | None) -> str | None:
+    """"https://www.2-emme.com/chi-siamo" → "2-emme.com". None se non è un dominio."""
+    text = (value or "").strip().lower()
+    if not text:
+        return None
+    host = urlparse(text if "://" in text else f"http://{text}").hostname or ""
+    host = host.rstrip(".").removeprefix("www.")
+    if "." not in host or " " in host:
+        return None
+    return host
+
+
+def company_domains(company: Company | None) -> set[str]:
+    """Domini del sito dell'azienda (record Website e website_url), senza www."""
+    if company is None:
+        return set()
+    found = {normalize_domain(website.domain) for website in company.websites}
+    found.add(normalize_domain(company.website_url))
+    return {item for item in found if item}
 
 
 def dashboard(session: Session) -> dict:

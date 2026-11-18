@@ -76,6 +76,7 @@
 - [x] M3-013 Company detail
 - [x] M3-014 Ricerca per provincia: località completa, filtro sul confine, catalogo settori verificato
 - [x] M3-015 Timeout Overpass su provincia: ricerca per comuni a gruppi con ripetizione
+- [x] M3-016 Server Overpass di riserva su errori di rete e retry della discovery
 
 ## M4 — Bulk Scanner
 
@@ -105,6 +106,7 @@
 - [x] M5-012 Controllo stato di contatto per lista email (bozze esterne)
 - [x] M5-013 Alias `search` per `q` e contratto esplicito delle note (`body`)
 - [x] M5-014 Paginazione Pipeline (limit/offset, X-Total-Count), GET note, DELETE tag per nome o id
+- [x] M5-015 Filtro per dominio esatto (`domain=`) contro i duplicati
 
 ## M6 — Proposal Engine
 

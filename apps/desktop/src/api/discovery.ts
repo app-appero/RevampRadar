@@ -238,6 +238,17 @@ export async function createDiscovery(input: {
   return parseJson<DiscoveryRun>(response);
 }
 
+// Rimette in coda una discovery fallita o parziale con gli stessi parametri.
+export async function retryDiscovery(id: string): Promise<DiscoveryRun> {
+  let response: Response;
+  try {
+    response = await fetch(`${getApiBaseUrl()}/discoveries/${id}/retry`, { method: "POST" });
+  } catch {
+    throw new ApiError("Impossibile raggiungere il backend.");
+  }
+  return parseJson<DiscoveryRun>(response);
+}
+
 export type DiscoveryRunSummary = {
   id: string;
   industry: string;

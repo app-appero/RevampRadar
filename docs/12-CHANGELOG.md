@@ -3,6 +3,9 @@
 ## Unreleased
 
 ### Added
+- Discovery: server Overpass di riserva (overpass.kumi.systems, overpass.private.coffee) con ripiego automatico anche sugli errori di rete. Prima un «[Errno 101] Network is unreachable» sul primo server faceva fallire la ricerca senza provare gli altri, anche durante la ricerca per comuni. Nuovi tentativi automatici se nessun server risponde; messaggio d'errore leggibile; etichetta «Fallita · …» invece dell'ultima fase.
+- `POST /discoveries/{id}/retry` e pulsante «Riprova ricerca»: rilancia una discovery fallita, parziale o rimasta bloccata, con gli stessi parametri e senza perdere i risultati già trovati.
+- `GET /opportunities?domain=…` (anche export e faccette): dominio esatto del sito, `www.` ignorato, per controllare i duplicati prima di `POST /companies`.
 - `GET /opportunities`: paginazione con `limit` (max 1000) e `offset`, prima ignorati; header `X-Total-Count` con il totale dopo i filtri (`tag`, `q`/`search`, …). Ordine stabile con l'id come ultimo criterio, così le pagine non ripetono né saltano record.
 - `GET /opportunities/{id}/notes` (prima 405): note dalla più recente.
 - `DELETE /opportunities/{id}/tags/{tag}` documentato e utilizzabile anche con il nome del tag oltre che con l'id; toglie solo quel tag.

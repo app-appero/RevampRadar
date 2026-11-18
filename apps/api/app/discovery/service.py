@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from urllib.parse import urlparse
 from uuid import UUID
 
@@ -130,11 +130,49 @@ def execute_discovery(run_id: UUID, settings: Settings | None = None) -> None:
             run.status = "failed"
             run.error_message = str(exc)
             run.completed_at = datetime.now(UTC)
-            run.progress_label = run.progress_label or "Errore"
+            # Prima restava l'ultima fase (es. "ricerca per comuni 0/204") e sembrava bloccata.
+            stage = run.progress_label or "errore"
+            run.progress_label = stage if stage.startswith("Fallita") else f"Fallita · {stage}"[:128]
             session.commit()
         raise
     finally:
         session.close()
+
+
+RETRYABLE_STATUSES = frozenset({"failed", "partial"})
+# Una ricerca "running"/"queued" da così tanto è rimasta orfana (es. API riavviata da un deploy).
+STALE_RUN_AFTER = timedelta(minutes=30)
+
+
+def reset_discovery_for_retry(session: Session, run_id: UUID, *, now: datetime | None = None) -> DiscoveryRun:
+    """Rimette in coda una discovery fallita, parziale o bloccata, con gli stessi parametri.
+
+    I risultati già trovati restano collegati: il nuovo giro aggiunge solo le aziende mancanti.
+    """
+    run = session.get(DiscoveryRun, run_id)
+    if run is None:
+        raise DiscoveryServiceError("Discovery non trovata.", status_code=404)
+    current = now or datetime.now(UTC)
+    if run.status not in RETRYABLE_STATUSES:
+        since = run.started_at or run.created_at
+        if since is not None and since.tzinfo is None:
+            since = since.replace(tzinfo=UTC)
+        stale = run.status in {"queued", "running"} and since is not None and current - since > STALE_RUN_AFTER
+        if not stale:
+            if run.status in {"queued", "running"}:
+                raise DiscoveryServiceError("La discovery è ancora in corso.", status_code=409)
+            raise DiscoveryServiceError(
+                "La discovery è già completata: avviane una nuova per ripetere la ricerca.", status_code=409
+            )
+    run.status = "queued"
+    run.error_message = None
+    run.started_at = None
+    run.completed_at = None
+    run.progress_percent = 0
+    run.progress_label = "In coda · nuovo tentativo"
+    session.commit()
+    session.refresh(run)
+    return run
 
 
 def load_discovery_run(session: Session, run_id: UUID) -> DiscoveryRun | None:
@@ -305,7 +343,10 @@ def _run_discovery(session: Session, run: DiscoveryRun, settings: Settings) -> N
         raw_candidates = provider.search_businesses(query)
 
     _set_progress(session, run, 55, "Normalizzazione risultati")
-    persisted = 0
+    # Su un nuovo tentativo (retry) i risultati già collegati restano e contano nel totale.
+    persisted = (
+        session.query(func.count(DiscoveryResult.id)).filter(DiscoveryResult.discovery_run_id == run.id).scalar() or 0
+    )
     skipped_uncontactable = 0
     seen_company_ids: set[UUID] = set()
     for raw in raw_candidates:

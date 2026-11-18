@@ -40,10 +40,12 @@ class Settings(BaseSettings):
     anthropic_version: str = "2023-06-01"
     nominatim_url: str = "https://nominatim.openstreetmap.org"
     overpass_url: str = "https://overpass-api.de/api/interpreter"
+    # Server di riserva provati in ordine se il precedente è irraggiungibile, in timeout o in errore.
     overpass_urls: str = (
         "https://overpass-api.de/api/interpreter,"
-        "https://lz4.overpass-api.de/api/interpreter,"
-        "https://overpass.private.coffee/api/interpreter"
+        "https://overpass.kumi.systems/api/interpreter,"
+        "https://overpass.private.coffee/api/interpreter,"
+        "https://lz4.overpass-api.de/api/interpreter"
     )
     discovery_timeout_seconds: float = 60.0
     # Timeout Overpass su una provincia: ricerca per gruppi di comuni (admin_level 8).

@@ -55,6 +55,10 @@ MAX_PAGE_SIZE = 1000
 TOTAL_COUNT_HEADER = "X-Total-Count"
 _Q_DESCRIPTION = "Testo cercato nel nome dell'azienda (senza distinzione maiuscole/minuscole)."
 _TAG_DESCRIPTION = "Solo le opportunità con questo tag (nome esatto, senza distinzione maiuscole/minuscole)."
+_DOMAIN_DESCRIPTION = (
+    "Dominio esatto del sito, `www.` ignorato (es. `2-emme.com`; accetta anche un URL). "
+    "Non include sottodomini né domini più lunghi. Utile per evitare duplicati prima di `POST /companies`."
+)
 _SEARCH_DESCRIPTION = "Alias di `q`, stesso comportamento. Se sono presenti entrambi vale `q`."
 
 
@@ -156,6 +160,7 @@ def get_opportunities(
     priority: str | None = None,
     segment: str | None = None,
     contactable: bool | None = None,
+    domain: str | None = Query(default=None, description=_DOMAIN_DESCRIPTION),
     limit: int | None = Query(
         default=None,
         ge=1,
@@ -177,6 +182,7 @@ def get_opportunities(
         priority=priority,
         segment=segment,
         contactable=contactable,
+        domain=domain,
     )
     response.headers[TOTAL_COUNT_HEADER] = str(len(items))
     page = items[offset : offset + limit] if limit is not None else items[offset:]
@@ -206,6 +212,7 @@ def export_opportunities(
     priority: str | None = None,
     segment: str | None = None,
     contactable: bool | None = None,
+    domain: str | None = Query(default=None, description=_DOMAIN_DESCRIPTION),
 ) -> dict[str, Any]:
     """JSON completo delle aziende che rispettano i filtri correnti della Pipeline."""
     try:
@@ -222,6 +229,7 @@ def export_opportunities(
             priority=priority,
             segment=segment,
             contactable=contactable,
+            domain=domain,
         )
     except CrmServiceError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
@@ -265,12 +273,13 @@ def get_opportunity_categories(
     priority: str | None = None,
     segment: str | None = None,
     contactable: bool | None = None,
+    domain: str | None = Query(default=None, description=_DOMAIN_DESCRIPTION),
 ) -> list[dict]:
     # La faccetta applica tutti i filtri tranne il settore stesso.
     items = _filtered_opportunities(
         db, status=status, favorite=favorite, shortlist=shortlist, query=_text_query(q, search),
         city=city, tag=tag, min_score=min_score, priority=priority,
-        segment=segment, contactable=contactable,
+        segment=segment, contactable=contactable, domain=domain,
     )
     counts: dict[str, int] = {}
     variants: dict[str, set[str]] = {}

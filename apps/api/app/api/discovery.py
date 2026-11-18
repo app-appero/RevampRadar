@@ -16,6 +16,7 @@ from app.discovery.service import (
     list_companies,
     list_company_categories,
     load_discovery_run,
+    reset_discovery_for_retry,
     resolve_company_location,
     update_company_contacts,
 )
@@ -89,6 +90,32 @@ def post_discovery(
             extended=payload.extended,
             require_contactable=payload.require_contactable,
         )
+    except DiscoveryServiceError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    background_tasks.add_task(execute_discovery, run.id)
+    loaded = load_discovery_run(db, run.id)
+    assert loaded is not None
+    return _run_response(db, loaded)
+
+
+@router.post(
+    "/discoveries/{run_id}/retry",
+    status_code=202,
+    response_model=DiscoveryRunResponse,
+    summary="Rilancia una discovery fallita",
+    description=(
+        "Rimette in coda una discovery `failed` o `partial` (o rimasta `running`/`queued` da oltre "
+        "30 minuti, es. dopo un riavvio dell'API) con gli stessi parametri. I risultati già trovati "
+        "restano; il nuovo giro aggiunge le aziende mancanti. 409 se è completata o ancora in corso."
+    ),
+)
+def post_discovery_retry(
+    run_id: UUID,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+) -> DiscoveryRunResponse:
+    try:
+        run = reset_discovery_for_retry(db, run_id)
     except DiscoveryServiceError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     background_tasks.add_task(execute_discovery, run.id)

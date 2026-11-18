@@ -246,7 +246,7 @@ COMUNE_RESULTS = {
 
 def _split_overpass(fail_first_attempt_for: set[int], always_fail: set[int] = frozenset()):
     attempts: dict[str, int] = {}
-    endpoints = 3  # overpass_endpoints() restituisce sempre i 3 server predefiniti
+    endpoints = len(osm_module.overpass_endpoints(Settings()))  # un tentativo = tutti i server
 
     def handler(query: str):
         if "admin_level" in query:

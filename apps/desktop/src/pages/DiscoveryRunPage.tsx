@@ -7,6 +7,7 @@ import {
   fetchCompanies,
   fetchDiscovery,
   formatOsmTags,
+  retryDiscovery,
   retryFailedScan,
   startBulkScan,
   type BulkScan,
@@ -31,6 +32,12 @@ export function DiscoveryRunPage() {
   });
   const run = query.data;
   const inProgress = run?.status === "queued" || run?.status === "running";
+  const retryRun = useMutation({
+    mutationFn: () => retryDiscovery(runId!),
+    onSuccess: () => {
+      void query.refetch();
+    },
+  });
   const startScan = useMutation({
     mutationFn: () => startBulkScan(runId!),
     onSuccess: () => {
@@ -110,6 +117,27 @@ export function DiscoveryRunPage() {
               <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">
                 Discovery fallita{run.error_message ? `: ${run.error_message}` : "."}
               </p>
+            ) : null}
+
+            {run.status === "failed" || run.status === "partial" ? (
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  disabled={retryRun.isPending}
+                  onClick={() => retryRun.mutate()}
+                  className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-800 hover:bg-stone-50 disabled:opacity-50"
+                >
+                  {retryRun.isPending ? "Riavvio…" : "Riprova ricerca"}
+                </button>
+                <span className="text-xs text-stone-500">
+                  Stessi parametri; le aziende già trovate restano.
+                </span>
+                {retryRun.isError ? (
+                  <span className="text-sm text-red-700">
+                    {retryRun.error instanceof Error ? retryRun.error.message : "Riavvio non riuscito."}
+                  </span>
+                ) : null}
+              </div>
             ) : null}
 
             {(run.status === "completed" || run.status === "partial") && run.total_found > 0 ? (

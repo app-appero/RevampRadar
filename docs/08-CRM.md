@@ -231,6 +231,9 @@ dai test né inventato.
 - `GET /opportunities?q=…` cerca nel nome azienda; `search` è un alias di `q`
   (se presenti entrambi vale `q`). Vale anche per export e faccette settore.
   `?tag=lotto3-20261123` filtra per nome esatto del tag (maiuscole indifferenti).
+  `?domain=2-emme.com` filtra per dominio esatto del sito (`www.` ignorato, accetta
+  anche un URL; niente sottodomini né corrispondenze parziali): da usare prima di
+  `POST /companies` per non creare duplicati.
 - Paginazione: `limit` (1-1000) e `offset`. L'header `X-Total-Count` riporta il
   totale filtrato, non la dimensione della pagina; una pagina più corta di `limit`
   è l'ultima. Senza `limit` si ricevono tutti i record (uso del desktop). L'ordine

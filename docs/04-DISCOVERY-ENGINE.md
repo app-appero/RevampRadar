@@ -79,6 +79,24 @@ Ogni ricerca deve essere persistita con:
   (`OVERPASS_RETRY_ATTEMPTS`, default 2) e divisione dei gruppi che falliscono ancora.
   L'avanzamento mostra «ricerca per comuni N/M». Comuni senza risposta → stato `partial`.
 
+## Server Overpass e nuovi tentativi
+
+- Server provati in ordine: overpass-api.de, overpass.kumi.systems,
+  overpass.private.coffee, lz4.overpass-api.de (`OVERPASS_URLS`). Si passa al
+  successivo su errore di rete (es. «[Errno 101] Network is unreachable»), timeout o
+  errore HTTP.
+- Nella stessa ricerca si riparte dall'ultimo server che ha risposto; quelli
+  irraggiungibili vanno in fondo e non vengono richiamati solo per confermare zero
+  risultati.
+- Se tutti i server sono irraggiungibili si riprova con attesa crescente
+  (`OVERPASS_RETRY_ATTEMPTS`); poi la discovery è `failed` con un messaggio che elenca
+  i server provati. Se la rete cade durante la ricerca per comuni, si tengono i
+  risultati e la discovery è `partial`.
+- `POST /discoveries/{id}/retry` (pulsante «Riprova ricerca») rimette in coda una
+  discovery `failed` o `partial`, o rimasta `running`/`queued` da oltre 30 minuti
+  (es. API riavviata durante un deploy), con gli stessi parametri. I risultati già
+  trovati restano e contano nel totale.
+
 ## Stati
 
 - queued

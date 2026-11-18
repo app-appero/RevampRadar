@@ -4,6 +4,7 @@ import re
 import time
 from collections import deque
 from collections.abc import Callable
+from urllib.parse import urlparse
 
 import httpx
 
@@ -214,10 +215,14 @@ _SOCIAL_KEYS = (
 )
 _OSM_EXTERNAL = re.compile(r"^(node|way|relation)/(\d+)$", re.IGNORECASE)
 _OSM_REF_PREFIX = {"node": "N", "way": "W", "relation": "R"}
+# Ordine di prova. I server di riserva (kumi.systems, private.coffee) stanno su reti diverse da
+# overpass-api.de: se quello principale non è raggiungibile, lz4 (stessa infrastruttura) di solito
+# non lo è nemmeno, quindi va per ultimo.
 _DEFAULT_OVERPASS = (
     "https://overpass-api.de/api/interpreter",
-    "https://lz4.overpass-api.de/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter",
     "https://overpass.private.coffee/api/interpreter",
+    "https://lz4.overpass-api.de/api/interpreter",
 )
 
 
@@ -361,6 +366,19 @@ class OverpassTimeoutError(RuntimeError):
     """Overpass non ha completato la query in tempo (timeout HTTP, 504 o remark di timeout)."""
 
 
+class OverpassUnavailableError(RuntimeError):
+    """Nessun server Overpass raggiungibile: errori di rete (es. Errno 101) su tutti gli endpoint."""
+
+
+def _host(url: str) -> str:
+    return urlparse(url).hostname or url
+
+
+def _network_reason(exc: BaseException) -> str:
+    text = " ".join(str(exc).split()) or exc.__class__.__name__
+    return text[:160]
+
+
 _AREA_TIMEOUT_MESSAGE = (
     "La ricerca su un'area così ampia non è riuscita a completarsi nel tempo "
     "disponibile su Overpass (non è detto che non ci siano risultati). Riprova, "
@@ -383,6 +401,22 @@ class OpenStreetMapProvider:
 
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
+        # Ultimo server Overpass che ha risposto: le query successive della stessa ricerca
+        # (es. i gruppi di comuni) partono da lì invece di riprovare un server irraggiungibile.
+        self._preferred_overpass: str | None = None
+        # Server irraggiungibili in questa ricerca: provati per ultimi e saltati quando servirebbero
+        # solo a confermare un risultato vuoto.
+        self._unreachable_overpass: set[str] = set()
+
+    def _overpass_order(self) -> list[str]:
+        endpoints = overpass_endpoints(self._settings)
+        reachable = [url for url in endpoints if url not in self._unreachable_overpass]
+        down = [url for url in endpoints if url in self._unreachable_overpass]
+        ordered = reachable + down
+        if self._preferred_overpass in ordered:
+            ordered.remove(self._preferred_overpass)
+            ordered.insert(0, self._preferred_overpass)
+        return ordered
 
     def search_businesses(
         self,
@@ -399,21 +433,28 @@ class OpenStreetMapProvider:
         area = self._resolve_province_area(scope) if scope else self._resolve_area(query.location)
         fetch_limit = min(400, max(query.max_results * 2, 25))
         elements: list[dict] = []
-        overpass_error: str | None = None
+        overpass_error: RuntimeError | None = None
         stage("Query Overpass")
         # In provincia si interroga l'area del confine, non il rettangolo (bbox) che sconfina
         # nelle province vicine (es. Bergamo → Brescia).
         province_area = bool(scope and area.get("area_id"))
         search_area = {"area_id": area["area_id"]} if province_area else area
         try:
-            elements = self._overpass(search_area, tags, fetch_limit)
+            # Rete giù su tutti i server: si riprova con attesa crescente prima di arrendersi.
+            elements = self._with_retry(
+                lambda: self._overpass(search_area, tags, fetch_limit),
+                retry_on=(OverpassUnavailableError,),
+                on_retry=lambda attempt, attempts: stage(
+                    f"Overpass non raggiungibile · nuovo tentativo {attempt}/{attempts}"
+                ),
+            )
         except OverpassTimeoutError as exc:
             if province_area and scope is not None:
                 elements = self._overpass_by_comuni(area, scope, tags, fetch_limit, stage)
             else:
-                overpass_error = str(exc)
+                overpass_error = exc
         except RuntimeError as exc:
-            overpass_error = str(exc)
+            overpass_error = exc
         matched: list[DiscoveryCandidate] = []
         for item in elements:
             candidate = _from_osm(item, query.industry)
@@ -424,16 +465,19 @@ class OpenStreetMapProvider:
         found = select_candidates(matched, query)
         if found:
             return found
-        if overpass_error:
-            raise RuntimeError(overpass_error)
+        if overpass_error is not None:
+            raise overpass_error
         return []
 
     def _nominatim_get(self, params: dict) -> list[dict]:
         url = self._settings.nominatim_url.rstrip("/") + "/search"
         headers = {"User-Agent": self._settings.scanner_user_agent, "Accept": "application/json"}
         timeout = httpx.Timeout(self._settings.discovery_timeout_seconds)
-        with httpx.Client(timeout=timeout, headers=headers) as client:
-            response = client.get(url, params=params)
+        try:
+            with httpx.Client(timeout=timeout, headers=headers) as client:
+                response = client.get(url, params=params)
+        except (httpx.TransportError, OSError) as exc:
+            raise RuntimeError(f"Nominatim non raggiungibile ({_network_reason(exc)}). Riprova più tardi.") from exc
         if response.status_code >= 400:
             raise RuntimeError(f"Nominatim HTTP {response.status_code}")
         payload = response.json()
@@ -496,19 +540,39 @@ class OpenStreetMapProvider:
         return min(55, max(20, int(self._settings.discovery_timeout_seconds)))
 
     def _post_overpass(self, query: str, timeout_s: int) -> list[dict]:
+        """Prova i server Overpass in ordine; passa al successivo su rete, timeout o errore HTTP."""
         last_error: RuntimeError | None = None
         empty_ok = False
         timed_out = False
+        unreachable: list[str] = []
+        network_reason = ""
         http_timeout = httpx.Timeout(connect=10.0, read=float(timeout_s + 15), write=10.0, pool=10.0)
         headers = {"User-Agent": self._settings.scanner_user_agent}
-        for url in overpass_endpoints(self._settings):
+        endpoints = self._overpass_order()
+        first_answer: str | None = None
+        for url in endpoints:
+            if empty_ok and url in self._unreachable_overpass:
+                continue
             try:
                 with httpx.Client(timeout=http_timeout, headers=headers) as client:
                     response = client.post(url, data={"data": query})
+            except httpx.ConnectTimeout as exc:
+                unreachable.append(_host(url))
+                self._unreachable_overpass.add(url)
+                network_reason = _network_reason(exc) or "connessione scaduta"
+                continue
             except httpx.TimeoutException:
                 timed_out = True
                 last_error = OverpassTimeoutError(overpass_error_message(504, "timeout"))
                 continue
+            except (httpx.TransportError, OSError) as exc:
+                # Es. "[Errno 101] Network is unreachable": prima interrompeva tutta la ricerca
+                # senza provare i server di riserva.
+                unreachable.append(_host(url))
+                self._unreachable_overpass.add(url)
+                network_reason = _network_reason(exc)
+                continue
+            self._unreachable_overpass.discard(url)
             if response.status_code >= 400:
                 timed_out = timed_out or response.status_code == 504
                 last_error = RuntimeError(overpass_error_message(response.status_code, response.text))
@@ -520,22 +584,39 @@ class OpenStreetMapProvider:
                 continue
             elements = payload.get("elements") or []
             if elements:
+                self._preferred_overpass = url
                 return elements
             remark = str(payload.get("remark") or "").lower()
             if "timed out" in remark or "timeout" in remark:
                 timed_out = True
                 last_error = OverpassTimeoutError(_AREA_TIMEOUT_MESSAGE)
                 continue
+            # Zero risultati: si chiede conferma agli altri server raggiungibili (un mirror può
+            # non avere ancora l'area), ma il preferito resta il primo che ha risposto.
+            first_answer = first_answer or url
             empty_ok = True
         if empty_ok:
+            self._preferred_overpass = first_answer
             return []
         if last_error is not None:
             if timed_out and not isinstance(last_error, OverpassTimeoutError):
                 raise OverpassTimeoutError(str(last_error))
             raise last_error
+        if unreachable:
+            raise OverpassUnavailableError(
+                f"Overpass non raggiungibile: errore di rete su tutti i {len(endpoints)} server provati "
+                f"({', '.join(unreachable)}; ultimo errore: {network_reason}). "
+                "Riprova più tardi con «Riprova ricerca» (POST /discoveries/{id}/retry)."
+            )
         return []
 
-    def _with_retry(self, run: Callable[[], list[dict]], on_retry: Callable[[int, int], None] | None = None):
+    def _with_retry(
+        self,
+        run: Callable[[], list[dict]],
+        on_retry: Callable[[int, int], None] | None = None,
+        *,
+        retry_on: tuple[type[RuntimeError], ...] = (RuntimeError,),
+    ):
         """Ripete una query Overpass fallita con attesa crescente (2s, 4s, ...)."""
         attempts = max(1, int(self._settings.overpass_retry_attempts))
         backoff = max(0.0, float(self._settings.overpass_retry_backoff_seconds))
@@ -543,7 +624,7 @@ class OpenStreetMapProvider:
         for attempt in range(1, attempts + 1):
             try:
                 return run()
-            except RuntimeError as exc:
+            except retry_on as exc:
                 last = exc
                 if attempt < attempts:
                     if on_retry:
@@ -586,6 +667,8 @@ class OpenStreetMapProvider:
         """
         try:
             comuni = self._province_comuni(area, scope)
+        except OverpassUnavailableError:
+            raise
         except RuntimeError as exc:
             raise OverpassTimeoutError(
                 f"Overpass in timeout sulla provincia e impossibile elencarne i comuni: {exc}"
@@ -620,6 +703,18 @@ class OpenStreetMapProvider:
                     lambda query=query: self._post_overpass(query, timeout_s),
                     on_retry=lambda attempt, attempts: report(f" · nuovo tentativo {attempt}/{attempts}"),
                 )
+            except OverpassUnavailableError as exc:
+                # Rete giù anche dopo i tentativi: dividere il gruppo non servirebbe. Si chiude con
+                # quello che è stato trovato e si indicano i comuni ancora da cercare.
+                missing = len(group) + sum(len(item) for item in queue)
+                if not found and done == 0:
+                    raise
+                self.last_warning = (
+                    f"Ricerca per comuni interrotta: {done}/{total} comuni completati, {missing} da cercare. "
+                    f"{exc}"
+                )
+                report(" · interrotta (rete)")
+                return list(found.values())
             except RuntimeError:
                 if len(group) > 1:
                     half = len(group) // 2
