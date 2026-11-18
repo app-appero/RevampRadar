@@ -104,6 +104,7 @@
 - [x] M5-011 Inserimento manuale azienda e import contatti storici, senza analisi
 - [x] M5-012 Controllo stato di contatto per lista email (bozze esterne)
 - [x] M5-013 Alias `search` per `q` e contratto esplicito delle note (`body`)
+- [x] M5-014 Paginazione Pipeline (limit/offset, X-Total-Count), GET note, DELETE tag per nome o id
 
 ## M6 — Proposal Engine
 

@@ -3,6 +3,9 @@
 ## Unreleased
 
 ### Added
+- `GET /opportunities`: paginazione con `limit` (max 1000) e `offset`, prima ignorati; header `X-Total-Count` con il totale dopo i filtri (`tag`, `q`/`search`, …). Ordine stabile con l'id come ultimo criterio, così le pagine non ripetono né saltano record.
+- `GET /opportunities/{id}/notes` (prima 405): note dalla più recente.
+- `DELETE /opportunities/{id}/tags/{tag}` documentato e utilizzabile anche con il nome del tag oltre che con l'id; toglie solo quel tag.
 - Audit gratuito: `POST /audits` accetta `free_only` (default `true`, come i job automatici di bulk scan e analisi in blocco). In modalità gratuita non parte nessuna chiamata a OpenAI, Anthropic o Google (AI e PageSpeed saltati anche con le chiavi configurate); Website Score e Opportunity Score si calcolano dallo scanner HTTP/HTML/SEO e la risposta indica `ai_status: skipped_free_mode`. L'analisi lanciata a mano dal desktop invia `free_only: false` e resta completa. Migrazione `0023_audit_free_only`.
 - Discovery per provincia: la provincia (anche come sigla, es. `BG`) diventa la località «Provincia di Bergamo, Lombardia», mai la sola sigla. Overpass cerca nel confine della provincia (non nel rettangolo che sconfina) e i risultati sono filtrati sulla provincia: poligono del confine da Nominatim, poi `addr:province`, poi elenco comuni. Le aziende trovate ricevono la provincia in anagrafica. Provincia sconosciuta → 422.
 - Discovery: se Overpass va in timeout su una provincia, la ricerca continua per comuni (admin_level 8) a gruppi, con nuovo tentativo automatico, divisione dei gruppi che continuano a fallire e avanzamento «ricerca per comuni N/M». Se qualche comune non risponde la discovery è `partial` con l'elenco dei comuni mancanti (si può comunque analizzare in batch).

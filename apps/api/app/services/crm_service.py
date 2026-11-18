@@ -177,7 +177,7 @@ def list_opportunities(
         q = q.join(Opportunity.tag_links).join(OpportunityTag.tag).filter(Tag.name == _normalize_tag(tag))
     if segment not in (None, "all", "refactor", "greenfield"):
         raise CrmServiceError("Segmento non valido.", status_code=422)
-    opportunities = q.order_by(Opportunity.updated_at.desc()).all()
+    opportunities = q.order_by(Opportunity.updated_at.desc(), Opportunity.id).all()
     if category:
         category_key = normalize_category(category)
         opportunities = [item for item in opportunities if normalize_category(item.company.category) == category_key]
@@ -323,13 +323,30 @@ def add_tag(session: Session, opportunity_id: UUID, name: str) -> Opportunity:
     return loaded
 
 
-def remove_tag(session: Session, opportunity_id: UUID, tag_id: UUID) -> Opportunity:
+def list_notes(session: Session, opportunity_id: UUID) -> list[OpportunityNote]:
     opportunity = _require(session, opportunity_id)
-    link = (
-        session.query(OpportunityTag)
-        .filter_by(opportunity_id=opportunity.id, tag_id=tag_id)
-        .one_or_none()
+    return (
+        session.query(OpportunityNote)
+        .filter_by(opportunity_id=opportunity.id)
+        .order_by(OpportunityNote.created_at.desc(), OpportunityNote.id)
+        .all()
     )
+
+
+def remove_tag(session: Session, opportunity_id: UUID, tag: UUID | str) -> Opportunity:
+    """Toglie un solo tag dall'opportunità, indicato per id o per nome. Il tag resta nel catalogo."""
+    opportunity = _require(session, opportunity_id)
+    links = session.query(OpportunityTag).filter_by(opportunity_id=opportunity.id)
+    link = None
+    if isinstance(tag, UUID):
+        link = links.filter_by(tag_id=tag).one_or_none()
+    else:
+        try:
+            link = links.filter_by(tag_id=UUID(tag)).one_or_none()
+        except ValueError:
+            link = None
+        if link is None:
+            link = links.join(OpportunityTag.tag).filter(Tag.name == _normalize_tag(tag)).one_or_none()
     if link is None:
         raise CrmServiceError("Tag non trovato su questa opportunità.", status_code=404)
     session.delete(link)
@@ -552,9 +569,11 @@ def _sorted_by_score(
 ) -> list[Opportunity]:
     growth_scores = growth_scores or {}
 
-    def key(item: Opportunity) -> tuple[int, int, datetime]:
+    def key(item: Opportunity) -> tuple[int, int, datetime, str]:
         value, _ = _effective_score(item.company_id, scores, growth_scores)
-        return (0 if item.is_favorite else 1, -value, item.updated_at)
+        # L'id chiude i pareggi (es. import in blocco con lo stesso updated_at): ordine totale e
+        # stabile, necessario perché limit/offset non ripetano né saltino record.
+        return (0 if item.is_favorite else 1, -value, item.updated_at, str(item.id))
 
     return sorted(opportunities, key=key)
 

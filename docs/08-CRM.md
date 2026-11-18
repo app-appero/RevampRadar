@@ -230,8 +230,17 @@ dai test né inventato.
 
 - `GET /opportunities?q=…` cerca nel nome azienda; `search` è un alias di `q`
   (se presenti entrambi vale `q`). Vale anche per export e faccette settore.
+  `?tag=lotto3-20261123` filtra per nome esatto del tag (maiuscole indifferenti).
+- Paginazione: `limit` (1-1000) e `offset`. L'header `X-Total-Count` riporta il
+  totale filtrato, non la dimensione della pagina; una pagina più corta di `limit`
+  è l'ultima. Senza `limit` si ricevono tutti i record (uso del desktop). L'ordine
+  è stabile (preferiti, punteggio, aggiornamento, id) così le pagine non si
+  sovrappongono anche quando molti record hanno lo stesso `updated_at`.
+- `GET /opportunities/{id}/notes` restituisce le note dalla più recente.
 - `POST /opportunities/{id}/notes` vuole `{"body": "testo"}`. `content`, `text` o
   `note` restituiscono 422 con l'indicazione del campo corretto.
+- `DELETE /opportunities/{id}/tags/{tag}` toglie un solo tag da quell'opportunità;
+  `{tag}` è l'id o il nome (es. `lotto3-20261123`). 404 se il tag non c'è.
 - `POST /opportunities/contact-status` con `{"emails": [...]}` restituisce per ogni
   email stato CRM, `contacted_on` (ultimo contatto) ed evidenze. Un'email si collega
   all'azienda tramite email anagrafica, destinatario di un'attività o testo di

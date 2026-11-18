@@ -18,6 +18,7 @@ from app.schemas.crm import (
     CreateTagRequest,
     DashboardCounts,
     DashboardResponse,
+    NoteResponse,
     OpportunityDetail,
     OpportunitySummary,
     TagResponse,
@@ -38,6 +39,7 @@ from app.services.crm_service import (
     latest_scores_map,
     list_agenda,
     list_agenda_history,
+    list_notes,
     list_opportunities,
     normalize_category,
     remove_tag,
@@ -49,7 +51,10 @@ from app.services.pipeline_io import PipelineImportError, build_export, import_e
 
 router = APIRouter(tags=["crm"])
 
+MAX_PAGE_SIZE = 1000
+TOTAL_COUNT_HEADER = "X-Total-Count"
 _Q_DESCRIPTION = "Testo cercato nel nome dell'azienda (senza distinzione maiuscole/minuscole)."
+_TAG_DESCRIPTION = "Solo le opportunità con questo tag (nome esatto, senza distinzione maiuscole/minuscole)."
 _SEARCH_DESCRIPTION = "Alias di `q`, stesso comportamento. Se sono presenti entrambi vale `q`."
 
 
@@ -124,8 +129,20 @@ def get_dashboard(db: Session = Depends(get_db)) -> DashboardResponse:
     )
 
 
-@router.get("/opportunities", response_model=list[OpportunitySummary])
+@router.get(
+    "/opportunities",
+    response_model=list[OpportunitySummary],
+    summary="Elenco della Pipeline, filtrabile e paginabile",
+    description=(
+        "Ordine stabile: preferiti, poi punteggio, poi data di aggiornamento e id, così le pagine non "
+        "si sovrappongono. Paginazione con `limit` e `offset`; l'header `X-Total-Count` riporta il "
+        "totale dei record che rispettano i filtri (es. `tag`, `q`), non la dimensione della pagina. "
+        "Senza `limit` restituisce tutti i record da `offset` in poi. "
+        "Esempio: `?tag=lotto3-20261123&limit=500&offset=500`."
+    ),
+)
 def get_opportunities(
+    response: Response,
     db: Session = Depends(get_db),
     status: str | None = None,
     favorite: bool | None = None,
@@ -134,31 +151,44 @@ def get_opportunities(
     search: str | None = Query(default=None, description=_SEARCH_DESCRIPTION),
     category: str | None = None,
     city: str | None = None,
-    tag: str | None = None,
+    tag: str | None = Query(default=None, description=_TAG_DESCRIPTION),
     min_score: int | None = Query(default=None, ge=0, le=100),
     priority: str | None = None,
     segment: str | None = None,
     contactable: bool | None = None,
+    limit: int | None = Query(
+        default=None,
+        ge=1,
+        le=MAX_PAGE_SIZE,
+        description=f"Record per pagina (1-{MAX_PAGE_SIZE}). Assente = tutti.",
+    ),
+    offset: int = Query(default=0, ge=0, description="Record da saltare prima della pagina."),
 ) -> list[OpportunitySummary]:
+    items = _filtered_opportunities(
+        db,
+        status=status,
+        favorite=favorite,
+        shortlist=shortlist,
+        query=_text_query(q, search),
+        category=category,
+        city=city,
+        tag=tag,
+        min_score=min_score,
+        priority=priority,
+        segment=segment,
+        contactable=contactable,
+    )
+    response.headers[TOTAL_COUNT_HEADER] = str(len(items))
+    page = items[offset : offset + limit] if limit is not None else items[offset:]
+    scores, growth_scores = _score_maps(db, [item.company_id for item in page])
+    return [_summary(item, scores.get(item.company_id), growth_scores.get(item.company_id)) for item in page]
+
+
+def _filtered_opportunities(db: Session, **filters: Any) -> list[Opportunity]:
     try:
-        items = list_opportunities(
-            db,
-            status=status,
-            favorite=favorite,
-            shortlist=shortlist,
-            query=_text_query(q, search),
-            category=category,
-            city=city,
-            tag=tag,
-            min_score=min_score,
-            priority=priority,
-            segment=segment,
-            contactable=contactable,
-        )
+        return list_opportunities(db, **filters)
     except CrmServiceError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
-    scores, growth_scores = _score_maps(db, [item.company_id for item in items])
-    return [_summary(item, scores.get(item.company_id), growth_scores.get(item.company_id)) for item in items]
 
 
 @router.get("/opportunities/export")
@@ -237,18 +267,19 @@ def get_opportunity_categories(
     contactable: bool | None = None,
 ) -> list[dict]:
     # La faccetta applica tutti i filtri tranne il settore stesso.
-    items = get_opportunities(
-        db=db, status=status, favorite=favorite, shortlist=shortlist, q=_text_query(q, search), search=None,
-        category=None, city=city, tag=tag, min_score=min_score, priority=priority,
+    items = _filtered_opportunities(
+        db, status=status, favorite=favorite, shortlist=shortlist, query=_text_query(q, search),
+        city=city, tag=tag, min_score=min_score, priority=priority,
         segment=segment, contactable=contactable,
     )
     counts: dict[str, int] = {}
     variants: dict[str, set[str]] = {}
     for item in items:
-        key = normalize_category(item.category)
+        category = item.company.category if item.company else None
+        key = normalize_category(category)
         if key:
             counts[key] = counts.get(key, 0) + 1
-            variants.setdefault(key, set()).add(item.category)
+            variants.setdefault(key, set()).add(category)
     return [
         {"value": key, "label": key.capitalize(), "count": counts[key], "variants": sorted(variants[key])}
         for key in sorted(counts)
@@ -292,6 +323,21 @@ def patch_opportunity(
     return _detail(opportunity, scores.get(opportunity.company_id), growth_scores.get(opportunity.company_id))
 
 
+@router.get(
+    "/opportunities/{opportunity_id}/notes",
+    response_model=list[NoteResponse],
+    summary="Note dell'opportunità",
+    description="Note dalla più recente; le stesse che compaiono in `notes` di `GET /opportunities/{id}`.",
+    responses={404: {"description": "Opportunità non trovata."}},
+)
+def get_notes(opportunity_id: UUID, db: Session = Depends(get_db)) -> list[NoteResponse]:
+    try:
+        notes = list_notes(db, opportunity_id)
+    except CrmServiceError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return [NoteResponse(id=item.id, body=item.body, created_at=item.created_at) for item in notes]
+
+
 @router.post(
     "/opportunities/{opportunity_id}/notes",
     response_model=OpportunityDetail,
@@ -328,10 +374,21 @@ def post_tag(
     return _detail(opportunity, scores.get(opportunity.company_id), growth_scores.get(opportunity.company_id))
 
 
-@router.delete("/opportunities/{opportunity_id}/tags/{tag_id}", response_model=OpportunityDetail)
-def delete_tag(opportunity_id: UUID, tag_id: UUID, db: Session = Depends(get_db)) -> OpportunityDetail:
+@router.delete(
+    "/opportunities/{opportunity_id}/tags/{tag:path}",
+    response_model=OpportunityDetail,
+    summary="Toglie un singolo tag dall'opportunità",
+    description=(
+        "`tag` è l'id del tag (come in `tags[].id`) oppure il suo nome, es. "
+        "`DELETE /opportunities/{id}/tags/lotto3-20261123`. Toglie solo quel tag da questa "
+        "opportunità: gli altri tag e le altre aziende con lo stesso tag non cambiano. "
+        "Risponde con l'opportunità aggiornata; 404 se l'opportunità non esiste o non ha quel tag."
+    ),
+    responses={404: {"description": "Opportunità non trovata o tag non presente."}},
+)
+def delete_tag(opportunity_id: UUID, tag: str, db: Session = Depends(get_db)) -> OpportunityDetail:
     try:
-        opportunity = remove_tag(db, opportunity_id, tag_id)
+        opportunity = remove_tag(db, opportunity_id, tag)
     except CrmServiceError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     scores, growth_scores = _score_maps(db, [opportunity.company_id])
