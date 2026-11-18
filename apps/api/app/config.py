@@ -46,6 +46,10 @@ class Settings(BaseSettings):
         "https://overpass.private.coffee/api/interpreter"
     )
     discovery_timeout_seconds: float = 60.0
+    # Timeout Overpass su una provincia: ricerca per gruppi di comuni (admin_level 8).
+    overpass_comuni_group_size: int = 12
+    overpass_retry_attempts: int = 2
+    overpass_retry_backoff_seconds: float = 2.0
     bulk_scan_concurrency: int = 2
     bulk_scan_max_attempts: int = 2
     basic_auth_user: str = ""

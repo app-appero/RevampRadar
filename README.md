@@ -55,7 +55,7 @@ npm run dev
 
 La UI è su `http://localhost:1420`. In home analizzi un URL e riprendi audit e discovery recenti. A scansione completata vedi Website Score, Opportunity Score, screenshot, metriche di performance e Intelligence (social, App Store, SaaS/demo). Da **Discovery** cerchi aziende e lanci l’analisi in batch. Da **Mappa** vedi i pin OSM e i gruppi geografici. Da **Pipeline** gestisci stati CRM, shortlist, note e attività. Da un audit completato puoi **generare una proposta**.
 
-L'analisi qualitativa AI è opzionale. In `.env` imposta `AI_PROVIDER=claude` (default) o `openai`, e la chiave corrispondente (`ANTHROPIC_API_KEY` o `OPENAI_API_KEY`). Senza chiave, gli score deterministici vengono calcolati lo stesso.
+L'analisi qualitativa AI è opzionale. In `.env` imposta `AI_PROVIDER=claude` (default) o `openai`, e la chiave corrispondente (`ANTHROPIC_API_KEY` o `OPENAI_API_KEY`). Senza chiave, gli score deterministici vengono calcolati lo stesso. Le chiamate automatiche (`POST /audits` senza parametri, bulk scan, analisi in blocco) usano `free_only=true`: niente AI né PageSpeed anche con le chiavi configurate, risposta con `ai_status: skipped_free_mode`. L'analisi manuale dal desktop resta completa.
 
 Per la finestra nativa, dopo aver installato Rust:
 

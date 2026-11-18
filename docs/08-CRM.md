@@ -225,3 +225,18 @@ Gli UUID qui sopra sono segnaposto: quelli veri li assegna il backend al momento
 della creazione. Il lotto `lotto2-20261116-0800` è il caso da supportare (email
 e primi DM, senza concept Instagram), ma il file di quel lotto non va importato
 dai test né inventato.
+
+## API: ricerca, note e controllo contatti
+
+- `GET /opportunities?q=…` cerca nel nome azienda; `search` è un alias di `q`
+  (se presenti entrambi vale `q`). Vale anche per export e faccette settore.
+- `POST /opportunities/{id}/notes` vuole `{"body": "testo"}`. `content`, `text` o
+  `note` restituiscono 422 con l'indicazione del campo corretto.
+- `POST /opportunities/contact-status` con `{"emails": [...]}` restituisce per ogni
+  email stato CRM, `contacted_on` (ultimo contatto) ed evidenze. Un'email si collega
+  all'azienda tramite email anagrafica, destinatario di un'attività o testo di
+  note/attività. Già contattata = stato contacted o successivo, invio registrato
+  (`email_sent`, `dm_sent`, `concept_sent`, attività email svolta) o tag di invio
+  (segmento «inviato/inviata», es. `lotto2-20261116-inviato`, più eventuali
+  `contacted_tags`). Va usato prima di inviare bozze esterne (Aruba). Sola lettura.
+

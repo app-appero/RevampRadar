@@ -34,7 +34,7 @@ def create_bulk_scan(session: Session, discovery_run_id: UUID, settings: Setting
     )
     if run is None:
         raise BulkScanError("Discovery non trovata.", status_code=404)
-    if run.status != "completed":
+    if run.status not in {"completed", "partial"}:
         raise BulkScanError("La discovery deve essere completata prima della scansione in batch.", status_code=409)
 
     active = (

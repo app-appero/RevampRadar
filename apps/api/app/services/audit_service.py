@@ -4,7 +4,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from app.ai.service import ai_findings, analyze_audit
+from app.ai.service import AI_STATUS_SKIPPED_FREE_MODE, ai_findings, analyze_audit, free_mode_meta
 from app.config import Settings, get_settings
 from app.models.entities import (
     Audit,
@@ -33,7 +33,19 @@ class AuditServiceError(Exception):
         self.status_code = status_code
 
 
-def create_audit(session: Session, raw_url: str, company_id: UUID | None = None) -> Audit:
+def create_audit(
+    session: Session,
+    raw_url: str,
+    company_id: UUID | None = None,
+    *,
+    free_only: bool = True,
+) -> Audit:
+    """Crea l'audit in coda.
+
+    `free_only` (default True, usato dai job automatici: bulk scan, recuperi in blocco) salta
+    AI e PageSpeed: nessuna chiamata a OpenAI, Anthropic o Google. Gli score restano calcolati
+    dallo scanner HTTP/HTML/SEO. L'analisi manuale dal desktop passa esplicitamente False.
+    """
     try:
         normalized = normalize_url(raw_url)
     except UrlValidationError as exc:
@@ -57,6 +69,7 @@ def create_audit(session: Session, raw_url: str, company_id: UUID | None = None)
         scanner_version=SCANNER_VERSION,
         progress_percent=0,
         progress_label="In coda",
+        free_only=free_only,
     )
     session.add(audit)
     session.commit()
@@ -149,6 +162,7 @@ def _set_progress(session: Session, audit: Audit, percent: int, label: str) -> N
 
 
 def _run_scan(session: Session, audit: Audit, website: Website, settings: Settings) -> None:
+    free_only = bool(audit.free_only)
     _set_progress(session, audit, 10, "Richiesta HTTP")
     http_result = scan_http(website.normalized_url, settings)
     audit.http_data = http_result.to_dict()
@@ -204,22 +218,33 @@ def _run_scan(session: Session, audit: Audit, website: Website, settings: Settin
                     file_path=shot["file_path"],
                 )
             )
-        _set_progress(session, audit, 72, "PageSpeed")
-        pagespeed = fetch_pagespeed(target_url, settings)
-        if pagespeed:
-            performance["pagespeed"] = pagespeed
+        if free_only:
+            # Nessuna chiamata a Google: lo score performance usa i tempi del browser.
+            performance["pagespeed"] = {
+                "ok": False,
+                "status": AI_STATUS_SKIPPED_FREE_MODE,
+                "error": AI_STATUS_SKIPPED_FREE_MODE,
+            }
+        else:
+            _set_progress(session, audit, 72, "PageSpeed")
+            pagespeed = fetch_pagespeed(target_url, settings)
+            if pagespeed:
+                performance["pagespeed"] = pagespeed
         audit.performance_data = performance
 
-    _set_progress(session, audit, 80, "Analisi AI")
-    ai_result, ai_meta = analyze_audit(
-        settings=settings,
-        url=target_url,
-        http=audit.http_data,
-        html=audit.html_data,
-        seo=audit.seo_data,
-        findings=findings,
-        screenshot_devices=screenshot_devices,
-    )
+    if free_only:
+        ai_result, ai_meta = None, free_mode_meta()
+    else:
+        _set_progress(session, audit, 80, "Analisi AI")
+        ai_result, ai_meta = analyze_audit(
+            settings=settings,
+            url=target_url,
+            http=audit.http_data,
+            html=audit.html_data,
+            seo=audit.seo_data,
+            findings=findings,
+            screenshot_devices=screenshot_devices,
+        )
     audit.ai_data = ai_meta
     if ai_result is not None:
         findings.extend(ai_findings(ai_result))

@@ -74,6 +74,8 @@
 - [x] M3-011 Search screen
 - [x] M3-012 Results list
 - [x] M3-013 Company detail
+- [x] M3-014 Ricerca per provincia: località completa, filtro sul confine, catalogo settori verificato
+- [x] M3-015 Timeout Overpass su provincia: ricerca per comuni a gruppi con ripetizione
 
 ## M4 — Bulk Scanner
 
@@ -85,6 +87,7 @@
 - [x] M4-006 Batch results
 - [x] M4-007 Ranking
 - [x] M4-008 Failure recovery
+- [x] M4-009 Audit gratuito (free_only) di default per le chiamate automatiche
 
 ## M5 — CRM
 
@@ -99,6 +102,8 @@
 - [x] M5-009 Editable company contacts and audit comparison history
 - [x] M5-010 Pipeline JSON export/import (arricchimento esterno con GPT)
 - [x] M5-011 Inserimento manuale azienda e import contatti storici, senza analisi
+- [x] M5-012 Controllo stato di contatto per lista email (bozze esterne)
+- [x] M5-013 Alias `search` per `q` e contratto esplicito delle note (`body`)
 
 ## M6 — Proposal Engine
 

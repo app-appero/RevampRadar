@@ -73,7 +73,7 @@ export type OpportunityScore = {
 };
 
 export type AIAnalysis = {
-  status: "skipped" | "completed" | "failed" | string;
+  status: "skipped" | "skipped_free_mode" | "completed" | "failed" | string;
   prompt_version: string | null;
   provider: string | null;
   model: string | null;
@@ -92,6 +92,8 @@ export type Audit = {
   id: string;
   company_id: string | null;
   status: AuditStatus;
+  free_only?: boolean;
+  ai_status?: string;
   request_url: string;
   normalized_url: string;
   domain: string;
@@ -156,13 +158,15 @@ export async function fetchRecentAudits(limit = 12): Promise<AuditSummary[]> {
   return (await response.json()) as AuditSummary[];
 }
 
-export async function createAudit(url: string, companyId?: string): Promise<Audit> {
+// L'API usa free_only=true di default (chiamate automatiche). Un'analisi lanciata a mano
+// dal desktop resta completa (AI + PageSpeed se le chiavi ci sono), salvo freeOnly esplicito.
+export async function createAudit(url: string, companyId?: string, freeOnly = false): Promise<Audit> {
   let response: Response;
   try {
     response = await fetch(`${getApiBaseUrl()}/audits`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url, company_id: companyId ?? null }),
+      body: JSON.stringify({ url, company_id: companyId ?? null, free_only: freeOnly }),
     });
   } catch {
     throw new ApiError("Impossibile raggiungere il backend.");

@@ -32,11 +32,14 @@ PREFERRED = [
 def main() -> None:
     raw = json.loads(SRC.read_text(encoding="utf-8"))
     tree: dict[str, dict[str, set[str]]] = {}
+    codes: dict[str, str] = {}
     for item in raw:
         region = item["regione"]["nome"]
         province = item["provincia"]["nome"]
         city = item["nome"]
         tree.setdefault(region, {}).setdefault(province, set()).add(city)
+        # Sigla automobilistica (es. BG): serve a tradurre "BG" in "Provincia di Bergamo".
+        codes[province] = item["sigla"]
     actual = list(tree)
     ordered: list[str] = []
     used: set[str] = set()
@@ -52,7 +55,7 @@ def main() -> None:
     payload = []
     for region in ordered:
         provinces = [
-            {"name": name, "cities": sorted(cities, key=str.casefold)}
+            {"name": name, "code": codes[name], "cities": sorted(cities, key=str.casefold)}
             for name, cities in sorted(tree[region].items(), key=lambda item: item[0].casefold())
         ]
         payload.append({"name": region, "provinces": provinces})

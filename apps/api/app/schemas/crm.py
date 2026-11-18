@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from uuid import UUID
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 CRM_STATUSES = (
     "discovered",
@@ -135,8 +135,31 @@ class UpdateOpportunityRequest(BaseModel):
     is_favorite: bool | None = None
 
 
+_NOTE_FIELD_ALIASES = ("content", "text", "note")
+
+
 class CreateNoteRequest(BaseModel):
-    body: str = Field(min_length=1, max_length=4000)
+    model_config = ConfigDict(json_schema_extra={"examples": [{"body": "Richiamare lunedì dopo le 10."}]})
+
+    body: str = Field(
+        min_length=1,
+        max_length=4000,
+        description="Testo della nota (obbligatorio, 1-4000 caratteri). Unico nome di campo accettato.",
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def explain_wrong_field(cls, data):
+        # Errore frequente dei client: {"content": ...}. Il 422 generico ("body: Field required")
+        # non diceva quale campo usare.
+        if isinstance(data, dict) and "body" not in data:
+            wrong = next((name for name in _NOTE_FIELD_ALIASES if name in data), None)
+            if wrong is not None:
+                raise ValueError(
+                    f"Campo «{wrong}» non valido: il testo della nota va inviato nel campo «body», "
+                    'es. {"body": "Richiamare lunedì"}.'
+                )
+        return data
 
 
 class CreateTagRequest(BaseModel):
@@ -154,3 +177,63 @@ class CreateActivityRequest(BaseModel):
         if self.due_at is not None and self.occurred_at is not None:
             raise ValueError("Specificare solo occurred_at o due_at, non entrambi.")
         return self
+
+
+class ContactStatusRequest(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "emails": ["info@esempio.it", "Ottica <ottica@esempio.it>"],
+                    "contacted_tags": ["lotto2-20261116-inviato"],
+                }
+            ]
+        }
+    )
+
+    emails: list[str] = Field(
+        min_length=1,
+        max_length=500,
+        description="Indirizzi da controllare (accetta anche «Nome <email>» e «mailto:»).",
+    )
+    contacted_tags: list[str] = Field(
+        default_factory=list,
+        max_length=50,
+        description=(
+            "Tag aggiuntivi che indicano un invio già fatto. I tag con il segmento "
+            "«inviato/inviata» (es. lotto2-20261116-inviato) sono già riconosciuti."
+        ),
+    )
+
+
+class ContactStatusMatch(BaseModel):
+    opportunity_id: UUID
+    company_id: UUID
+    company_name: str
+    status: str
+    already_contacted: bool
+    contacted_on: date | None = Field(default=None, description="Data dell'ultimo contatto registrato.")
+    contacted_at: datetime | None = Field(default=None, description="Orario, se registrato.")
+    date_source: str | None = None
+    evidence: list[str] = Field(default_factory=list, description="Es. status:contacted, tag:…, activity:email_sent.")
+    matched_on: list[str] = Field(
+        default_factory=list,
+        description="Dove compare l'email: company_email, activity_recipient, activity_note, note.",
+    )
+
+
+class ContactStatusItem(BaseModel):
+    email: str
+    normalized_email: str | None
+    valid: bool
+    already_contacted: bool
+    status: str | None = None
+    contacted_on: date | None = None
+    contacted_at: datetime | None = None
+    matches: list[ContactStatusMatch] = Field(default_factory=list)
+
+
+class ContactStatusResponse(BaseModel):
+    checked: int
+    already_contacted: int
+    results: list[ContactStatusItem]

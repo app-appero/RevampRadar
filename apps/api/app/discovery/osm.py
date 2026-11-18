@@ -2,12 +2,16 @@ from __future__ import annotations
 
 import re
 import time
+from collections import deque
 from collections.abc import Callable
 
 import httpx
 
 from app.config import Settings
+from app.discovery.province import ProvinceScope, filter_by_province, fold, province_scope_for_location
 from app.discovery.types import DiscoveryCandidate, DiscoveryQuery
+
+StageCallback = Callable[..., None]
 
 _INDUSTRY_TAGS: dict[str, list[tuple[str, str]]] = {
     "hotel": [("tourism", "hotel")],
@@ -123,6 +127,65 @@ _INDUSTRY_TAGS: dict[str, list[tuple[str, str]]] = {
     "caf": [("office", "tax_advisor")],
     "dentisti": [("amenity", "dentist")],
     "ottica": [("shop", "optician")],
+    # Mestieri e negozi aggiunti: ogni voce deve avere almeno un tag OSM (vedi test_catalog).
+    "tappezziere": [("craft", "upholsterer")],
+    "tappezzeria": [("craft", "upholsterer")],
+    "vivaio": [("shop", "garden_centre")],
+    "garden center": [("shop", "garden_centre")],
+    "cornici": [("shop", "frame")],
+    "corniciaio": [("shop", "frame")],
+    "corniceria": [("shop", "frame")],
+    "sartoria": [("craft", "tailor"), ("shop", "tailor")],
+    "sarto": [("craft", "tailor"), ("shop", "tailor")],
+    "calzolaio": [("craft", "shoemaker"), ("shop", "shoe_repair")],
+    "orologeria": [("shop", "watches"), ("craft", "watchmaker")],
+    "orologiaio": [("shop", "watches"), ("craft", "watchmaker")],
+    "orafo": [("craft", "jeweller"), ("shop", "jewelry")],
+    "vetreria": [("craft", "glaziery")],
+    "vetraio": [("craft", "glaziery")],
+    "merceria": [("shop", "sewing"), ("shop", "fabric")],
+    "tessuti": [("shop", "fabric")],
+    "profumeria": [("shop", "perfumery")],
+    "erboristeria": [("shop", "herbalist")],
+    "materassi": [("shop", "bed")],
+    "tende": [("shop", "curtain")],
+    "illuminazione": [("shop", "lighting")],
+    "colorificio": [("shop", "paint")],
+    "piastrelle": [("shop", "tiles")],
+    "elettrodomestici": [("shop", "appliance")],
+    "casalinghi": [("shop", "houseware")],
+    "articoli da regalo": [("shop", "gift")],
+    "antiquario": [("shop", "antiques")],
+    "biciclette": [("shop", "bicycle")],
+    "ciclista": [("shop", "bicycle")],
+    "moto": [("shop", "motorcycle")],
+    "fruttivendolo": [("shop", "greengrocer")],
+    "ortofrutta": [("shop", "greengrocer")],
+    "formaggi": [("shop", "cheese")],
+    "cioccolateria": [("shop", "chocolate")],
+    "torrefazione": [("shop", "coffee")],
+    "birrificio": [("craft", "brewery")],
+    "cantina": [("craft", "winery")],
+    "strumenti musicali": [("shop", "musical_instrument")],
+    "liutaio": [("craft", "luthier")],
+    "sanitaria": [("shop", "medical_supply")],
+    "toelettatura": [("shop", "pet_grooming")],
+    "serramenti": [("craft", "window_construction")],
+    "infissi": [("craft", "window_construction")],
+    "marmista": [("craft", "stonemason")],
+    "giardiniere": [("craft", "gardener")],
+    "climatizzazione": [("craft", "hvac")],
+    "insegne": [("craft", "signmaker")],
+    "ceramiche": [("craft", "pottery")],
+    "apicoltore": [("craft", "beekeeper")],
+    "podologo": [("healthcare", "podiatrist")],
+    "logopedista": [("healthcare", "speech_therapist")],
+    "nutrizionista": [("healthcare", "nutrition_counselling")],
+    "autonoleggio": [("amenity", "car_rental")],
+    "traslochi": [("office", "moving_company")],
+    "maneggio": [("leisure", "horse_riding")],
+    "casa vacanze": [("tourism", "apartment")],
+    "scuola di danza": [("amenity", "dancing_school")],
 }
 
 _SUBSTRING_TAGS: tuple[tuple[tuple[str, ...], list[tuple[str, str]]], ...] = (
@@ -294,6 +357,18 @@ def overpass_error_message(status: int, body: str) -> str:
     return f"Overpass HTTP {status}" + (f": {snippet}" if snippet else ".")
 
 
+class OverpassTimeoutError(RuntimeError):
+    """Overpass non ha completato la query in tempo (timeout HTTP, 504 o remark di timeout)."""
+
+
+_AREA_TIMEOUT_MESSAGE = (
+    "La ricerca su un'area così ampia non è riuscita a completarsi nel tempo "
+    "disponibile su Overpass (non è detto che non ci siano risultati). Riprova, "
+    "oppure restringi a provincia/città o a un settore specifico."
+)
+_RELATION_AREA_OFFSET = 3600000000
+
+
 def overpass_endpoints(settings: Settings) -> list[str]:
     seen: list[str] = []
     for raw in (settings.overpass_url, *settings.overpass_urls.split(","), *_DEFAULT_OVERPASS):
@@ -312,21 +387,31 @@ class OpenStreetMapProvider:
     def search_businesses(
         self,
         query: DiscoveryQuery,
-        on_stage: Callable[[str], None] | None = None,
+        on_stage: StageCallback | None = None,
     ) -> list[DiscoveryCandidate]:
+        self.last_warning: str | None = None
         tags = resolve_search_tags(query.industry)
         if not tags:
             return []
-        if on_stage:
-            on_stage("Ricerca località")
-        area = self._resolve_area(query.location)
+        stage: StageCallback = on_stage or (lambda *_args, **_kwargs: None)
+        scope = province_scope_for_location(query.location)
+        stage("Ricerca località")
+        area = self._resolve_province_area(scope) if scope else self._resolve_area(query.location)
         fetch_limit = min(400, max(query.max_results * 2, 25))
         elements: list[dict] = []
         overpass_error: str | None = None
-        if on_stage:
-            on_stage("Query Overpass")
+        stage("Query Overpass")
+        # In provincia si interroga l'area del confine, non il rettangolo (bbox) che sconfina
+        # nelle province vicine (es. Bergamo → Brescia).
+        province_area = bool(scope and area.get("area_id"))
+        search_area = {"area_id": area["area_id"]} if province_area else area
         try:
-            elements = self._overpass(area, tags, fetch_limit)
+            elements = self._overpass(search_area, tags, fetch_limit)
+        except OverpassTimeoutError as exc:
+            if province_area and scope is not None:
+                elements = self._overpass_by_comuni(area, scope, tags, fetch_limit, stage)
+            else:
+                overpass_error = str(exc)
         except RuntimeError as exc:
             overpass_error = str(exc)
         matched: list[DiscoveryCandidate] = []
@@ -334,6 +419,8 @@ class OpenStreetMapProvider:
             candidate = _from_osm(item, query.industry)
             if candidate is not None and candidate_matches_industry(candidate, query.industry):
                 matched.append(candidate)
+        if scope is not None:
+            matched = filter_by_province(matched, scope, area.get("boundary"))
         found = select_candidates(matched, query)
         if found:
             return found
@@ -341,31 +428,52 @@ class OpenStreetMapProvider:
             raise RuntimeError(overpass_error)
         return []
 
-    def _resolve_area(self, location: str) -> dict:
+    def _nominatim_get(self, params: dict) -> list[dict]:
         url = self._settings.nominatim_url.rstrip("/") + "/search"
         headers = {"User-Agent": self._settings.scanner_user_agent, "Accept": "application/json"}
         timeout = httpx.Timeout(self._settings.discovery_timeout_seconds)
         with httpx.Client(timeout=timeout, headers=headers) as client:
-            response = client.get(
-                url,
-                params={"q": location, "format": "json", "limit": 1, "addressdetails": 1},
-            )
+            response = client.get(url, params=params)
         if response.status_code >= 400:
             raise RuntimeError(f"Nominatim HTTP {response.status_code}")
         payload = response.json()
+        return payload if isinstance(payload, list) else []
+
+    def _resolve_area(self, location: str) -> dict:
+        payload = self._nominatim_get({"q": location, "format": "json", "limit": 1, "addressdetails": 1})
         if not payload:
             raise RuntimeError(f"Località non trovata: {location}")
-        item = payload[0]
-        osm_type = item.get("osm_type")
-        osm_id = item.get("osm_id")
-        if osm_type not in {"relation", "way", "node"} or not osm_id:
-            raise RuntimeError("Nominatim non ha restituito un'area OSM valida.")
-        prefix = {"relation": 3600000000, "way": 2400000000, "node": 0}[osm_type]
-        return {
-            "area_id": prefix + int(osm_id) if prefix else None,
-            "bbox": item.get("boundingbox"),
-            "display_name": item.get("display_name"),
+        return _area_from_nominatim(payload[0])
+
+    def _resolve_province_area(self, scope: ProvinceScope) -> dict:
+        """Confine amministrativo della provincia (admin_level 6), con poligono semplificato."""
+        base = {
+            "format": "json",
+            "addressdetails": 1,
+            "limit": 5,
+            "countrycodes": "it",
+            "polygon_geojson": 1,
+            "polygon_threshold": 0.001,
         }
+        attempts = (
+            {"q": scope.location},
+            # Città metropolitane e province rinominate: ricerca strutturata per "county".
+            {"county": scope.display_name, "state": scope.region_display, "country": "Italia"},
+        )
+        fallback: dict | None = None
+        for index, params in enumerate(attempts):
+            if index:
+                time.sleep(1.05)  # Nominatim ammette ~1 richiesta al secondo.
+            payload = self._nominatim_get({**base, **params})
+            if fallback is None and payload:
+                fallback = payload[0]
+            pick = next((item for item in payload if _is_province_boundary(item)), None)
+            if pick is not None:
+                return _area_from_nominatim(pick, with_boundary=True)
+        if fallback is None:
+            raise RuntimeError(f"Località non trovata: {scope.location}")
+        # Nessun confine provinciale riconosciuto: si filtra comunque per comuni/indirizzo.
+        return _area_from_nominatim(fallback)
 
     def _overpass(
         self,
@@ -380,10 +488,17 @@ class OpenStreetMapProvider:
         # interpretato come "zero risultati" invece che come ricerca non completata. Ora si rispetta
         # il timeout configurato (fino a un tetto ragionevole per un uso interattivo) e si distingue
         # il timeout server-side da uno zero risultati genuino.
-        timeout_s = min(55, max(20, int(self._settings.discovery_timeout_seconds)))
+        timeout_s = self._overpass_timeout()
         query = _build_overpass_query(area, tags, limit, timeout_s, name_regex=name_regex)
+        return self._post_overpass(query, timeout_s)
+
+    def _overpass_timeout(self) -> int:
+        return min(55, max(20, int(self._settings.discovery_timeout_seconds)))
+
+    def _post_overpass(self, query: str, timeout_s: int) -> list[dict]:
         last_error: RuntimeError | None = None
         empty_ok = False
+        timed_out = False
         http_timeout = httpx.Timeout(connect=10.0, read=float(timeout_s + 15), write=10.0, pool=10.0)
         headers = {"User-Agent": self._settings.scanner_user_agent}
         for url in overpass_endpoints(self._settings):
@@ -391,9 +506,11 @@ class OpenStreetMapProvider:
                 with httpx.Client(timeout=http_timeout, headers=headers) as client:
                     response = client.post(url, data={"data": query})
             except httpx.TimeoutException:
-                last_error = RuntimeError(overpass_error_message(504, "timeout"))
+                timed_out = True
+                last_error = OverpassTimeoutError(overpass_error_message(504, "timeout"))
                 continue
             if response.status_code >= 400:
+                timed_out = timed_out or response.status_code == 504
                 last_error = RuntimeError(overpass_error_message(response.status_code, response.text))
                 continue
             try:
@@ -406,18 +523,128 @@ class OpenStreetMapProvider:
                 return elements
             remark = str(payload.get("remark") or "").lower()
             if "timed out" in remark or "timeout" in remark:
-                last_error = RuntimeError(
-                    "La ricerca su un'area così ampia non è riuscita a completarsi nel tempo "
-                    "disponibile su Overpass (non è detto che non ci siano risultati). Riprova, "
-                    "oppure restringi a provincia/città o a un settore specifico."
-                )
+                timed_out = True
+                last_error = OverpassTimeoutError(_AREA_TIMEOUT_MESSAGE)
                 continue
             empty_ok = True
         if empty_ok:
             return []
-        if last_error:
+        if last_error is not None:
+            if timed_out and not isinstance(last_error, OverpassTimeoutError):
+                raise OverpassTimeoutError(str(last_error))
             raise last_error
         return []
+
+    def _with_retry(self, run: Callable[[], list[dict]], on_retry: Callable[[int, int], None] | None = None):
+        """Ripete una query Overpass fallita con attesa crescente (2s, 4s, ...)."""
+        attempts = max(1, int(self._settings.overpass_retry_attempts))
+        backoff = max(0.0, float(self._settings.overpass_retry_backoff_seconds))
+        last: RuntimeError | None = None
+        for attempt in range(1, attempts + 1):
+            try:
+                return run()
+            except RuntimeError as exc:
+                last = exc
+                if attempt < attempts:
+                    if on_retry:
+                        on_retry(attempt + 1, attempts)
+                    time.sleep(backoff * attempt)
+        assert last is not None
+        raise last
+
+    def _province_comuni(self, area: dict, scope: ProvinceScope) -> list[tuple[int, str]]:
+        """Comuni (admin_level 8) della provincia come (id relazione, nome)."""
+        timeout_s = self._overpass_timeout()
+        query = (
+            f"[out:json][timeout:{timeout_s}];area({int(area['area_id'])})->.p;"
+            'rel(area.p)["boundary"="administrative"]["admin_level"="8"];out tags;'
+        )
+        elements = self._with_retry(lambda: self._post_overpass(query, timeout_s))
+        comuni: list[tuple[int, str]] = []
+        for element in elements:
+            tags = element.get("tags") or {}
+            name = tags.get("name:it") or tags.get("name")
+            if element.get("type") == "relation" and element.get("id") is not None and name:
+                comuni.append((int(element["id"]), str(name)))
+        # rel(area) include anche i comuni confinanti: si tengono quelli della provincia.
+        own = [item for item in comuni if fold(item[1]) in scope.cities]
+        return sorted(own or comuni, key=lambda item: fold(item[1]))
+
+    def _overpass_by_comuni(
+        self,
+        area: dict,
+        scope: ProvinceScope,
+        tags: list[tuple[str, str]],
+        limit: int,
+        stage: StageCallback,
+    ) -> list[dict]:
+        """Overpass è andato in timeout sulla provincia: stessa ricerca per gruppi di comuni.
+
+        Ogni gruppo viene ripetuto automaticamente; se continua a fallire si divide a metà,
+        fino al singolo comune. I comuni rimasti senza risposta finiscono in `last_warning`
+        (discovery "partial"); se non risponde nessun gruppo la ricerca fallisce.
+        """
+        try:
+            comuni = self._province_comuni(area, scope)
+        except RuntimeError as exc:
+            raise OverpassTimeoutError(
+                f"Overpass in timeout sulla provincia e impossibile elencarne i comuni: {exc}"
+            ) from exc
+        if not comuni:
+            raise OverpassTimeoutError(_AREA_TIMEOUT_MESSAGE)
+        size = max(1, int(self._settings.overpass_comuni_group_size))
+        queue: deque[list[tuple[int, str]]] = deque(
+            comuni[index : index + size] for index in range(0, len(comuni), size)
+        )
+        total = len(comuni)
+        done = 0
+        failed: list[str] = []
+        found: dict[tuple[str, int], dict] = {}
+        timeout_s = self._overpass_timeout()
+
+        def report(suffix: str = "") -> None:
+            percent = 40 + int(14 * done / total)
+            stage(f"Overpass in timeout: ricerca per comuni {done}/{total}{suffix}", percent)
+
+        report()
+        while queue:
+            group = queue.popleft()
+            query = _build_overpass_query(
+                {"area_ids": [_RELATION_AREA_OFFSET + rel_id for rel_id, _ in group]},
+                tags,
+                limit,
+                timeout_s,
+            )
+            try:
+                elements = self._with_retry(
+                    lambda query=query: self._post_overpass(query, timeout_s),
+                    on_retry=lambda attempt, attempts: report(f" · nuovo tentativo {attempt}/{attempts}"),
+                )
+            except RuntimeError:
+                if len(group) > 1:
+                    half = len(group) // 2
+                    queue.appendleft(group[half:])
+                    queue.appendleft(group[:half])
+                    report(" · gruppo diviso")
+                else:
+                    failed.append(group[0][1])
+                    done += 1
+                    report(f" · {len(failed)} non completati")
+                continue
+            for element in elements:
+                key = (str(element.get("type")), int(element.get("id") or 0))
+                found.setdefault(key, element)
+            done += len(group)
+            report(f" · {len(failed)} non completati" if failed else "")
+        if failed and len(failed) == total:
+            raise OverpassTimeoutError(_AREA_TIMEOUT_MESSAGE)
+        if failed:
+            sample = ", ".join(failed[:5]) + ("…" if len(failed) > 5 else "")
+            self.last_warning = (
+                f"Ricerca per comuni: {total - len(failed)}/{total} comuni completati; "
+                f"Overpass non ha risposto per {len(failed)} ({sample}). Rilancia per completarli."
+            )
+        return list(found.values())
 
     def _nominatim_search(self, query: DiscoveryQuery, area: dict) -> list[DiscoveryCandidate]:
         bbox = area.get("bbox") or []
@@ -506,6 +733,14 @@ def _build_overpass_query(
     *,
     name_regex: str | None = None,
 ) -> str:
+    area_ids = area.get("area_ids")
+    if area_ids:
+        ids = ",".join(str(int(item)) for item in area_ids)
+        parts = _overpass_filters(tags, name_regex, "(area.searchArea)")
+        return (
+            f"[out:json][timeout:{timeout}];"
+            f"area(id:{ids})->.searchArea;({''.join(parts)});out center {limit};"
+        )
     bbox = area.get("bbox") or []
     if len(bbox) == 4:
         south, north, west, east = bbox
@@ -624,6 +859,37 @@ def element_coords(element: dict) -> tuple[float, float] | None:
     from app.discovery.normalize import normalize_coords
 
     return normalize_coords(lat, lon)
+
+
+def _area_from_nominatim(item: dict, *, with_boundary: bool = False) -> dict:
+    osm_type = item.get("osm_type")
+    osm_id = item.get("osm_id")
+    if osm_type not in {"relation", "way", "node"} or not osm_id:
+        raise RuntimeError("Nominatim non ha restituito un'area OSM valida.")
+    prefix = {"relation": _RELATION_AREA_OFFSET, "way": 2400000000, "node": 0}[osm_type]
+    geometry = item.get("geojson") if with_boundary else None
+    is_area = isinstance(geometry, dict) and geometry.get("type") in {"Polygon", "MultiPolygon"}
+    return {
+        "area_id": prefix + int(osm_id) if prefix else None,
+        "bbox": item.get("boundingbox"),
+        "display_name": item.get("display_name"),
+        "boundary": geometry if is_area else None,
+    }
+
+
+def _is_province_boundary(item: dict) -> bool:
+    """Relazione amministrativa di livello provinciale (admin_level 6 → place_rank 12)."""
+    if item.get("osm_type") != "relation":
+        return False
+    if (item.get("class") or item.get("category")) != "boundary":
+        return False
+    if item.get("addresstype") in {"county", "province"}:
+        return True
+    try:
+        rank = int(item.get("place_rank") or 0)
+    except (TypeError, ValueError):
+        return False
+    return 9 <= rank <= 13
 
 
 def _osm_extra(tags: dict) -> dict:

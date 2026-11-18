@@ -112,7 +112,7 @@ export function DiscoveryRunPage() {
               </p>
             ) : null}
 
-            {run.status === "completed" && run.total_found > 0 ? (
+            {(run.status === "completed" || run.status === "partial") && run.total_found > 0 ? (
               <div className="flex flex-wrap items-center gap-3">
                 <button
                   type="button"

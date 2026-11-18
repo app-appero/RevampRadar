@@ -5,6 +5,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session, selectinload
 
+from app.ai.service import AI_STATUS_SKIPPED_FREE_MODE
 from app.db import get_db
 from app.models.entities import Audit, Website
 from app.scanner.browser import is_preview_shot, shot_label
@@ -31,7 +32,7 @@ def post_audit(
     db: Session = Depends(get_db),
 ) -> AuditResponse:
     try:
-        audit = create_audit(db, payload.url, payload.company_id)
+        audit = create_audit(db, payload.url, payload.company_id, free_only=payload.free_only)
     except AuditServiceError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     background_tasks.add_task(execute_audit, audit.id)
@@ -135,6 +136,8 @@ def _to_response(audit: Audit) -> AuditResponse:
         id=audit.id,
         company_id=audit.website.company_id,
         status=audit.status,
+        free_only=bool(audit.free_only),
+        ai_status=_ai_status(audit),
         request_url=audit.request_url,
         normalized_url=audit.website.normalized_url,
         domain=audit.website.domain,
@@ -236,6 +239,14 @@ def _opportunity_score_response(audit: Audit) -> OpportunityScoreResponse | None
         components=score.components,
         formula_version=score.formula_version,
     )
+
+
+def _ai_status(audit: Audit) -> str:
+    status = (audit.ai_data or {}).get("status")
+    if status:
+        return str(status)
+    # Audit ancora in coda/esecuzione: il piano è già noto.
+    return AI_STATUS_SKIPPED_FREE_MODE if audit.free_only else "pending"
 
 
 def _ai_analysis_response(audit: Audit) -> AIAnalysisResponse | None:

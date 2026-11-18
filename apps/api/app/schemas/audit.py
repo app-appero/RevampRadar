@@ -7,6 +7,15 @@ from pydantic import BaseModel, Field
 class CreateAuditRequest(BaseModel):
     url: str = Field(min_length=1, max_length=2048)
     company_id: UUID | None = None
+    free_only: bool = Field(
+        default=True,
+        description=(
+            "Modalità gratuita (default per le chiamate automatiche): salta analisi AI "
+            "(OpenAI/Anthropic) e PageSpeed (Google) anche con le chiavi configurate. "
+            "Website Score e Opportunity Score vengono calcolati dallo scanner HTTP/HTML/SEO. "
+            "Passare false per l'analisi completa."
+        ),
+    )
 
 
 class AuditSummaryResponse(BaseModel):
@@ -95,6 +104,14 @@ class AuditResponse(BaseModel):
     id: UUID
     company_id: UUID | None = None
     status: str
+    free_only: bool = False
+    ai_status: str = Field(
+        default="pending",
+        description=(
+            "Stato dell'analisi AI: pending, completed, failed, skipped (es. chiave mancante) "
+            "oppure skipped_free_mode se l'audit è in modalità free_only."
+        ),
+    )
     request_url: str
     normalized_url: str
     domain: str

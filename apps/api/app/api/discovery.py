@@ -39,13 +39,17 @@ router = APIRouter(tags=["discovery"])
 
 
 def _request_location(payload: CreateDiscoveryRequest) -> str:
-    if payload.city.strip() or payload.province.strip() or payload.region.strip():
+    """Località della discovery. Una provincia (anche come sigla, es. "BG") diventa
+    "Provincia di Bergamo, Lombardia": la sigla da sola non sostituisce mai la località."""
+    try:
         return compose_location(
             region=payload.region,
             province=payload.province,
             city=payload.city,
+            location=payload.location,
         )
-    return payload.location.strip()
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.get("/discovery/osm-preview", response_model=OsmIndustryPreview)

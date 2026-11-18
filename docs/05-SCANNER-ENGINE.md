@@ -103,6 +103,14 @@ Ogni finding deve avere:
 
 Durante la scansione l'audit persiste `progress_percent` e `progress_label` a ogni passo (HTTP, HTML, SEO, screenshot, PageSpeed, AI, score). Lo stesso vale per discovery (Nominatim, Overpass, persistenza aziende) e per il bulk scan (siti completati sul totale). Il client mostra la percentuale; i finding restano visibili a scansione conclusa.
 
+## Modalità gratuita (free_only)
+
+`POST /audits` con `free_only=true` (default per le chiamate automatiche, bulk scan e
+analisi in blocco) salta analisi AI e PageSpeed: nessuna chiamata a OpenAI, Anthropic o
+Google. HTTP, HTML, SEO, screenshot locali e score deterministici restano invariati; la
+risposta riporta `ai_status: skipped_free_mode`. L'analisi manuale dal desktop usa
+`free_only=false`.
+
 ## Severità
 
 - info

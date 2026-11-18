@@ -286,7 +286,9 @@ function PerformanceSection({ data }: { data: Record<string, unknown> | null }) 
       {pagespeed ? (
         pagespeed.ok === false ? (
           <p className="text-sm text-stone-500">
-            PageSpeed non disponibile{typeof pagespeed.error === "string" ? `: ${pagespeed.error}` : "."}
+            {pagespeed.status === "skipped_free_mode"
+              ? "PageSpeed saltato: audit in modalità gratuita."
+              : `PageSpeed non disponibile${typeof pagespeed.error === "string" ? `: ${pagespeed.error}` : "."}`}
           </p>
         ) : (
           <>
@@ -499,6 +501,14 @@ function FactorList({ title, items }: { title: string; items: string[] }) {
 }
 
 function AIBlock({ ai }: { ai: AIAnalysis }) {
+  if (ai.status === "skipped_free_mode") {
+    return (
+      <p className="text-sm text-stone-500">
+        Analisi AI saltata: audit in modalità gratuita (nessuna chiamata AI o PageSpeed). I punteggi
+        tecnici restano validi.
+      </p>
+    );
+  }
   if (ai.status === "skipped") {
     return (
       <p className="text-sm text-stone-500">

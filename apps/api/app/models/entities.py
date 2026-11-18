@@ -88,6 +88,8 @@ class Audit(Base):
     seo_data: Mapped[dict | None] = mapped_column(JsonType, nullable=True)
     performance_data: Mapped[dict | None] = mapped_column(JsonType, nullable=True)
     ai_data: Mapped[dict | None] = mapped_column(JsonType, nullable=True)
+    # Modalità gratuita: niente AI (OpenAI/Anthropic) né PageSpeed (Google), solo scanner deterministico.
+    free_only: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

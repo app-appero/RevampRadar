@@ -120,3 +120,25 @@ l'evidenza dell'invio già avvenuto, con riferimento esterno univoco, e non sped
 messaggi. Una data senza orario resta una data (`occurred_on`). Stati avanzati ed
 esclusioni non vengono retrocessi a `contacted`. `POST /opportunities/import`
 continua a non creare aziende.
+
+## ADR-023 — Audit gratuito di default per le chiamate automatiche
+
+`POST /audits` ha `free_only=true` di default, come bulk scan e analisi in blocco. In
+modalità gratuita l'audit non istanzia i provider AI e non chiama PageSpeed: nessuna
+richiesta a OpenAI, Anthropic o Google, anche con le chiavi configurate. Gli score restano
+deterministici (ADR-007). Il flag è persistito su `audits.free_only`, così anche i
+tentativi successivi e la lettura dell'audit sanno cosa è stato saltato
+(`ai_status: skipped_free_mode`). L'analisi manuale dal desktop chiede esplicitamente la
+modalità completa.
+
+## ADR-024 — Discovery provinciale sul confine, non sul rettangolo
+
+Una ricerca per provincia usa la località «Provincia di X, Regione» e l'area Overpass del
+confine amministrativo (admin_level 6), perché il bounding box di Nominatim include comuni
+delle province vicine. I risultati passano un filtro deterministico (punto nel poligono
+semplificato restituito da Nominatim, poi `addr:province`, poi elenco comuni ISTAT già nel
+repository), senza nuove dipendenze. Le sigle provinciali vivono in `italy_geo.json`.
+Se Overpass va in timeout sull'intera provincia si interrogano i comuni (admin_level 8) a
+gruppi, con ripetizione e bisezione dei gruppi lenti; i comuni senza risposta rendono la
+discovery `partial` invece di nascondere il buco.
+

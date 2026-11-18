@@ -13,6 +13,22 @@ logger = logging.getLogger(__name__)
 
 AI_CATEGORIES = {"ui", "ux", "mobile", "conversion", "copy", "trust"}
 
+# Audit in modalità gratuita (free_only): nessuna chiamata a OpenAI/Anthropic, anche con chiave.
+AI_STATUS_SKIPPED_FREE_MODE = "skipped_free_mode"
+
+
+def free_mode_meta() -> dict[str, Any]:
+    """Meta AI di un audit free_only: il provider non viene nemmeno istanziato."""
+    return {
+        "status": AI_STATUS_SKIPPED_FREE_MODE,
+        "prompt_version": PROMPT_VERSION,
+        "provider": None,
+        "model": None,
+        "result": None,
+        "error": None,
+        "reason": "free_only",
+    }
+
 
 def analyze_audit(
     *,

@@ -32,9 +32,20 @@ class OsmIndustryPreview(BaseModel):
 
 class CreateDiscoveryRequest(BaseModel):
     industry: str = Field(default="", max_length=128)
-    location: str = Field(default="", max_length=255)
+    location: str = Field(
+        default="",
+        max_length=255,
+        description="Località libera, usata se region/province/city sono vuoti (le sigle diventano «Provincia di …»).",
+    )
     region: str = Field(default="", max_length=128)
-    province: str = Field(default="", max_length=128)
+    province: str = Field(
+        default="",
+        max_length=128,
+        description=(
+            "Provincia come sigla (BG) o nome (Bergamo). Senza città la località diventa "
+            "«Provincia di Bergamo, Lombardia» e i risultati sono filtrati sulla provincia."
+        ),
+    )
     city: str = Field(default="", max_length=128)
     max_results: int = Field(default=20, ge=1, le=MAX_RESULTS_EXTENDED)
     extended: bool = False

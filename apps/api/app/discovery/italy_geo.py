@@ -12,6 +12,8 @@ def italy_geo() -> dict:
     return json.loads(_DATA.read_text(encoding="utf-8"))
 
 
-def compose_location(region: str = "", province: str = "", city: str = "") -> str:
-    parts = [item.strip() for item in (city, province, region) if item and item.strip()]
-    return ", ".join(parts) if parts else "Italia"
+def compose_location(region: str = "", province: str = "", city: str = "", location: str = "") -> str:
+    """Località per Nominatim: vedi `app.discovery.province.compose_location`."""
+    from app.discovery.province import compose_location as compose
+
+    return compose(region=region, province=province, city=city, location=location)

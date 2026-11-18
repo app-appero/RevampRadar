@@ -293,9 +293,10 @@ def _run_discovery(session: Session, run: DiscoveryRun, settings: Settings) -> N
         include_without_website=bool(run.extended),
     )
 
-    def on_stage(label: str) -> None:
-        percent = 18 if "località" in label.lower() else 40
-        _set_progress(session, run, percent, label)
+    def on_stage(label: str, percent: int | None = None) -> None:
+        if percent is None:
+            percent = 18 if "località" in label.lower() else 40
+        _set_progress(session, run, percent, label[:128])
 
     _set_progress(session, run, 12, "Ricerca OpenStreetMap")
     try:
@@ -337,7 +338,13 @@ def _run_discovery(session: Session, run: DiscoveryRun, settings: Settings) -> N
     run.total_found = persisted
     run.status = "completed"
     run.progress_percent = 100
-    if persisted == 0:
+    warning = getattr(provider, "last_warning", None)
+    if warning:
+        # Alcuni comuni non hanno risposto (Overpass): risultati validi ma incompleti.
+        run.status = "partial"
+        run.error_message = warning
+        run.progress_label = f"Parziale · {persisted} aziende"
+    elif persisted == 0:
         from app.discovery.osm import empty_search_message
 
         run.error_message = empty_search_message(run.industry, run.location)
@@ -448,6 +455,9 @@ def _fill_missing(company: Company, candidate: DiscoveryCandidate) -> None:
     if candidate.latitude is not None and candidate.longitude is not None:
         company.latitude = candidate.latitude
         company.longitude = candidate.longitude
+    province = (candidate.extra or {}).get("province") if candidate.extra else None
+    if province and not (company.extra or {}).get("province"):
+        company.extra = {**(company.extra or {}), "province": province}
     incoming = (candidate.extra or {}).get("osm_tags") if candidate.extra else None
     if isinstance(incoming, dict) and incoming:
         extra = dict(company.extra or {})

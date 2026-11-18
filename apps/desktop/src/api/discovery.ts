@@ -180,7 +180,13 @@ export async function fetchDiscoveryCatalog(): Promise<DiscoveryCatalog> {
   return parseJson<DiscoveryCatalog>(response);
 }
 
+// Solo anteprima: la località vera la compone il backend (provincia senza città →
+// "Provincia di Bergamo, Lombardia", risultati filtrati sulla provincia).
 export function composeLocation(region: string, province: string, city: string): string {
+  const shortName = (value: string) => value.split("/")[0].trim();
+  if (province.trim() && !city.trim() && shortName(province) !== shortName(region)) {
+    return `Provincia di ${shortName(province)}, ${shortName(region)}`;
+  }
   return [city, province, region].map((item) => item.trim()).filter(Boolean).join(", ") || "Italia";
 }
 

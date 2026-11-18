@@ -11,6 +11,8 @@ from app.schemas.crm import (
     ActivityResponse,
     AgendaHistoryItemResponse,
     AgendaItemResponse,
+    ContactStatusRequest,
+    ContactStatusResponse,
     CreateActivityRequest,
     CreateNoteRequest,
     CreateTagRequest,
@@ -21,6 +23,7 @@ from app.schemas.crm import (
     TagResponse,
     UpdateOpportunityRequest,
 )
+from app.services.contact_status import contact_status
 from app.services.crm_service import (
     CrmServiceError,
     add_activity,
@@ -45,6 +48,17 @@ from app.services.crm_service import (
 from app.services.pipeline_io import PipelineImportError, build_export, import_export
 
 router = APIRouter(tags=["crm"])
+
+_Q_DESCRIPTION = "Testo cercato nel nome dell'azienda (senza distinzione maiuscole/minuscole)."
+_SEARCH_DESCRIPTION = "Alias di `q`, stesso comportamento. Se sono presenti entrambi vale `q`."
+
+
+def _text_query(q: str | None, search: str | None) -> str | None:
+    """`search` è un alias di `q`: prima veniva ignorato in silenzio."""
+    for value in (q, search):
+        if value is not None and value.strip():
+            return value
+    return None
 
 
 @router.get("/agenda/history", response_model=list[AgendaHistoryItemResponse])
@@ -116,7 +130,8 @@ def get_opportunities(
     status: str | None = None,
     favorite: bool | None = None,
     shortlist: bool = False,
-    q: str | None = None,
+    q: str | None = Query(default=None, description=_Q_DESCRIPTION),
+    search: str | None = Query(default=None, description=_SEARCH_DESCRIPTION),
     category: str | None = None,
     city: str | None = None,
     tag: str | None = None,
@@ -131,7 +146,7 @@ def get_opportunities(
             status=status,
             favorite=favorite,
             shortlist=shortlist,
-            query=q,
+            query=_text_query(q, search),
             category=category,
             city=city,
             tag=tag,
@@ -152,7 +167,8 @@ def export_opportunities(
     status: str | None = None,
     favorite: bool | None = None,
     shortlist: bool = False,
-    q: str | None = None,
+    q: str | None = Query(default=None, description=_Q_DESCRIPTION),
+    search: str | None = Query(default=None, description=_SEARCH_DESCRIPTION),
     category: str | None = None,
     city: str | None = None,
     tag: str | None = None,
@@ -168,7 +184,7 @@ def export_opportunities(
             status=status,
             favorite=favorite,
             shortlist=shortlist,
-            query=q,
+            query=_text_query(q, search),
             category=category,
             city=city,
             tag=tag,
@@ -190,13 +206,29 @@ def import_opportunities(payload: Any = Body(...), db: Session = Depends(get_db)
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
 
 
+@router.post(
+    "/opportunities/contact-status",
+    response_model=ContactStatusResponse,
+    summary="Stato di contatto per una lista di email",
+    description=(
+        "Controllo prima di inviare bozze esterne (es. Aruba): per ogni email indica se l'azienda "
+        "collegata risulta già contattata (stato contacted o successivo, invio registrato o tag di "
+        "invio come lotto2-20261116-inviato), con stato CRM e data dell'ultimo contatto. "
+        "Sola lettura: non modifica dati e non invia messaggi."
+    ),
+)
+def post_contact_status(payload: ContactStatusRequest, db: Session = Depends(get_db)) -> ContactStatusResponse:
+    return ContactStatusResponse(**contact_status(db, payload.emails, payload.contacted_tags))
+
+
 @router.get("/opportunities/categories")
 def get_opportunity_categories(
     db: Session = Depends(get_db),
     status: str | None = None,
     favorite: bool | None = None,
     shortlist: bool = False,
-    q: str | None = None,
+    q: str | None = Query(default=None, description=_Q_DESCRIPTION),
+    search: str | None = Query(default=None, description=_SEARCH_DESCRIPTION),
     city: str | None = None,
     tag: str | None = None,
     min_score: int | None = Query(default=None, ge=0, le=100),
@@ -206,8 +238,8 @@ def get_opportunity_categories(
 ) -> list[dict]:
     # La faccetta applica tutti i filtri tranne il settore stesso.
     items = get_opportunities(
-        db=db, status=status, favorite=favorite, shortlist=shortlist, q=q,
-        city=city, tag=tag, min_score=min_score, priority=priority,
+        db=db, status=status, favorite=favorite, shortlist=shortlist, q=_text_query(q, search), search=None,
+        category=None, city=city, tag=tag, min_score=min_score, priority=priority,
         segment=segment, contactable=contactable,
     )
     counts: dict[str, int] = {}
@@ -260,7 +292,15 @@ def patch_opportunity(
     return _detail(opportunity, scores.get(opportunity.company_id), growth_scores.get(opportunity.company_id))
 
 
-@router.post("/opportunities/{opportunity_id}/notes", response_model=OpportunityDetail)
+@router.post(
+    "/opportunities/{opportunity_id}/notes",
+    response_model=OpportunityDetail,
+    summary="Aggiunge una nota all'opportunità",
+    description=(
+        'Corpo JSON: `{"body": "testo della nota"}`. Il campo si chiama **body**: '
+        "`content`, `text` o `note` vengono rifiutati con 422 e un messaggio che indica il campo corretto."
+    ),
+)
 def post_note(
     opportunity_id: UUID,
     payload: CreateNoteRequest,
