@@ -113,6 +113,8 @@ export type OpportunitySummary = {
   growth_score: number | null;
   growth_priority: string | null;
   segment: "refactor" | "greenfield";
+  instagram_handle?: string | null;
+  instagram_last_post_at?: string | null;
   updated_at: string;
 };
 

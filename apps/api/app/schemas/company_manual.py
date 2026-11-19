@@ -1,5 +1,6 @@
 """Schemi per l'inserimento CRM manuale e l'import con creazione."""
 
+from datetime import date
 from typing import Literal
 from uuid import UUID
 
@@ -26,6 +27,17 @@ class ManualCompanyCreate(BaseModel):
     email: str | None = Field(default=None, max_length=255)
     phone: str | None = Field(default=None, max_length=64)
     social_links: list[SocialLink] = Field(default_factory=list, max_length=12)
+    instagram_handle: str | None = Field(
+        default=None,
+        max_length=255,
+        description="Handle Instagram: «@nome», «nome» o URL del profilo. Salvato senza @, in minuscolo.",
+        examples=["@albergomontecivetta"],
+    )
+    instagram_last_post_at: date | None = Field(
+        default=None,
+        description="Data dell'ultimo post Instagram visto (AAAA-MM-GG). Su un'azienda esistente vince la più recente.",
+        examples=["2026-11-12"],
+    )
     category: str | None = Field(default=None, max_length=128)
     city: str | None = Field(default=None, max_length=128)
     region: str | None = Field(default=None, max_length=128)

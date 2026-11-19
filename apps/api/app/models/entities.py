@@ -27,6 +27,9 @@ class Company(Base):
     phone: Mapped[str | None] = mapped_column(String(64), nullable=True)
     email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     places_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Canale Instagram (qualificazione senza sito): handle senza "@" e data dell'ultimo post visto.
+    instagram_handle: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    instagram_last_post_at: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
     source: Mapped[str] = mapped_column(String(64), nullable=False)
     external_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     status: Mapped[str] = mapped_column(String(32), default="discovered", nullable=False)

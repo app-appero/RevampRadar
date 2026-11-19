@@ -36,6 +36,7 @@ from app.services.crm_service import (
     latest_scores_map,
     list_opportunities,
 )
+from app.services.instagram import effective_instagram_handle
 
 EXPORT_FORMAT = "revampradar.pipeline"
 EXPORT_VERSION = 1
@@ -131,6 +132,8 @@ def build_export(session: Session, **filters: Any) -> dict[str, Any]:
                 "phone": company.phone,
                 "email": company.email,
                 "social_links": _social_links(company),
+                "instagram_handle": effective_instagram_handle(company),
+                "instagram_last_post_at": _iso(company.instagram_last_post_at),
                 "contacts_checked_at": _iso(company.places_checked_at),
                 "source": company.source,
                 "osm_tags": osm_tags if isinstance(osm_tags, dict) else {},

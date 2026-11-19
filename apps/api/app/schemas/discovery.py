@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -78,6 +78,10 @@ class CompanySummary(BaseModel):
     osm_start_date: str | None = None
     osm_opening_hours: str | None = None
     social_links: list[SocialLink] = Field(default_factory=list)
+    instagram_handle: str | None = Field(
+        default=None, description="Handle Instagram salvato o ricavato dai link social, senza @."
+    )
+    instagram_last_post_at: date | None = Field(default=None, description="Data dell'ultimo post Instagram visto.")
 
 
 class CompanyDetail(CompanySummary):
@@ -90,6 +94,14 @@ class CompanyContactsUpdate(BaseModel):
     phone: str | None = Field(default=None, max_length=64)
     email: str | None = Field(default=None, max_length=255)
     social_links: list[SocialLink] | None = Field(default=None, max_length=12)
+    instagram_handle: str | None = Field(
+        default=None,
+        max_length=255,
+        description="Handle Instagram («@nome», «nome» o URL). Assente = invariato, null o vuoto = cancella.",
+    )
+    instagram_last_post_at: date | None = Field(
+        default=None, description="Data dell'ultimo post (AAAA-MM-GG). Assente = invariata, null = cancella."
+    )
 
 
 class DiscoveryRunSummary(BaseModel):

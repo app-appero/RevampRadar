@@ -98,6 +98,8 @@ class OpportunitySummary(BaseModel):
     growth_score: int | None = None
     growth_priority: str | None = None
     segment: str = "refactor"
+    instagram_handle: str | None = None
+    instagram_last_post_at: date | None = None
     updated_at: datetime
 
 

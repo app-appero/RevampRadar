@@ -107,6 +107,7 @@
 - [x] M5-013 Alias `search` per `q` e contratto esplicito delle note (`body`)
 - [x] M5-014 Paginazione Pipeline (limit/offset, X-Total-Count), GET note, DELETE tag per nome o id
 - [x] M5-015 Filtro per dominio esatto (`domain=`) contro i duplicati
+- [x] M5-016 Canale Instagram (handle, data ultimo post, filtri) e ricerca q su dominio e social
 
 ## M6 — Proposal Engine
 

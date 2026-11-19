@@ -14,16 +14,27 @@ export function CompanyContacts({ companyId }: { companyId: string }) {
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [socials, setSocials] = useState<SocialLink[]>([]);
+  const [instagram, setInstagram] = useState("");
+  const [lastPost, setLastPost] = useState("");
 
   useEffect(() => {
     if (!companyQuery.data) return;
     setPhone(companyQuery.data.phone ?? "");
     setEmail(companyQuery.data.email ?? "");
     setSocials(companyQuery.data.social_links ?? []);
+    setInstagram(companyQuery.data.instagram_handle ?? "");
+    setLastPost(companyQuery.data.instagram_last_post_at ?? "");
   }, [companyQuery.data]);
 
   const save = useMutation({
-    mutationFn: () => updateCompanyContacts(companyId, { phone, email, social_links: socials }),
+    mutationFn: () =>
+      updateCompanyContacts(companyId, {
+        phone,
+        email,
+        social_links: socials,
+        instagram_handle: instagram.trim() || null,
+        instagram_last_post_at: lastPost || null,
+      }),
     onSuccess: (company) => {
       queryClient.setQueryData(queryKey, company);
       void queryClient.invalidateQueries({ queryKey: ["companies"] });
@@ -80,6 +91,25 @@ export function CompanyContacts({ companyId }: { companyId: string }) {
             onChange={(event) => setEmail(event.target.value)}
             maxLength={255}
             placeholder="Indirizzo email pubblico"
+            className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-stone-900"
+          />
+        </label>
+        <label className="block space-y-1">
+          <span className="text-sm font-medium text-stone-700">Instagram</span>
+          <input
+            value={instagram}
+            onChange={(event) => setInstagram(event.target.value)}
+            maxLength={255}
+            placeholder="@nomeprofilo"
+            className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-stone-900"
+          />
+        </label>
+        <label className="block space-y-1">
+          <span className="text-sm font-medium text-stone-700">Ultimo post Instagram</span>
+          <input
+            type="date"
+            value={lastPost}
+            onChange={(event) => setLastPost(event.target.value)}
             className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-stone-900"
           />
         </label>

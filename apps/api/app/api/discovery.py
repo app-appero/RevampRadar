@@ -35,6 +35,7 @@ from app.schemas.discovery import (
     OsmIndustryPreview,
     SocialLink,
 )
+from app.services.instagram import effective_instagram_handle
 
 router = APIRouter(tags=["discovery"])
 
@@ -194,6 +195,11 @@ def put_company_contacts(
     if company is None:
         raise HTTPException(status_code=404, detail="Azienda non trovata.")
     try:
+        instagram = {
+            name: getattr(payload, name)
+            for name in ("instagram_handle", "instagram_last_post_at")
+            if name in payload.model_fields_set
+        }
         company = update_company_contacts(
             db,
             company,
@@ -204,6 +210,7 @@ def put_company_contacts(
                 if payload.social_links is not None
                 else None
             ),
+            instagram=instagram,
         )
     except DiscoveryServiceError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
@@ -279,6 +286,8 @@ def _company_summary(company: Company) -> CompanySummary:
         osm_start_date=tags.get("start_date") if tags else None,
         osm_opening_hours=tags.get("opening_hours") if tags else None,
         social_links=[SocialLink(label=label, url=url) for label, url in social],
+        instagram_handle=effective_instagram_handle(company),
+        instagram_last_post_at=company.instagram_last_post_at,
     )
 
 

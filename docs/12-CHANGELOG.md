@@ -3,6 +3,8 @@
 ## Unreleased
 
 ### Added
+- Canale Instagram: `instagram_handle` e `instagram_last_post_at` su azienda e opportunità (migrazione `0024_company_instagram`), accettati da `POST /companies` e dall'import, modificabili dalla scheda (card Contatti) e da `PUT /companies/{id}/contacts`. Filtri `GET /opportunities?channel=ig&last_post_after=AAAA-MM-GG` (anche export e faccette). Prima la data dell'ultimo post stava solo nelle note.
+- `GET /opportunities?q=` cerca anche nel dominio del sito, nell'handle Instagram e nei link social: il controllo dei duplicati per dominio non va più fatto a mano.
 - Discovery: server Overpass di riserva (overpass.kumi.systems, overpass.private.coffee) con ripiego automatico anche sugli errori di rete. Prima un «[Errno 101] Network is unreachable» sul primo server faceva fallire la ricerca senza provare gli altri, anche durante la ricerca per comuni. Nuovi tentativi automatici se nessun server risponde; messaggio d'errore leggibile; etichetta «Fallita · …» invece dell'ultima fase.
 - `POST /discoveries/{id}/retry` e pulsante «Riprova ricerca»: rilancia una discovery fallita, parziale o rimasta bloccata, con gli stessi parametri e senza perdere i risultati già trovati.
 - `GET /opportunities?domain=…` (anche export e faccette): dominio esatto del sito, `www.` ignorato, per controllare i duplicati prima di `POST /companies`.

@@ -30,8 +30,11 @@ def update_company_contacts(
     phone: str | None,
     email: str | None,
     social_links: list[tuple[str, str]] | None = None,
+    instagram: dict | None = None,
 ) -> Company:
+    """`instagram` contiene solo i campi inviati: instagram_handle e/o instagram_last_post_at."""
     from app.discovery.normalize import normalize_email, normalize_phone
+    from app.services.instagram import normalize_instagram_handle, validate_last_post_date
 
     normalized_email = normalize_email(email)
     if email and (
@@ -39,8 +42,20 @@ def update_company_contacts(
         or re.fullmatch(r"[^@\s]+@[^@\s.]+(?:\.[^@\s.]+)+", normalized_email) is None
     ):
         raise DiscoveryServiceError("Inserisci un indirizzo email valido.", status_code=422)
+    instagram = instagram or {}
+    try:
+        if "instagram_handle" in instagram:
+            handle = normalize_instagram_handle(instagram["instagram_handle"])
+        if "instagram_last_post_at" in instagram:
+            last_post = validate_last_post_date(instagram["instagram_last_post_at"])
+    except ValueError as exc:
+        raise DiscoveryServiceError(str(exc), status_code=422) from exc
     company.phone = normalize_phone(phone)
     company.email = normalized_email
+    if "instagram_handle" in instagram:
+        company.instagram_handle = handle
+    if "instagram_last_post_at" in instagram:
+        company.instagram_last_post_at = last_post
     if social_links is not None:
         extra = dict(company.extra or {})
         extra["social_links"] = _clean_social_links(social_links)

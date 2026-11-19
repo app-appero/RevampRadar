@@ -35,6 +35,12 @@ from app.schemas.company_manual import (
 )
 from app.schemas.crm import CRM_STATUSES
 from app.services.crm_service import _normalize_tag, ensure_opportunity
+from app.services.instagram import (
+    handle_from_links,
+    instagram_profile_url,
+    normalize_instagram_handle,
+    validate_last_post_date,
+)
 from app.services.pipeline_io import _social_links
 
 _LOCK = threading.Lock()
@@ -127,6 +133,8 @@ class NormalizedCompany:
     phone: str | None
     social_links: list[dict[str, str]]
     social_ids: set[str]
+    instagram_handle: str | None
+    instagram_last_post_at: date | None
     category: str | None
     city: str | None
     city_key: str | None
@@ -577,6 +585,8 @@ def _insert_company(session: Session, data: NormalizedCompany) -> Company:
         website_url=data.website_url,
         phone=data.phone,
         email=data.email,
+        instagram_handle=data.instagram_handle,
+        instagram_last_post_at=data.instagram_last_post_at,
         source=data.source,
         external_id=data.external_id,
         status="discovered",
@@ -636,6 +646,19 @@ def _apply_updates(
             warnings.append("Sito già presente, lasciato invariato.")
     fill("phone", data.phone, 64)
     fill("email", data.email, 255)
+    fill("instagram_handle", data.instagram_handle, 64)
+    if data.instagram_last_post_at is not None:
+        current_post = company.instagram_last_post_at
+        if current_post is None or data.instagram_last_post_at > current_post:
+            # L'ultimo post va avanti nel tempo: una data più recente aggiorna quella salvata.
+            changes.append("instagram_last_post_at")
+            if write:
+                company.instagram_last_post_at = data.instagram_last_post_at
+        elif data.instagram_last_post_at < current_post:
+            warnings.append(
+                f"Ultimo post Instagram già registrato al {current_post.isoformat()}: "
+                "la data più vecchia è stata ignorata."
+            )
     if data.province:
         current_province = _province_text(company)
         if not current_province:
@@ -876,7 +899,18 @@ def _normalize(payload: ManualCompanyCreate, *, company_id: UUID | None, ref: st
         if not phone:
             raise ManualCompanyError("Telefono non valido.")
         phone = phone[:64]
-    social_links, social_ids = _prepare_social([(item.label, item.url) for item in payload.social_links])
+    raw_links = [(item.label, item.url) for item in payload.social_links]
+    try:
+        instagram_handle = normalize_instagram_handle(payload.instagram_handle)
+        instagram_last_post_at = validate_last_post_date(payload.instagram_last_post_at)
+    except ValueError as exc:
+        raise ManualCompanyError(str(exc)) from exc
+    if instagram_handle is None:
+        instagram_handle = handle_from_links(raw_links)
+    elif handle_from_links(raw_links) is None:
+        # Il profilo entra anche fra i social: la deduplica per social riconosce lo stesso account.
+        raw_links.append(("Instagram", instagram_profile_url(instagram_handle)))
+    social_links, social_ids = _prepare_social(raw_links)
     status = _blank(payload.status)
     if status is not None and status not in CRM_STATUSES:
         raise ManualCompanyError(f"Stato CRM non valido: {status}")
@@ -900,6 +934,8 @@ def _normalize(payload: ManualCompanyCreate, *, company_id: UUID | None, ref: st
         phone=phone,
         social_links=social_links,
         social_ids=social_ids,
+        instagram_handle=instagram_handle,
+        instagram_last_post_at=instagram_last_post_at,
         category=_clip(normalize_text(payload.category), 128),
         city=_clip(normalize_text(payload.city), 128),
         city_key=_key(payload.city),

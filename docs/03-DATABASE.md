@@ -21,6 +21,8 @@ Campi suggeriti:
 - website_url
 - phone
 - email
+- instagram_handle (senza @, minuscolo)
+- instagram_last_post_at (data dell'ultimo post visto)
 - source
 - external_id
 - status

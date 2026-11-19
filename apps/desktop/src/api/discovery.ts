@@ -23,6 +23,8 @@ export type CompanySummary = {
   osm_start_date?: string | null;
   osm_opening_hours?: string | null;
   social_links?: SocialLink[];
+  instagram_handle?: string | null;
+  instagram_last_post_at?: string | null;
 };
 
 export type SocialLink = {
@@ -323,7 +325,13 @@ export async function placesEnrichCompany(id: string): Promise<CompanyDetail> {
 
 export async function updateCompanyContacts(
   id: string,
-  payload: { phone: string; email: string; social_links?: SocialLink[] },
+  payload: {
+    phone: string;
+    email: string;
+    social_links?: SocialLink[];
+    instagram_handle?: string | null;
+    instagram_last_post_at?: string | null;
+  },
 ): Promise<CompanyDetail> {
   let response: Response;
   try {

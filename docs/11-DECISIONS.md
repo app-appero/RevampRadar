@@ -142,3 +142,12 @@ Se Overpass va in timeout sull'intera provincia si interrogano i comuni (admin_l
 gruppi, con ripetizione e bisezione dei gruppi lenti; i comuni senza risposta rendono la
 discovery `partial` invece di nascondere il buco.
 
+## ADR-025 — Instagram in colonne dedicate, non nelle note
+
+Per le attività senza sito qualificate solo da Instagram, handle e data dell'ultimo post
+sono colonne di `companies` (`instagram_handle`, `instagram_last_post_at`) e non testo nelle
+note: servono a filtrare (`channel=ig`, `last_post_after`) e a ordinare il lavoro. La data è
+inserita da chi qualifica, non letta da Instagram: niente scraping né API esterne. L'handle
+viene aggiunto anche ai link social, così la deduplica esistente (ADR-022) riconosce lo stesso
+profilo; come per gli altri social, senza località concordante non si fonde da solo.
+

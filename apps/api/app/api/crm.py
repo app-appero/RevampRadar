@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Any
 from uuid import UUID
 
@@ -47,14 +47,26 @@ from app.services.crm_service import (
     update_opportunity,
     website_for,
 )
+from app.services.instagram import effective_instagram_handle
 from app.services.pipeline_io import PipelineImportError, build_export, import_export
 
 router = APIRouter(tags=["crm"])
 
 MAX_PAGE_SIZE = 1000
 TOTAL_COUNT_HEADER = "X-Total-Count"
-_Q_DESCRIPTION = "Testo cercato nel nome dell'azienda (senza distinzione maiuscole/minuscole)."
+_Q_DESCRIPTION = (
+    "Testo cercato (maiuscole indifferenti) nel nome dell'azienda, nel dominio/URL del sito, "
+    "nell'handle Instagram (anche con @) e nei link social. Non cerca nei tag OSM né nelle note."
+)
 _TAG_DESCRIPTION = "Solo le opportunità con questo tag (nome esatto, senza distinzione maiuscole/minuscole)."
+_CHANNEL_DESCRIPTION = (
+    "`ig` (o `instagram`): solo aziende con un profilo Instagram, salvato in `instagram_handle` "
+    "o presente fra i link social."
+)
+_LAST_POST_DESCRIPTION = (
+    "AAAA-MM-GG: solo aziende con ultimo post Instagram in questa data o dopo "
+    "(`instagram_last_post_at` >= data). Le aziende senza data sono escluse."
+)
 _DOMAIN_DESCRIPTION = (
     "Dominio esatto del sito, `www.` ignorato (es. `2-emme.com`; accetta anche un URL). "
     "Non include sottodomini né domini più lunghi. Utile per evitare duplicati prima di `POST /companies`."
@@ -161,6 +173,8 @@ def get_opportunities(
     segment: str | None = None,
     contactable: bool | None = None,
     domain: str | None = Query(default=None, description=_DOMAIN_DESCRIPTION),
+    channel: str | None = Query(default=None, description=_CHANNEL_DESCRIPTION),
+    last_post_after: date | None = Query(default=None, description=_LAST_POST_DESCRIPTION),
     limit: int | None = Query(
         default=None,
         ge=1,
@@ -183,6 +197,8 @@ def get_opportunities(
         segment=segment,
         contactable=contactable,
         domain=domain,
+        channel=channel,
+        last_post_after=last_post_after,
     )
     response.headers[TOTAL_COUNT_HEADER] = str(len(items))
     page = items[offset : offset + limit] if limit is not None else items[offset:]
@@ -213,6 +229,8 @@ def export_opportunities(
     segment: str | None = None,
     contactable: bool | None = None,
     domain: str | None = Query(default=None, description=_DOMAIN_DESCRIPTION),
+    channel: str | None = Query(default=None, description=_CHANNEL_DESCRIPTION),
+    last_post_after: date | None = Query(default=None, description=_LAST_POST_DESCRIPTION),
 ) -> dict[str, Any]:
     """JSON completo delle aziende che rispettano i filtri correnti della Pipeline."""
     try:
@@ -230,6 +248,8 @@ def export_opportunities(
             segment=segment,
             contactable=contactable,
             domain=domain,
+            channel=channel,
+            last_post_after=last_post_after,
         )
     except CrmServiceError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
@@ -274,12 +294,15 @@ def get_opportunity_categories(
     segment: str | None = None,
     contactable: bool | None = None,
     domain: str | None = Query(default=None, description=_DOMAIN_DESCRIPTION),
+    channel: str | None = Query(default=None, description=_CHANNEL_DESCRIPTION),
+    last_post_after: date | None = Query(default=None, description=_LAST_POST_DESCRIPTION),
 ) -> list[dict]:
     # La faccetta applica tutti i filtri tranne il settore stesso.
     items = _filtered_opportunities(
         db, status=status, favorite=favorite, shortlist=shortlist, query=_text_query(q, search),
         city=city, tag=tag, min_score=min_score, priority=priority,
         segment=segment, contactable=contactable, domain=domain,
+        channel=channel, last_post_after=last_post_after,
     )
     counts: dict[str, int] = {}
     variants: dict[str, set[str]] = {}
@@ -474,6 +497,8 @@ def _summary(
         growth_score=growth.score if growth else None,
         growth_priority=growth.priority if growth else None,
         segment="refactor" if has_website else "greenfield",
+        instagram_handle=effective_instagram_handle(company),
+        instagram_last_post_at=company.instagram_last_post_at if company else None,
         updated_at=opportunity.updated_at,
     )
 

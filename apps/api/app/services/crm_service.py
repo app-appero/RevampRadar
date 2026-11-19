@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from urllib.parse import urlparse
 from uuid import UUID
 
-from sqlalchemy import func, or_
+from sqlalchemy import Text, cast, func, or_
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.entities import (
@@ -20,6 +20,7 @@ from app.models.entities import (
 )
 from app.schemas.crm import ACTIVITY_TYPES, CRM_STATUSES, SCHEDULED_ACTIVITY_TYPES
 from app.services.contactability import is_contactable
+from app.services.instagram import INSTAGRAM_CHANNELS, effective_instagram_handle
 
 
 class CrmServiceError(Exception):
@@ -153,6 +154,8 @@ def list_opportunities(
     segment: str | None = None,
     contactable: bool | None = None,
     domain: str | None = None,
+    channel: str | None = None,
+    last_post_after: date | None = None,
 ) -> list[Opportunity]:
     backfill_opportunities(session)
     q = (
@@ -171,8 +174,22 @@ def list_opportunities(
         q = q.filter(Opportunity.is_favorite.is_(True))
     if shortlist:
         q = q.filter(or_(Opportunity.is_favorite.is_(True), Opportunity.status == "shortlisted"))
-    if query:
-        q = q.filter(func.lower(Company.name).like(f"%{query.strip().lower()}%"))
+    needle = (query or "").strip().lower()
+    if needle:
+        # Nome, dominio/URL del sito, handle Instagram e link social. Il prefiltro SQL su `extra`
+        # è largo (contiene anche i tag OSM); il controllo esatto è in _matches_text.
+        core = _like_escape(needle.lstrip("@") or needle)
+        pattern = f"%{core}%"
+        q = q.filter(
+            or_(
+                func.lower(Company.name).like(f"%{_like_escape(needle)}%", escape="\\"),
+                func.lower(Company.name).like(pattern, escape="\\"),
+                func.lower(Company.website_url).like(pattern, escape="\\"),
+                Company.websites.any(func.lower(Website.domain).like(pattern, escape="\\")),
+                func.lower(Company.instagram_handle).like(pattern, escape="\\"),
+                func.lower(cast(Company.extra, Text)).like(pattern, escape="\\"),
+            )
+        )
     if city:
         q = q.filter(func.lower(Company.city).like(f"%{city.strip().lower()}%"))
     if tag:
@@ -182,19 +199,36 @@ def list_opportunities(
         wanted_domain = normalize_domain(domain)
         if wanted_domain is None:
             raise CrmServiceError("Dominio non valido: usa la forma esempio.it.", status_code=422)
-        escaped = wanted_domain.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         # Prefiltro SQL largo, poi confronto esatto in Python sull'host (www. ignorato).
         q = q.filter(
             or_(
                 Company.websites.any(func.lower(Website.domain).in_([wanted_domain, f"www.{wanted_domain}"])),
-                func.lower(Company.website_url).like(f"%{escaped}%", escape="\\"),
+                func.lower(Company.website_url).like(f"%{_like_escape(wanted_domain)}%", escape="\\"),
             )
         )
+    instagram_only = False
+    if channel is not None and channel.strip():
+        if channel.strip().lower() not in INSTAGRAM_CHANNELS:
+            raise CrmServiceError("Canale non supportato: usa channel=ig.", status_code=422)
+        instagram_only = True
+        q = q.filter(
+            or_(
+                Company.instagram_handle.isnot(None),
+                func.lower(cast(Company.extra, Text)).like("%instagram%"),
+            )
+        )
+    if last_post_after is not None:
+        # Dal giorno indicato compreso.
+        q = q.filter(Company.instagram_last_post_at >= last_post_after)
     if segment not in (None, "all", "refactor", "greenfield"):
         raise CrmServiceError("Segmento non valido.", status_code=422)
     opportunities = q.order_by(Opportunity.updated_at.desc(), Opportunity.id).all()
     if wanted_domain is not None:
         opportunities = [item for item in opportunities if wanted_domain in company_domains(item.company)]
+    if needle:
+        opportunities = [item for item in opportunities if _matches_text(item.company, needle)]
+    if instagram_only:
+        opportunities = [item for item in opportunities if effective_instagram_handle(item.company)]
     if category:
         category_key = normalize_category(category)
         opportunities = [item for item in opportunities if normalize_category(item.company.category) == category_key]
@@ -216,6 +250,30 @@ def list_opportunities(
             filtered.append(item)
         opportunities = filtered
     return _sorted_by_score(opportunities, scores, growth_scores)
+
+
+def _like_escape(value: str) -> str:
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+def _matches_text(company: Company | None, needle: str) -> bool:
+    """`q` trovato nel nome, nel dominio/URL del sito, nell'handle Instagram o nei link social."""
+    if company is None:
+        return False
+    core = needle.lstrip("@") or needle
+    name = (company.name or "").lower()
+    if needle in name or core in name:
+        return True
+    if any(core in item for item in company_domains(company)):
+        return True
+    if company.website_url and core in company.website_url.lower():
+        return True
+    handle = effective_instagram_handle(company)
+    if handle and core in handle:
+        return True
+    from app.services.pipeline_io import _social_links
+
+    return any(core in item["url"].lower() for item in _social_links(company))
 
 
 def normalize_domain(value: str | None) -> str | None:

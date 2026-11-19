@@ -228,8 +228,20 @@ dai test né inventato.
 
 ## API: ricerca, note e controllo contatti
 
-- `GET /opportunities?q=…` cerca nel nome azienda; `search` è un alias di `q`
-  (se presenti entrambi vale `q`). Vale anche per export e faccette settore.
+- `GET /opportunities?q=…` cerca (maiuscole indifferenti) nel nome azienda, nel
+  dominio/URL del sito, nell'handle Instagram (anche con `@`) e nei link social; non
+  cerca nei tag OSM né nelle note. `search` è un alias di `q` (se presenti entrambi
+  vale `q`). Vale anche per export e faccette settore.
+- Canale Instagram: `instagram_handle` e `instagram_last_post_at` (AAAA-MM-GG) si
+  passano a `POST /companies` e `POST /companies/import`, si correggono con
+  `PUT /companies/{id}/contacts` (campo assente = invariato, `null` = cancella) e
+  compaiono su azienda e opportunità. L'handle è salvato senza `@`, in minuscolo,
+  e aggiunto anche ai link social (così la deduplica riconosce il profilo); se manca
+  viene ricavato da un link Instagram. Su un'azienda esistente la data più recente
+  sostituisce quella salvata, una più vecchia viene ignorata con un avviso.
+- `?channel=ig` filtra le aziende con profilo Instagram (campo o link social, anche
+  da tag OSM); `?last_post_after=AAAA-MM-GG` quelle con ultimo post in quella data o
+  dopo (senza data escluse). Si combinano con gli altri filtri e con la paginazione.
   `?tag=lotto3-20261123` filtra per nome esatto del tag (maiuscole indifferenti).
   `?domain=2-emme.com` filtra per dominio esatto del sito (`www.` ignorato, accetta
   anche un URL; niente sottodomini né corrispondenze parziali): da usare prima di
