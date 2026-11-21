@@ -33,10 +33,12 @@ class HtmlScanResult:
     generator: str | None = None
     saas_signals: list[str] = field(default_factory=list)
     content: dict = field(default_factory=dict)
+    footer_year: int | None = None
 
     def to_dict(self) -> dict:
         return {
             "title": self.title,
+            "footer_year": self.footer_year,
             "meta_description": self.meta_description,
             "h1": self.h1,
             "headings": self.headings,
@@ -132,6 +134,7 @@ def scan_html(html: str, page_url: str) -> HtmlScanResult:
     saas_signals = _saas_signals(soup, html_lower, internal_links, cta_texts)
 
     return HtmlScanResult(
+        footer_year=extract_footer_year(soup),
         title=title or None,
         meta_description=meta_description or None,
         h1=h1,
@@ -319,3 +322,27 @@ def extract_content_digest(soup: BeautifulSoup, html_lower: str) -> dict:
         "text_excerpt": paragraphs,
         "signals": signals,
     }
+
+
+_COPYRIGHT_YEAR = re.compile(
+    r"(?:©|\(c\)|copyright)\s*(?:[^\d\n]{0,40}?)((?:19|20)\d{2})(?:\s*[-–]\s*((?:19|20)\d{2}))?",
+    re.IGNORECASE,
+)
+
+
+def extract_footer_year(soup: BeautifulSoup) -> int | None:
+    """Anno del copyright nel footer (© 2019, Copyright 2015-2021…), il più recente trovato.
+
+    Si guarda prima l'elemento <footer>, poi la fine del testo della pagina. Un anno fermo da
+    tempo è un segnale deterministico di sito non aggiornato.
+    """
+    blocks = [node.get_text(" ", strip=True) for node in soup.find_all("footer")]
+    if not blocks:
+        body = soup.body or soup
+        blocks = [body.get_text(" ", strip=True)[-1500:]]
+    years: list[int] = []
+    for text in blocks:
+        for match in _COPYRIGHT_YEAR.finditer(text):
+            years.extend(int(group) for group in match.groups() if group)
+    return max(years) if years else None
+

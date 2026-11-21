@@ -16,6 +16,7 @@ from app.schemas.audit import (
     CompanyAuditHistoryItem,
     CreateAuditRequest,
     FindingResponse,
+    LocalCheck,
     OpportunityScoreResponse,
     ScreenshotResponse,
     WebsiteScoreResponse,
@@ -180,6 +181,7 @@ def _to_response(audit: Audit) -> AuditResponse:
         website_score=_website_score_response(audit),
         opportunity_score=_opportunity_score_response(audit),
         ai_analysis=_ai_analysis_response(audit),
+        checks=local_checks(audit),
     )
 
 
@@ -239,6 +241,62 @@ def _opportunity_score_response(audit: Audit) -> OpportunityScoreResponse | None
         components=score.components,
         formula_version=score.formula_version,
     )
+
+
+def local_checks(audit: Audit) -> list[LocalCheck]:
+    """Esito esplicito dei controlli locali (nessuna AI, PageSpeed o Places) già salvati nell'audit."""
+    http = audit.http_data or {}
+    html = audit.html_data
+    performance = audit.performance_data or {}
+    checks: list[LocalCheck] = []
+
+    def add(code: str, label: str, status: str, detail: str | None = None) -> None:
+        checks.append(LocalCheck(code=code, label=label, status=status, detail=detail))
+
+    status_code = http.get("status_code")
+    if status_code is None:
+        add("http_status", "Risposta HTTP", "problem" if http else "not_checked", http.get("error"))
+    else:
+        add("http_status", "Risposta HTTP", "ok" if status_code < 400 else "problem", str(status_code))
+
+    if http.get("tls_valid") is True:
+        add("tls", "Certificato HTTPS", "ok")
+    elif http.get("tls_valid") is False:
+        add("tls", "Certificato HTTPS", "problem", http.get("tls_error"))
+    elif http.get("ok"):
+        add("tls", "Certificato HTTPS", "problem", "Il sito non usa HTTPS.")
+    else:
+        add("tls", "Certificato HTTPS", "not_checked")
+
+    if html is None:
+        for code, label in (("viewport", "Meta viewport"), ("title", "Title"), ("footer_year", "Anno nel footer"),
+                            ("broken_links", "Link interni")):
+            add(code, label, "not_checked")
+    else:
+        add("viewport", "Meta viewport", "ok" if html.get("viewport") else "problem", html.get("viewport"))
+        add("title", "Title", "ok" if html.get("title") else "problem", html.get("title"))
+        year = html.get("footer_year")
+        if year is None:
+            add("footer_year", "Anno nel footer", "not_checked", "Nessun anno di copyright trovato.")
+        else:
+            stale = year <= audit.created_at.year - 2 if audit.created_at else False
+            add("footer_year", "Anno nel footer", "problem" if stale else "ok", str(year))
+        links = html.get("links_check")
+        if not links or not links.get("checked"):
+            add("broken_links", "Link interni", "not_checked")
+        else:
+            broken = links.get("broken") or []
+            add("broken_links", "Link interni", "problem" if broken else "ok",
+                f"{len(broken)} rotti su {links['checked']} controllati")
+
+    layout = performance.get("mobile_layout")
+    if not layout:
+        add("mobile_overflow_390", "Scorrimento orizzontale a 390px", "not_checked")
+    else:
+        overflow = int(layout.get("overflow_px") or 0)
+        add("mobile_overflow_390", "Scorrimento orizzontale a 390px", "problem" if overflow > 8 else "ok",
+            f"+{overflow}px" if overflow else None)
+    return checks
 
 
 def _ai_status(audit: Audit) -> str:

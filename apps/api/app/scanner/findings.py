@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import UTC, datetime
 
 from app.scanner.html import HtmlScanResult
 from app.scanner.http import HttpScanResult
@@ -21,8 +22,22 @@ def build_findings(
     http_result: HttpScanResult,
     html_result: HtmlScanResult | None,
     seo_result: SeoScanResult | None,
+    *,
+    current_year: int | None = None,
 ) -> list[FindingDraft]:
     findings: list[FindingDraft] = []
+    if http_result.tls_valid is False:
+        findings.append(
+            FindingDraft(
+                category="http",
+                severity="critical",
+                code="TLS_INVALID_CERTIFICATE",
+                title="Certificato HTTPS non valido",
+                description="Il browser mostra un avviso di sicurezza prima di aprire il sito.",
+                evidence=http_result.tls_error,
+                recommendation="Rinnova o correggi il certificato TLS (es. Let's Encrypt con rinnovo automatico).",
+            )
+        )
 
     if not http_result.ok:
         findings.append(
@@ -107,6 +122,20 @@ def build_findings(
             )
         )
         return findings
+
+    year_now = current_year or datetime.now(UTC).year
+    if html_result.footer_year and html_result.footer_year <= year_now - 2:
+        findings.append(
+            FindingDraft(
+                category="trust",
+                severity="low",
+                code="HTML_STALE_FOOTER_YEAR",
+                title=f"Anno nel footer fermo al {html_result.footer_year}",
+                description="Il copyright non è aggiornato: il sito sembra abbandonato.",
+                evidence=str(html_result.footer_year),
+                recommendation="Aggiorna l'anno (o rendilo automatico) e verifica che i contenuti siano attuali.",
+            )
+        )
 
     if not html_result.title:
         findings.append(

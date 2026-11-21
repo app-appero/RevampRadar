@@ -20,6 +20,7 @@ from app.scanner.browser import capture_screenshots
 from app.scanner.findings import FindingDraft, build_findings
 from app.scanner.html import scan_html
 from app.scanner.http import scan_http
+from app.scanner.links import check_links, internal_page_links
 from app.scanner.pagespeed import fetch_pagespeed
 from app.scanner.seo import scan_seo
 from app.scanner.url import NormalizedUrl, UrlValidationError, normalize_url
@@ -181,11 +182,34 @@ def _run_scan(session: Session, audit: Audit, website: Website, settings: Settin
         )
         audit.seo_data = seo_result.to_dict()
 
+    links_report = None
+    if html_result is not None and settings.broken_links_max > 0:
+        _set_progress(session, audit, 35, "Link interni")
+        targets = internal_page_links(
+            html_result.internal_links, http_result.final_url or website.normalized_url, settings.broken_links_max
+        )
+        links_report = check_links(targets, settings) if targets else {"checked": 0, "broken": []}
+        audit.html_data = {**(audit.html_data or {}), "links_check": links_report}
+
     if http_result.ok:
         _fill_company_contacts(session, website, http_result.html, settings)
 
     _set_progress(session, audit, 38, "Finding tecnici")
     findings = build_findings(http_result, html_result, seo_result)
+    if links_report and links_report["broken"]:
+        broken = links_report["broken"]
+        findings.append(
+            FindingDraft(
+                category="html",
+                severity="high" if len(broken) >= 3 else "medium",
+                code="LINKS_BROKEN",
+                title=f"{len(broken)} link interni non funzionanti nella home",
+                description="Alcune pagine collegate dalla home rispondono con errore o non si aprono.",
+                evidence=", ".join(f"{item['url']} ({item.get('status') or 'errore'})" for item in broken[:5]),
+                recommendation="Correggi o rimuovi i link: un visitatore che li apre trova una pagina d'errore.",
+                source_type="scanner",
+            )
+        )
     target_url = http_result.final_url or website.normalized_url
     screenshot_devices: list[str] = []
 
@@ -194,6 +218,26 @@ def _run_scan(session: Session, audit: Audit, website: Website, settings: Settin
         screenshot_dir = Path(settings.screenshot_dir) / str(audit.id)
         browser_result = capture_screenshots(target_url, screenshot_dir, settings)
         performance = {"browser": browser_result.get("performance")}
+        layout = browser_result.get("mobile_layout")
+        if layout:
+            performance["mobile_layout"] = layout
+            overflow = int(layout.get("overflow_px") or 0)
+            if overflow > 8:
+                findings.append(
+                    FindingDraft(
+                        category="mobile",
+                        severity="high" if overflow >= 40 else "medium",
+                        code="MOBILE_HORIZONTAL_OVERFLOW",
+                        title="La pagina scorre in orizzontale su smartphone",
+                        description="A 390px di larghezza il contenuto esce dallo schermo e va spostato col dito.",
+                        evidence=f"Larghezza pagina {layout.get('scroll_width')}px su schermo da "
+                        f"{layout.get('viewport_width')}px (+{overflow}px).",
+                        recommendation=(
+                            "Trova l'elemento troppo largo (immagini, tabelle, testi fissi) e rendilo fluido."
+                        ),
+                        source_type="browser",
+                    )
+                )
         if not browser_result.get("ok"):
             findings.append(
                 FindingDraft(

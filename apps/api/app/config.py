@@ -27,6 +27,10 @@ class Settings(BaseSettings):
     screenshot_dir: str = str(_REPO_ROOT / "data" / "screenshots")
     request_timeout_seconds: float = 15.0
     browser_timeout_ms: int = 20000
+    # Vuoto = Chromium installato da Playwright. Utile se la versione di Playwright non coincide.
+    browser_executable_path: str = ""
+    # Link interni della home controllati per i link rotti (0 = controllo disattivato).
+    broken_links_max: int = 10
     scanner_user_agent: str = "RevampRadar/1.0 (+https://revampradar.local)"
     pagespeed_api_key: str = ""
     ai_provider: str = "claude"

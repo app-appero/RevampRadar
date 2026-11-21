@@ -100,6 +100,13 @@ class AIAnalysisResponse(BaseModel):
     notes: str | None = None
 
 
+class LocalCheck(BaseModel):
+    code: str
+    label: str
+    status: str = Field(description="ok, problem oppure not_checked")
+    detail: str | None = None
+
+
 class AuditResponse(BaseModel):
     id: UUID
     company_id: UUID | None = None
@@ -130,6 +137,13 @@ class AuditResponse(BaseModel):
     website_score: WebsiteScoreResponse | None = None
     opportunity_score: OpportunityScoreResponse | None = None
     ai_analysis: AIAnalysisResponse | None = None
+    checks: list[LocalCheck] = Field(
+        default_factory=list,
+        description=(
+            "Controlli locali e gratuiti alla base del punteggio: stato HTTP, certificato TLS, viewport, "
+            "scorrimento orizzontale a 390px, title, anno nel footer, link interni rotti."
+        ),
+    )
 
 
 class CompanyAuditHistoryItem(BaseModel):

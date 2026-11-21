@@ -133,7 +133,8 @@ def _conversion_score(findings: Sequence[ScoreFinding], html: dict, ai: AIAnalys
 
 def _trust_score(findings: Sequence[ScoreFinding], http: dict, html: dict, ai: AIAnalysisResult | None) -> int:
     score = 55
-    if http.get("https"):
+    # Un certificato non valido mostra un avviso al visitatore: non vale come HTTPS.
+    if http.get("https") and http.get("tls_valid") is not False:
         score += 18
     else:
         score -= 20

@@ -93,10 +93,10 @@ def capture_screenshots(url: str, output_dir: Path, settings: Settings) -> dict:
 
     try:
         with sync_playwright() as playwright:
-            browser = playwright.chromium.launch(
-                headless=True,
-                args=["--disable-dev-shm-usage", "--no-sandbox"],
-            )
+            launch: dict = {"headless": True, "args": ["--disable-dev-shm-usage", "--no-sandbox"]}
+            if settings.browser_executable_path:
+                launch["executable_path"] = settings.browser_executable_path
+            browser = playwright.chromium.launch(**launch)
             try:
                 desktop = _capture_device(
                     browser,
@@ -118,6 +118,7 @@ def capture_screenshots(url: str, output_dir: Path, settings: Settings) -> dict:
                 )
                 result["screenshots"] = desktop["screenshots"] + mobile["screenshots"]
                 result["performance"] = desktop.get("performance") or {}
+                result["mobile_layout"] = mobile.get("layout")
             finally:
                 browser.close()
     except PlaywrightTimeout:
@@ -148,6 +149,8 @@ def _capture_device(
     try:
         page.goto(url, wait_until="domcontentloaded", timeout=settings.browser_timeout_ms)
         page.wait_for_timeout(500)
+        # Misurato prima dell'anteprima, che modifica la pagina.
+        layout = measure_horizontal_overflow(page, width)
         scroll_height = int(page.evaluate("() => document.documentElement.scrollHeight") or height)
         for name, top in viewport_scroll_offsets(scroll_height, height):
             if prefix == "mobile" and name == "footer":
@@ -183,9 +186,24 @@ def _capture_device(
                 path = output_dir / f"preview_{prefix}_{name}.png"
                 page.screenshot(path=str(path), full_page=False)
                 shots.append(_shot_meta(f"preview_{prefix}_{name}", width, height, path))
-        return {"screenshots": shots, "performance": performance}
+        return {"screenshots": shots, "performance": performance, "layout": layout}
     finally:
         page.close()
+
+
+def measure_horizontal_overflow(page, viewport_width: int) -> dict:
+    """Larghezza del documento rispetto al viewport: >0 = la pagina scorre in orizzontale."""
+    scroll_width = int(
+        page.evaluate(
+            "() => Math.max(document.documentElement.scrollWidth, document.body ? document.body.scrollWidth : 0)"
+        )
+        or viewport_width
+    )
+    return {
+        "viewport_width": viewport_width,
+        "scroll_width": scroll_width,
+        "overflow_px": max(0, scroll_width - viewport_width),
+    }
 
 
 def _shot_meta(device: str, width: int, height: int, path: Path) -> dict:
