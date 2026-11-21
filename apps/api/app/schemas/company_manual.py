@@ -184,3 +184,35 @@ class InstagramImportResponse(BaseModel):
     duplicates: int
     invalid: int
     rows: list[InstagramImportRow]
+
+
+class CompanyMatchReason(BaseModel):
+    signal: str = Field(
+        description=(
+            "instagram_handle, email, domain, website_url, phone, instagram_matches_name, domain_matches_name, "
+            "name_exact, name_matches_instagram, name_matches_domain, name_similar, same_city, other_city"
+        )
+    )
+    detail: str
+    points: int
+
+
+class CompanyMatchItem(BaseModel):
+    company_id: UUID
+    opportunity_id: UUID | None
+    name: str
+    city: str | None
+    status: str | None
+    instagram_handle: str | None
+    domains: list[str]
+    email: str | None
+    phone: str | None
+    score: int = Field(description="0-100.")
+    strength: Literal["strong", "probable", "weak"] = Field(description="strong ≥ 85, probable ≥ 65, weak ≥ 50.")
+    reasons: list[CompanyMatchReason]
+
+
+class CompanyMatchResponse(BaseModel):
+    normalized: dict[str, str | None]
+    matches: list[CompanyMatchItem]
+

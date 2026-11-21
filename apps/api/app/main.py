@@ -51,8 +51,9 @@ def create_app() -> FastAPI:
     app.include_router(health_router)
     app.include_router(auth_router)
     app.include_router(audits_router)
-    app.include_router(discovery_router)
+    # Prima di discovery: /companies/match non va letto come /companies/{company_id}.
     app.include_router(companies_router)
+    app.include_router(discovery_router)
     app.include_router(bulk_scans_router)
     app.include_router(bulk_enrich_router)
     app.include_router(purge_router)
