@@ -45,6 +45,7 @@
 - [x] M1-019 Audit result UI
 - [x] M1-020 Error states
 - [x] M1-021 Home recent audits and discoveries
+- [x] M1-022 Controlli locali gratuiti: TLS, overflow 390px, anno nel footer, link rotti
 
 ## M2 — Scoring
 
@@ -77,6 +78,9 @@
 - [x] M3-014 Ricerca per provincia: località completa, filtro sul confine, catalogo settori verificato
 - [x] M3-015 Timeout Overpass su provincia: ricerca per comuni a gruppi con ripetizione
 - [x] M3-016 Server Overpass di riserva su errori di rete e retry della discovery
+- [x] M3-017 Discovery affidabile: tentativi su timeout/429, limite richieste Overpass, ricerche bloccate → failed
+- [x] M3-018 Deduplica discovery deterministica ("Multiple rows were found")
+- [x] M3-019 Resa discovery: social come contatto, statistiche degli scarti
 
 ## M4 — Bulk Scanner
 
@@ -108,6 +112,8 @@
 - [x] M5-014 Paginazione Pipeline (limit/offset, X-Total-Count), GET note, DELETE tag per nome o id
 - [x] M5-015 Filtro per dominio esatto (`domain=`) contro i duplicati
 - [x] M5-016 Canale Instagram (handle, data ultimo post, filtri) e ricerca q su dominio e social
+- [x] M5-017 409 su duplicati Instagram/dominio/email e import in blocco di profili Instagram
+- [x] M5-018 Autenticazione da browser: 401 JSON senza popup e cookie di sessione
 
 ## M6 — Proposal Engine
 

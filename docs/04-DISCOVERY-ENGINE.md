@@ -88,14 +88,41 @@ Ogni ricerca deve essere persistita con:
 - Nella stessa ricerca si riparte dall'ultimo server che ha risposto; quelli
   irraggiungibili vanno in fondo e non vengono richiamati solo per confermare zero
   risultati.
-- Se tutti i server sono irraggiungibili si riprova con attesa crescente
-  (`OVERPASS_RETRY_ATTEMPTS`); poi la discovery è `failed` con un messaggio che elenca
-  i server provati. Se la rete cade durante la ricerca per comuni, si tengono i
+- Errori transitori (rete, server sovraccarichi 429/502/503 e, fuori dalla ricerca
+  per provincia, anche il timeout): stessa query ripetuta fino a
+  `OVERPASS_RETRY_ATTEMPTS` (default 3) con attesa crescente (5 s, 10 s); poi la
+  discovery è `failed` con un messaggio leggibile. In provincia il timeout passa alla
+  ricerca per comuni. Se la rete cade durante la ricerca per comuni, si tengono i
   risultati e la discovery è `partial`.
+- Richieste Overpass contemporanee limitate a `OVERPASS_MAX_CONCURRENCY` (default 2)
+  per tutto il processo: più discovery lanciate insieme si mettono in fila invece di
+  ricevere 429.
+- Ogni avanzamento aggiorna `heartbeat_at`. Una discovery `queued`/`running` senza
+  avanzamenti da oltre `DISCOVERY_STALE_MINUTES` (default 20) diventa `failed` con il
+  motivo («Ricerca interrotta…», es. riavvio dell'API) quando si leggono, creano o
+  rilanciano discovery.
 - `POST /discoveries/{id}/retry` (pulsante «Riprova ricerca») rimette in coda una
-  discovery `failed` o `partial`, o rimasta `running`/`queued` da oltre 30 minuti
-  (es. API riavviata durante un deploy), con gli stessi parametri. I risultati già
-  trovati restano e contano nel totale.
+  discovery `failed` o `partial` con gli stessi parametri. I risultati già trovati
+  restano e contano nel totale.
+
+## Deduplica nella discovery
+
+Telefono, dominio del sito e nome+città non sono unici: fanno fondere un candidato
+con un'azienda esistente solo se indicano una sola azienda. Se ne indicano più di una
+la corrispondenza è ambigua e si crea una scheda nuova invece di andare in errore
+(«Multiple rows were found», Romano di Lombardia). Sui domini condivisi (facebook.com,
+instagram.com, sites.google.com, linktr.ee, booking.com…) il dominio non vale: conta
+solo lo stesso URL.
+
+## Contattabilità e resa
+
+Con `require_contactable` un candidato è contattabile se ha sito, telefono, email o
+un profilo social (`contact:instagram`, `contact:facebook`, WhatsApp, Telegram…), anche
+quando il «sito» OSM è una pagina social. L'handle Instagram trovato su OSM va in
+`instagram_handle`. Ogni discovery espone `stats`: candidati, tenuti, scartati per
+motivo (`invalid`, `uncontactable`, `duplicate_in_run`, `over_max_results`), scarti lato
+OSM (senza nome, altro settore, fuori provincia, senza sito in modalità standard) e
+canali di contatto delle aziende tenute.
 
 ## Stati
 

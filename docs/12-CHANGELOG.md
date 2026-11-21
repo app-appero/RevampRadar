@@ -2,7 +2,15 @@
 
 ## Unreleased
 
+Dettagli e verifica: `docs/RELEASE-2026-11-21.md`.
+
 ### Added
+- Autenticazione: le richieste API (fetch/XHR, `Accept: application/json`, `X-Requested-With`) ricevono un 401 JSON senza la finestra di login del browser; cookie di sessione `rr_session` (7 giorni) dopo un accesso Basic valido.
+- Discovery: 3 tentativi con attesa crescente anche su timeout e server sovraccarichi, massimo 2 richieste Overpass contemporanee, discovery ferme da oltre 20 minuti → `failed` con motivo (migrazione `0025_discovery_heartbeat_stats`).
+- Discovery: corretto «Multiple rows were found» (deduplica su telefono, dominio, nome+città non univoci); nessuna fusione per dominio sugli host condivisi.
+- Discovery: profili social come contatto (anche «sito» = pagina social), handle Instagram salvato, `stats` con scarti per motivo e canali di contatto.
+- `POST /companies`: 409 `duplicate` con l'id esistente su stesso Instagram, dominio o email (`allow_duplicates` per le sedi reali); nuovo `POST /companies/instagram-import`.
+- Audit: controlli locali gratuiti su certificato TLS, scorrimento a 390px, anno nel footer e link interni rotti, elencati in `checks`.
 - Canale Instagram: `instagram_handle` e `instagram_last_post_at` su azienda e opportunità (migrazione `0024_company_instagram`), accettati da `POST /companies` e dall'import, modificabili dalla scheda (card Contatti) e da `PUT /companies/{id}/contacts`. Filtri `GET /opportunities?channel=ig&last_post_after=AAAA-MM-GG` (anche export e faccette). Prima la data dell'ultimo post stava solo nelle note.
 - `GET /opportunities?q=` cerca anche nel dominio del sito, nell'handle Instagram e nei link social: il controllo dei duplicati per dominio non va più fatto a mano.
 - Discovery: server Overpass di riserva (overpass.kumi.systems, overpass.private.coffee) con ripiego automatico anche sugli errori di rete. Prima un «[Errno 101] Network is unreachable» sul primo server faceva fallire la ricerca senza provare gli altri, anche durante la ricerca per comuni. Nuovi tentativi automatici se nessun server risponde; messaggio d'errore leggibile; etichetta «Fallita · …» invece dell'ultima fase.

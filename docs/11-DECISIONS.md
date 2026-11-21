@@ -151,3 +151,26 @@ inserita da chi qualifica, non letta da Instagram: niente scraping né API ester
 viene aggiunto anche ai link social, così la deduplica esistente (ADR-022) riconosce lo stesso
 profilo; come per gli altri social, senza località concordante non si fonde da solo.
 
+## ADR-026 — 401 senza finestra di login per le richieste API
+
+La finestra Basic del browser bloccava ogni fetch delle pagine quando la sessione era
+scaduta (routine del 20/11 ferma). Le richieste programmatiche, riconosciute dagli header
+Fetch Metadata (`Sec-Fetch-Mode` diverso da `navigate`, `Sec-Fetch-Dest: empty`), da
+`Accept: application/json` o da `X-Requested-With`, ricevono un 401 JSON con lo schema non
+interattivo `xBasic`. La finestra resta per le pagine aperte a mano. In più un cookie di
+sessione firmato (`rr_session`, HttpOnly, Secure, SameSite=Strict, 7 giorni di default)
+autentica le fetch su ogni percorso: il browser rimanda le credenziali Basic solo sotto il
+percorso dove sono state inserite e le dimentica alla chiusura. Niente login a token né
+tabelle di sessione: la chiave del cookie deriva dalle credenziali Basic.
+
+## ADR-027 — Duplicati per Instagram, dominio o email rifiutati in POST /companies
+
+Aggiorna ADR-022 per l'inserimento singolo: con stesso handle Instagram, dominio del sito
+o email `POST /companies` risponde 409 con l'id esistente invece di riaprire o aggiornare
+la scheda, così chi importa candidate trovate fuori dall'app vede subito il duplicato.
+Le sedi reali con recapiti condivisi passano con `allow_duplicates: true`, che riattiva la
+deduplica di ADR-022. Sugli host condivisi (Facebook, Instagram, Google Sites…) il dominio
+non identifica: conta la stessa pagina. Lo stesso criterio di «chiave condivisa = ambigua»
+vale nella discovery, che non fonde più per telefono, dominio o nome+città quando indicano
+più aziende.
+

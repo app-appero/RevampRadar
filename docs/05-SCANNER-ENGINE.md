@@ -111,6 +111,19 @@ Google. HTTP, HTML, SEO, screenshot locali e score deterministici restano invari
 risposta riporta `ai_status: skipped_free_mode`. L'analisi manuale dal desktop usa
 `free_only=false`.
 
+Controlli locali (anche in modalità completa), elencati nell'audit in `checks` con esito
+`ok`, `problem` o `not_checked`:
+
+- stato HTTP della home;
+- certificato TLS: se non è valido la pagina si legge comunque (protezione SSRF attiva),
+  `tls_valid=false` e finding `TLS_INVALID_CERTIFICATE`, senza bonus HTTPS nel trust;
+- meta viewport e title (vuoto = assente);
+- scorrimento orizzontale a 390px, misurato nella cattura mobile di Playwright
+  (`MOBILE_HORIZONTAL_OVERFLOW` oltre 8px);
+- anno del copyright nel footer (`HTML_STALE_FOOTER_YEAR` se fermo da 2 anni o più);
+- fino a `BROKEN_LINKS_MAX` (default 10) link interni della home, HEAD con ripiego GET
+  (`LINKS_BROKEN` per 4xx/5xx o pagine irraggiungibili).
+
 ## Severità
 
 - info

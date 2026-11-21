@@ -197,6 +197,7 @@ L'architettura deve comunque consentire in futuro code per:
 - sanitizzazione dei dati;
 - nessuna esecuzione arbitraria proveniente dai siti analizzati;
 - lo scanner rifiuta indirizzi di rete privati/locali (IP letterali e domini che vi risolvono, anche nei redirect) per evitare richieste verso servizi interni.
+- con Basic Auth attiva (backend pubblico) le richieste API (fetch/XHR secondo gli header Fetch Metadata, `Accept: application/json`, `X-Requested-With`) ricevono un 401 JSON con schema `xBasic`, senza la finestra di login del browser; solo le pagine aperte dalla barra degli indirizzi e i client senza questi header ricevono `WWW-Authenticate: Basic`. Dopo un accesso valido il browser riceve il cookie `rr_session` (firmato con chiave derivata dalle credenziali, HttpOnly, Secure, SameSite=Strict, durata `BASIC_AUTH_SESSION_HOURS`, default 168 ore); cambiare la password invalida tutte le sessioni.
 
 ## Principio architetturale
 

@@ -263,4 +263,14 @@ dai test né inventato.
   (`email_sent`, `dm_sent`, `concept_sent`, attività email svolta) o tag di invio
   (segmento «inviato/inviata», es. `lotto2-20261116-inviato`, più eventuali
   `contacted_tags`). Va usato prima di inviare bozze esterne (Aruba). Sola lettura.
+- `POST /companies` rifiuta con 409 (`outcome: duplicate`, `company_id` dell'azienda
+  esistente e candidati con il motivo) un'azienda con lo stesso handle Instagram
+  (campo o link social), lo stesso dominio del sito (sugli host condivisi la stessa
+  pagina) o la stessa email. `allow_duplicates: true` crea comunque, per sedi diverse
+  con recapiti condivisi, applicando la deduplica normale. Per aggiornare un'azienda
+  esistente si usa `POST /companies/import` con `company_id` o `PUT /companies/{id}/contacts`.
+- `POST /companies/instagram-import` importa una lista di handle o URL Instagram
+  (stringhe o oggetti con nome, città, data ultimo post) con valori comuni in
+  `defaults`: crea solo le schede nuove e segnala i duplicati (già in CRM o ripetuti
+  nella lista) con l'id esistente. `dry_run: true` = anteprima.
 
