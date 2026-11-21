@@ -443,6 +443,8 @@ class OpenStreetMapProvider:
         on_stage: StageCallback | None = None,
     ) -> list[DiscoveryCandidate]:
         self.last_warning: str | None = None
+        # Resa della ricerca lato OpenStreetMap: quanti elementi e perché sono stati scartati.
+        self.last_stats: dict[str, int] = {}
         tags = resolve_search_tags(query.industry)
         if not tags:
             return []
@@ -480,13 +482,30 @@ class OpenStreetMapProvider:
         except RuntimeError as exc:
             overpass_error = exc
         matched: list[DiscoveryCandidate] = []
+        unnamed = other_sector = 0
         for item in elements:
             candidate = _from_osm(item, query.industry)
-            if candidate is not None and candidate_matches_industry(candidate, query.industry):
+            if candidate is None:
+                unnamed += 1
+            elif candidate_matches_industry(candidate, query.industry):
                 matched.append(candidate)
+            else:
+                other_sector += 1
+        in_area = len(matched)
         if scope is not None:
             matched = filter_by_province(matched, scope, area.get("boundary"))
         found = select_candidates(matched, query)
+        without_site = 0
+        if not query.include_without_website and any(item.website_url for item in matched if item.name):
+            without_site = sum(1 for item in matched if item.name and not item.website_url)
+        self.last_stats = {
+            "osm_elements": len(elements),
+            "unnamed": unnamed,
+            "other_sector": other_sector,
+            "outside_province": in_area - len(matched),
+            "without_website_standard_mode": without_site,
+            "over_max_results": max(0, len(matched) - without_site - len(found)),
+        }
         if found:
             return found
         if overpass_error is not None:

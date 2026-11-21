@@ -132,5 +132,13 @@ class DiscoveryRunResponse(BaseModel):
     progress_percent: int = 0
     progress_label: str | None = None
     osm_tags: list[str] = Field(default_factory=list)
+    stats: dict | None = Field(
+        default=None,
+        description=(
+            "Resa della ricerca: candidates (da OSM), kept, discarded per motivo (invalid, uncontactable, "
+            "duplicate_in_run, over_max_results), osm (elementi, senza nome, altro settore, fuori provincia, "
+            "senza sito in modalità standard) e contact_channels (website, phone, email, instagram, facebook…)."
+        ),
+    )
     companies: list[CompanySummary]
     latest_scan_id: UUID | None = None

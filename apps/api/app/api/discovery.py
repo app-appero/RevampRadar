@@ -253,6 +253,7 @@ def _run_response(db: Session, run: DiscoveryRun) -> DiscoveryRunResponse:
         progress_percent=run.progress_percent,
         progress_label=run.progress_label,
         osm_tags=format_industry_tags(run.industry),
+        stats=run.stats,
         companies=companies,
         latest_scan_id=latest.id if latest else None,
     )

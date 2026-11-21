@@ -397,17 +397,28 @@ def _run_discovery(session: Session, run: DiscoveryRun, settings: Settings) -> N
         session.query(func.count(DiscoveryResult.id)).filter(DiscoveryResult.discovery_run_id == run.id).scalar() or 0
     )
     skipped_uncontactable = 0
+    discarded = {"invalid": 0, "uncontactable": 0, "duplicate_in_run": 0, "over_max_results": 0}
+    channels: dict[str, int] = {}
     seen_company_ids: set[UUID] = set()
-    for raw in raw_candidates:
+    for index, raw in enumerate(raw_candidates):
+        if persisted >= run.max_results:
+            discarded["over_max_results"] = len(raw_candidates) - index
+            break
         candidate = normalize_candidate(raw)
         if candidate is None:
+            discarded["invalid"] += 1
             continue
-        if run.require_contactable and not _is_contactable(candidate):
+        found_channels = contact_channels(candidate)
+        if run.require_contactable and not found_channels:
             skipped_uncontactable += 1
+            discarded["uncontactable"] += 1
             continue
         company = _upsert_company(session, candidate)
         if company.id in seen_company_ids:
+            discarded["duplicate_in_run"] += 1
             continue
+        for channel in found_channels:
+            channels[channel] = channels.get(channel, 0) + 1
         already = (
             session.query(DiscoveryResult)
             .filter_by(discovery_run_id=run.id, company_id=company.id)
@@ -423,8 +434,13 @@ def _run_discovery(session: Session, run: DiscoveryRun, settings: Settings) -> N
         if skipped_uncontactable:
             label += f" · {skipped_uncontactable} escluse (incontattabili)"
         _set_progress(session, run, percent, label)
-        if persisted >= run.max_results:
-            break
+    run.stats = {
+        "candidates": len(raw_candidates),
+        "kept": len(seen_company_ids),
+        "discarded": discarded,
+        "osm": dict(getattr(provider, "last_stats", None) or {}),
+        "contact_channels": dict(sorted(channels.items())),
+    }
     run.total_found = persisted
     run.status = "completed"
     run.progress_percent = 100
@@ -446,13 +462,56 @@ def _run_discovery(session: Session, run: DiscoveryRun, settings: Settings) -> N
     run.completed_at = datetime.now(UTC)
 
 
-def _is_contactable(candidate: DiscoveryCandidate) -> bool:
-    if candidate.website_url or candidate.phone or candidate.email:
-        return True
+_SOCIAL_SITE_CHANNELS = {
+    "instagram.com": "instagram",
+    "facebook.com": "facebook",
+    "m.facebook.com": "facebook",
+    "fb.com": "facebook",
+    "tiktok.com": "tiktok",
+    "wa.me": "whatsapp",
+}
+
+
+def contact_channels(candidate: DiscoveryCandidate) -> list[str]:
+    """Canali con cui contattare l'attività: sito, telefono, email o profili social.
+
+    Le micro-attività su OSM spesso non hanno né sito né email ma hanno contact:instagram o
+    contact:facebook, oppure un "sito" che è in realtà una pagina social: contano come contattabili.
+    """
     from app.discovery.osm import social_contact_links
 
+    found: list[str] = []
+
+    def add(channel: str) -> None:
+        if channel not in found:
+            found.append(channel)
+
+    if candidate.website_url:
+        host = (urlparse(candidate.website_url).hostname or "").lower().removeprefix("www.")
+        add(_SOCIAL_SITE_CHANNELS.get(host, "website"))
+    if candidate.phone:
+        add("phone")
+    if candidate.email:
+        add("email")
     tags = (candidate.extra or {}).get("osm_tags") if candidate.extra else None
-    return bool(social_contact_links(tags))
+    for label, _url in social_contact_links(tags if isinstance(tags, dict) else None):
+        add(label.lower())
+    return found
+
+
+def _is_contactable(candidate: DiscoveryCandidate) -> bool:
+    return bool(contact_channels(candidate))
+
+
+def _candidate_instagram(candidate: DiscoveryCandidate) -> str | None:
+    from app.discovery.osm import social_contact_links
+    from app.services.instagram import handle_from_links
+
+    tags = (candidate.extra or {}).get("osm_tags") if candidate.extra else None
+    links = list(social_contact_links(tags if isinstance(tags, dict) else None))
+    if candidate.website_url:
+        links.append(("Sito", candidate.website_url))
+    return handle_from_links(links)
 
 
 def _upsert_company(session: Session, candidate: DiscoveryCandidate) -> Company:
@@ -473,6 +532,7 @@ def _upsert_company(session: Session, candidate: DiscoveryCandidate) -> Company:
             external_id=candidate.external_id,
             status="discovered",
             extra=candidate.extra,
+            instagram_handle=_candidate_instagram(candidate),
         )
         session.add(company)
         session.flush()
@@ -548,6 +608,8 @@ def _find_duplicate(session: Session, candidate: DiscoveryCandidate) -> Company 
 
 
 def _fill_missing(company: Company, candidate: DiscoveryCandidate) -> None:
+    if not company.instagram_handle:
+        company.instagram_handle = _candidate_instagram(candidate)
     if not company.category and candidate.category:
         company.category = candidate.category
     if not company.city and candidate.city:
