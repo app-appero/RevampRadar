@@ -33,7 +33,10 @@ def create_app() -> FastAPI:
     if settings.basic_auth_user and settings.basic_auth_password:
         # Aggiunto prima del CORS: il CORS resta più esterno e risponde ai preflight.
         app.add_middleware(
-            BasicAuthMiddleware, username=settings.basic_auth_user, password=settings.basic_auth_password
+            BasicAuthMiddleware,
+            username=settings.basic_auth_user,
+            password=settings.basic_auth_password,
+            session_hours=settings.basic_auth_session_hours,
         )
     app.add_middleware(
         CORSMiddleware,
