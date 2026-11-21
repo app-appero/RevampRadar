@@ -158,8 +158,8 @@ scaduta (routine del 20/11 ferma). Le richieste programmatiche, riconosciute dag
 Fetch Metadata (`Sec-Fetch-Mode` diverso da `navigate`, `Sec-Fetch-Dest: empty`), da
 `Accept: application/json` o da `X-Requested-With`, ricevono un 401 JSON con lo schema non
 interattivo `xBasic`. La finestra resta per le pagine aperte a mano. In più un cookie di
-sessione firmato (`rr_session`, HttpOnly, Secure, SameSite=Strict, 7 giorni di default)
-autentica le fetch su ogni percorso: il browser rimanda le credenziali Basic solo sotto il
+sessione firmato (`rr_session`, HttpOnly, Secure, SameSite=Strict, 30 giorni di default,
+rinnovato a ogni uso) autentica le fetch su ogni percorso: il browser rimanda le credenziali Basic solo sotto il
 percorso dove sono state inserite e le dimentica alla chiusura. Niente login a token né
 tabelle di sessione: la chiave del cookie deriva dalle credenziali Basic.
 
@@ -173,4 +173,13 @@ deduplica di ADR-022. Sugli host condivisi (Facebook, Instagram, Google Sites…
 non identifica: conta la stessa pagina. Lo stesso criterio di «chiave condivisa = ambigua»
 vale nella discovery, che non fonde più per telefono, dominio o nome+città quando indicano
 più aziende.
+
+## ADR-028 — Deduplica su richiesta con punteggio, senza fuzzy sugli identificativi
+
+`GET /companies/match` serve a chi aggiunge candidate trovate fuori dall'app. Gli
+identificativi (handle, email, dominio, telefono) valgono solo se coincidono dopo la
+normalizzazione: una ricerca per sottostringa faceva combaciare «CEnERE Forno» con il dominio
+gargidicenere.com. Solo il nome ha un confronto approssimato (parole distintive in comune,
+nome senza spazi uguale all'handle o al nome del sito), corretto dalla città. Nessuna libreria
+nuova: normalizzazione e punteggio in Python sulle aziende già in database.
 

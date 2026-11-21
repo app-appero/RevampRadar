@@ -120,6 +120,8 @@ Campi suggeriti:
 - notes
 - created_at
 - updated_at
+- proposed_channel (email, instagram, facebook, whatsapp, phone, visit, other)
+- observed_issue (difetto visto, testo libero)
 
 ### SenderProfile
 

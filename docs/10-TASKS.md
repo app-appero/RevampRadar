@@ -114,6 +114,9 @@
 - [x] M5-016 Canale Instagram (handle, data ultimo post, filtri) e ricerca q su dominio e social
 - [x] M5-017 409 su duplicati Instagram/dominio/email e import in blocco di profili Instagram
 - [x] M5-018 Autenticazione da browser: 401 JSON senza popup e cookie di sessione
+- [x] M5-019 Sessione di 30 giorni con rinnovo, /auth/status, /auth/login, /auth/logout
+- [x] M5-020 GET /companies/match: possibili duplicati con punteggio
+- [x] M5-021 Filtro multi-tag e campi canale proposto / difetto visto
 
 ## M6 — Proposal Engine
 

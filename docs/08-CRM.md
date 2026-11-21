@@ -273,4 +273,17 @@ dai test né inventato.
   (stringhe o oggetti con nome, città, data ultimo post) con valori comuni in
   `defaults`: crea solo le schede nuove e segnala i duplicati (già in CRM o ripetuti
   nella lista) con l'id esistente. `dry_run: true` = anteprima.
+- `?tag=` si può ripetere: `?tag=lotto4-riserva-20261121&tag=canale-ig-proposto` restituisce
+  le opportunità che hanno tutti i tag indicati (intersezione), con `X-Total-Count` corretto.
+- Qualifica esplicita sull'opportunità: `proposed_channel` (email, instagram, facebook,
+  whatsapp, phone, visit, other; accetta anche `ig`, `mail`, `telefono`) e `observed_issue`
+  (difetto visto, testo libero). Si passano a `POST /companies`, si modificano con
+  `PATCH /opportunities/{id}` (assente = invariato, `null` = cancella) e dalla scheda nel
+  desktop; filtro `?proposed_channel=`. I tag esistenti non vengono convertiti.
+- `GET /companies/match?name=&instagram=&domain=&email=&phone=&city=` restituisce le possibili
+  corrispondenze con punteggio 0-100 (`strong` ≥ 85, `probable` ≥ 65, `weak` ≥ 50) e i motivi.
+  Identificativi confrontati esatti dopo la normalizzazione (handle, email, dominio o stessa
+  pagina sugli host condivisi, telefono nazionale), mai come pezzi di testo; nome senza forma
+  giuridica e articoli, con peso basso alle parole di settore, confrontato anche con l'handle
+  Instagram e il nome del sito; la città corregge solo le corrispondenze per nome.
 

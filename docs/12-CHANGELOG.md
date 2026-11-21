@@ -5,6 +5,9 @@
 Dettagli e verifica: `docs/RELEASE-2026-11-21.md`.
 
 ### Added
+- Sessione browser di 30 giorni rinnovata a ogni uso; `GET /auth/status` (valida? scade quando?), `GET /auth/login`, `POST /auth/logout`.
+- `GET /companies/match`: possibili duplicati con punteggio su nome, Instagram, dominio, email, telefono e città.
+- `GET /opportunities?tag=a&tag=b` = intersezione dei tag; campi `proposed_channel` e `observed_issue` sull'opportunità (migrazione `0026_opportunity_channel_issue`), in `POST /companies`, `PATCH /opportunities/{id}`, filtro e scheda.
 - Autenticazione: le richieste API (fetch/XHR, `Accept: application/json`, `X-Requested-With`) ricevono un 401 JSON senza la finestra di login del browser; cookie di sessione `rr_session` (7 giorni) dopo un accesso Basic valido.
 - Discovery: 3 tentativi con attesa crescente anche su timeout e server sovraccarichi, massimo 2 richieste Overpass contemporanee, discovery ferme da oltre 20 minuti → `failed` con motivo (migrazione `0025_discovery_heartbeat_stats`).
 - Discovery: corretto «Multiple rows were found» (deduplica su telefono, dominio, nome+città non univoci); nessuna fusione per dominio sugli host condivisi.
