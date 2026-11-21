@@ -67,9 +67,9 @@ class Settings(BaseSettings):
     basic_auth_user: str = ""
     basic_auth_password: str = ""
     # Dopo un accesso Basic valido il browser riceve un cookie di sessione firmato valido per
-    # queste ore (0 = disattivato): le fetch delle pagine restano autenticate anche quando il
-    # browser dimentica le credenziali Basic.
-    basic_auth_session_hours: float = 168
+    # queste ore (0 = disattivato), rinnovato a ogni uso: le fetch delle pagine restano
+    # autenticate anche quando il browser dimentica le credenziali Basic.
+    basic_auth_session_hours: float = 720
 
     @property
     def cors_origin_list(self) -> list[str]:

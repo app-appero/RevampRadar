@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.audits import router as audits_router
+from app.api.auth import router as auth_router
 from app.api.bulk_enrich import router as bulk_enrich_router
 from app.api.bulk_scans import router as bulk_scans_router
 from app.api.companies import router as companies_router
@@ -48,6 +49,7 @@ def create_app() -> FastAPI:
     )
     register_error_handlers(app)
     app.include_router(health_router)
+    app.include_router(auth_router)
     app.include_router(audits_router)
     app.include_router(discovery_router)
     app.include_router(companies_router)
