@@ -113,6 +113,8 @@ export type OpportunitySummary = {
   growth_score: number | null;
   growth_priority: string | null;
   segment: "refactor" | "greenfield";
+  proposed_channel?: string | null;
+  observed_issue?: string | null;
   instagram_handle?: string | null;
   instagram_last_post_at?: string | null;
   updated_at: string;
@@ -325,9 +327,25 @@ export function fetchCompanyOpportunity(companyId: string): Promise<OpportunityD
   return request(`/companies/${companyId}/opportunity`);
 }
 
+// Canale con cui proporsi all'azienda (valori accettati dal backend).
+export const PROPOSED_CHANNEL_LABELS: Record<string, string> = {
+  email: "Email",
+  instagram: "Instagram",
+  facebook: "Facebook",
+  whatsapp: "WhatsApp",
+  phone: "Telefono",
+  visit: "Di persona",
+  other: "Altro",
+};
+
 export function updateOpportunity(
   id: string,
-  payload: { status?: string; is_favorite?: boolean },
+  payload: {
+    status?: string;
+    is_favorite?: boolean;
+    proposed_channel?: string | null;
+    observed_issue?: string | null;
+  },
 ): Promise<OpportunityDetail> {
   return request(`/opportunities/${id}`, {
     method: "PATCH",

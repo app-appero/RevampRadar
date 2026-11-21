@@ -58,7 +58,11 @@ _Q_DESCRIPTION = (
     "Testo cercato (maiuscole indifferenti) nel nome dell'azienda, nel dominio/URL del sito, "
     "nell'handle Instagram (anche con @) e nei link social. Non cerca nei tag OSM né nelle note."
 )
-_TAG_DESCRIPTION = "Solo le opportunità con questo tag (nome esatto, senza distinzione maiuscole/minuscole)."
+_TAG_DESCRIPTION = (
+    "Solo le opportunità con questo tag (nome esatto, maiuscole indifferenti). Ripetibile: "
+    "`?tag=a&tag=b` = opportunità con entrambi i tag (intersezione)."
+)
+_CHANNEL_PROPOSED_DESCRIPTION = "Canale proposto: email, instagram, facebook, whatsapp, phone, visit, other (anche ig)."
 _CHANNEL_DESCRIPTION = (
     "`ig` (o `instagram`): solo aziende con un profilo Instagram, salvato in `instagram_handle` "
     "o presente fra i link social."
@@ -167,13 +171,14 @@ def get_opportunities(
     search: str | None = Query(default=None, description=_SEARCH_DESCRIPTION),
     category: str | None = None,
     city: str | None = None,
-    tag: str | None = Query(default=None, description=_TAG_DESCRIPTION),
+    tag: list[str] | None = Query(default=None, description=_TAG_DESCRIPTION),
     min_score: int | None = Query(default=None, ge=0, le=100),
     priority: str | None = None,
     segment: str | None = None,
     contactable: bool | None = None,
     domain: str | None = Query(default=None, description=_DOMAIN_DESCRIPTION),
     channel: str | None = Query(default=None, description=_CHANNEL_DESCRIPTION),
+    proposed_channel: str | None = Query(default=None, description=_CHANNEL_PROPOSED_DESCRIPTION),
     last_post_after: date | None = Query(default=None, description=_LAST_POST_DESCRIPTION),
     limit: int | None = Query(
         default=None,
@@ -199,6 +204,7 @@ def get_opportunities(
         domain=domain,
         channel=channel,
         last_post_after=last_post_after,
+        proposed_channel=proposed_channel,
     )
     response.headers[TOTAL_COUNT_HEADER] = str(len(items))
     page = items[offset : offset + limit] if limit is not None else items[offset:]
@@ -223,13 +229,14 @@ def export_opportunities(
     search: str | None = Query(default=None, description=_SEARCH_DESCRIPTION),
     category: str | None = None,
     city: str | None = None,
-    tag: str | None = None,
+    tag: list[str] | None = Query(default=None, description=_TAG_DESCRIPTION),
     min_score: int | None = Query(default=None, ge=0, le=100),
     priority: str | None = None,
     segment: str | None = None,
     contactable: bool | None = None,
     domain: str | None = Query(default=None, description=_DOMAIN_DESCRIPTION),
     channel: str | None = Query(default=None, description=_CHANNEL_DESCRIPTION),
+    proposed_channel: str | None = Query(default=None, description=_CHANNEL_PROPOSED_DESCRIPTION),
     last_post_after: date | None = Query(default=None, description=_LAST_POST_DESCRIPTION),
 ) -> dict[str, Any]:
     """JSON completo delle aziende che rispettano i filtri correnti della Pipeline."""
@@ -250,6 +257,7 @@ def export_opportunities(
             domain=domain,
             channel=channel,
             last_post_after=last_post_after,
+            proposed_channel=proposed_channel,
         )
     except CrmServiceError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
@@ -288,13 +296,14 @@ def get_opportunity_categories(
     q: str | None = Query(default=None, description=_Q_DESCRIPTION),
     search: str | None = Query(default=None, description=_SEARCH_DESCRIPTION),
     city: str | None = None,
-    tag: str | None = None,
+    tag: list[str] | None = Query(default=None, description=_TAG_DESCRIPTION),
     min_score: int | None = Query(default=None, ge=0, le=100),
     priority: str | None = None,
     segment: str | None = None,
     contactable: bool | None = None,
     domain: str | None = Query(default=None, description=_DOMAIN_DESCRIPTION),
     channel: str | None = Query(default=None, description=_CHANNEL_DESCRIPTION),
+    proposed_channel: str | None = Query(default=None, description=_CHANNEL_PROPOSED_DESCRIPTION),
     last_post_after: date | None = Query(default=None, description=_LAST_POST_DESCRIPTION),
 ) -> list[dict]:
     # La faccetta applica tutti i filtri tranne il settore stesso.
@@ -302,7 +311,7 @@ def get_opportunity_categories(
         db, status=status, favorite=favorite, shortlist=shortlist, query=_text_query(q, search),
         city=city, tag=tag, min_score=min_score, priority=priority,
         segment=segment, contactable=contactable, domain=domain,
-        channel=channel, last_post_after=last_post_after,
+        channel=channel, last_post_after=last_post_after, proposed_channel=proposed_channel,
     )
     counts: dict[str, int] = {}
     variants: dict[str, set[str]] = {}
@@ -348,6 +357,11 @@ def patch_opportunity(
             opportunity_id,
             status=payload.status,
             is_favorite=payload.is_favorite,
+            qualification={
+                name: getattr(payload, name)
+                for name in ("proposed_channel", "observed_issue")
+                if name in payload.model_fields_set
+            },
         )
     except CrmServiceError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
@@ -497,6 +511,8 @@ def _summary(
         growth_score=growth.score if growth else None,
         growth_priority=growth.priority if growth else None,
         segment="refactor" if has_website else "greenfield",
+        proposed_channel=opportunity.proposed_channel,
+        observed_issue=opportunity.observed_issue,
         instagram_handle=effective_instagram_handle(company),
         instagram_last_post_at=company.instagram_last_post_at if company else None,
         updated_at=opportunity.updated_at,

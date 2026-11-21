@@ -15,6 +15,7 @@ import {
   addTag,
   fetchCompanyOpportunity,
   removeTag,
+  PROPOSED_CHANNEL_LABELS,
   updateOpportunity,
   type OpportunityDetail,
 } from "../api/crm";
@@ -495,10 +496,15 @@ function CrmPanel({
   const [dueAt, setDueAt] = useState(() => defaultDueAtLocal());
   const [crmError, setCrmError] = useState<string | null>(null);
   const [status, setStatus] = useState(opportunity.status);
+  const [observedIssue, setObservedIssue] = useState(opportunity.observed_issue ?? "");
 
   useEffect(() => {
     setStatus(opportunity.status);
   }, [opportunity.status]);
+
+  useEffect(() => {
+    setObservedIssue(opportunity.observed_issue ?? "");
+  }, [opportunity.observed_issue]);
 
   const mutate = useMutation({
     mutationFn: async (action: () => Promise<OpportunityDetail>) => action(),
@@ -589,6 +595,57 @@ function CrmPanel({
       </div>
 
       {crmError ? <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{crmError}</p> : null}
+
+      <div className="grid gap-3 sm:grid-cols-[14rem_1fr]">
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="text-xs tracking-wide text-stone-500 uppercase">Canale proposto</span>
+          <select
+            value={opportunity.proposed_channel ?? ""}
+            disabled={mutate.isPending}
+            onChange={(event) =>
+              mutate.mutate(() =>
+                updateOpportunity(opportunity.id, { proposed_channel: event.target.value || null }),
+              )
+            }
+            className="rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-stone-900"
+          >
+            <option value="">Non indicato</option>
+            {Object.entries(PROPOSED_CHANNEL_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <form
+          className="flex flex-col gap-1 text-sm"
+          onSubmit={(event) => {
+            event.preventDefault();
+            mutate.mutate(() =>
+              updateOpportunity(opportunity.id, { observed_issue: observedIssue.trim() || null }),
+            );
+          }}
+        >
+          <span className="text-xs tracking-wide text-stone-500 uppercase">Difetto visto</span>
+          <div className="flex gap-2">
+            <textarea
+              value={observedIssue}
+              onChange={(event) => setObservedIssue(event.target.value)}
+              maxLength={1000}
+              rows={2}
+              placeholder="Es. menu solo in PDF, nessun contatto visibile da mobile"
+              className="min-w-0 flex-1 rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-stone-900"
+            />
+            <button
+              type="submit"
+              disabled={mutate.isPending || observedIssue.trim() === (opportunity.observed_issue ?? "")}
+              className="self-start rounded-lg border border-stone-300 px-3 py-2 text-sm font-medium text-stone-800 hover:bg-stone-50 disabled:opacity-50"
+            >
+              Salva
+            </button>
+          </div>
+        </form>
+      </div>
 
       <div className="space-y-2">
         <h2 className="text-lg font-medium">Tag</h2>

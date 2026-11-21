@@ -21,6 +21,25 @@ CRM_STATUSES = (
 
 ACTIVITY_TYPES = ("note", "status_change", "call", "email", "meeting", "other")
 
+# Canale con cui proporsi all'azienda (campo esplicito, prima solo tag tipo canale-ig-proposto).
+PROPOSED_CHANNELS = ("email", "instagram", "facebook", "whatsapp", "phone", "visit", "other")
+CHANNEL_ALIASES = {
+    "ig": "instagram", "insta": "instagram", "mail": "email", "e-mail": "email", "fb": "facebook",
+    "wa": "whatsapp", "telefono": "phone", "tel": "phone", "visita": "visit", "di persona": "visit", "altro": "other",
+}
+OBSERVED_ISSUE_MAX = 1000
+
+
+def normalize_channel(value: str | None) -> str | None:
+    """None/vuoto → None; alias (ig, mail, telefono…) → valore canonico; ValueError se sconosciuto."""
+    text = " ".join((value or "").strip().lower().split())
+    if not text:
+        return None
+    text = CHANNEL_ALIASES.get(text, text)
+    if text not in PROPOSED_CHANNELS:
+        raise ValueError(f"Canale proposto non valido: {value}. Ammessi: {', '.join(PROPOSED_CHANNELS)}.")
+    return text
+
 SCHEDULED_ACTIVITY_TYPES = ("call", "email", "meeting", "other")
 
 
@@ -98,6 +117,10 @@ class OpportunitySummary(BaseModel):
     growth_score: int | None = None
     growth_priority: str | None = None
     segment: str = "refactor"
+    proposed_channel: str | None = Field(
+        default=None, description="Canale con cui proporsi: " + ", ".join(PROPOSED_CHANNELS)
+    )
+    observed_issue: str | None = Field(default=None, description="Difetto visto sul sito o sul profilo.")
     instagram_handle: str | None = None
     instagram_last_post_at: date | None = None
     updated_at: datetime
@@ -135,6 +158,13 @@ class DashboardResponse(BaseModel):
 class UpdateOpportunityRequest(BaseModel):
     status: str | None = None
     is_favorite: bool | None = None
+    proposed_channel: str | None = Field(
+        default=None,
+        description=f"{', '.join(PROPOSED_CHANNELS)} (anche ig, mail, telefono). Assente = invariato, null = cancella.",
+    )
+    observed_issue: str | None = Field(
+        default=None, max_length=OBSERVED_ISSUE_MAX, description="Difetto visto. Assente = invariato, null = cancella."
+    )
 
 
 _NOTE_FIELD_ALIASES = ("content", "text", "note")

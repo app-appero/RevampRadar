@@ -33,7 +33,7 @@ from app.schemas.company_manual import (
     ImportRowResult,
     ManualCompanyCreate,
 )
-from app.schemas.crm import CRM_STATUSES
+from app.schemas.crm import CRM_STATUSES, normalize_channel
 from app.services.company_identity import describe, find_identity_duplicates
 from app.services.crm_service import _normalize_tag, ensure_opportunity
 from app.services.instagram import (
@@ -139,6 +139,8 @@ class NormalizedCompany:
     social_ids: set[str]
     instagram_handle: str | None
     instagram_last_post_at: date | None
+    proposed_channel: str | None
+    observed_issue: str | None
     category: str | None
     city: str | None
     city_key: str | None
@@ -622,6 +624,8 @@ def _insert_company(session: Session, data: NormalizedCompany) -> Company:
     opportunity = ensure_opportunity(session, company)
     status, conflict = _initial_status(data)
     opportunity.status = status
+    opportunity.proposed_channel = data.proposed_channel
+    opportunity.observed_issue = data.observed_issue
     if data.website_url and data.website_original and data.domain:
         _attach_website(session, company, data.website_url, data.website_original, data.domain)
     _add_notes(session, opportunity, data.notes)
@@ -699,6 +703,16 @@ def _apply_updates(
             changes.append("social_links")
             if write:
                 _put_extra(company, "social_links", merged)
+    if opportunity is not None:
+        for field_name in ("proposed_channel", "observed_issue"):
+            value = getattr(data, field_name)
+            current = getattr(opportunity, field_name)
+            if value and not current:
+                changes.append(field_name)
+                if write:
+                    setattr(opportunity, field_name, value)
+            elif value and current != value:
+                warnings.append(f"{field_name} già presente, lasciato invariato.")
     known_notes = _note_bodies(session, opportunity) if opportunity is not None else set()
     new_notes = [note for note in data.notes if note not in known_notes]
     if new_notes:
@@ -936,6 +950,11 @@ def _normalize(payload: ManualCompanyCreate, *, company_id: UUID | None, ref: st
         # Il profilo entra anche fra i social: la deduplica per social riconosce lo stesso account.
         raw_links.append(("Instagram", instagram_profile_url(instagram_handle)))
     social_links, social_ids = _prepare_social(raw_links)
+    try:
+        proposed_channel = normalize_channel(payload.proposed_channel)
+    except ValueError as exc:
+        raise ManualCompanyError(str(exc)) from exc
+    observed_issue = _clip(normalize_text(payload.observed_issue), 1000)
     status = _blank(payload.status)
     if status is not None and status not in CRM_STATUSES:
         raise ManualCompanyError(f"Stato CRM non valido: {status}")
@@ -961,6 +980,8 @@ def _normalize(payload: ManualCompanyCreate, *, company_id: UUID | None, ref: st
         social_ids=social_ids,
         instagram_handle=instagram_handle,
         instagram_last_post_at=instagram_last_post_at,
+        proposed_channel=proposed_channel,
+        observed_issue=observed_issue,
         category=_clip(normalize_text(payload.category), 128),
         city=_clip(normalize_text(payload.city), 128),
         city_key=_key(payload.city),

@@ -139,6 +139,8 @@ def build_export(session: Session, **filters: Any) -> dict[str, Any]:
                 "osm_tags": osm_tags if isinstance(osm_tags, dict) else {},
                 "segment": "refactor" if (company.website_url or company.websites) else "greenfield",
                 "status": opportunity.status,
+                "proposed_channel": opportunity.proposed_channel,
+                "observed_issue": opportunity.observed_issue,
                 "is_favorite": opportunity.is_favorite,
                 "tags": sorted(link.tag.name for link in opportunity.tag_links if link.tag is not None),
                 "notes": [

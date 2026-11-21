@@ -330,6 +330,9 @@ class Opportunity(Base):
     )
     status: Mapped[str] = mapped_column(String(32), default="discovered", nullable=False, index=True)
     is_favorite: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
+    # Qualifica commerciale esplicita (prima solo tag/note): canale con cui proporsi e difetto visto.
+    proposed_channel: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    observed_issue: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

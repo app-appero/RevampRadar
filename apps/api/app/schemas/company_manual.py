@@ -43,6 +43,14 @@ class ManualCompanyCreate(BaseModel):
     region: str | None = Field(default=None, max_length=128)
     province: str | None = Field(default=None, max_length=128)
     country: str | None = Field(default=None, max_length=64)
+    proposed_channel: str | None = Field(
+        default=None,
+        max_length=32,
+        description="Canale con cui proporsi: email, instagram, facebook, whatsapp, phone, visit, other (anche ig).",
+    )
+    observed_issue: str | None = Field(
+        default=None, max_length=1000, description="Difetto visto sul sito o sul profilo (testo libero)."
+    )
     source: str | None = Field(default=None, max_length=64)
     external_id: str | None = Field(default=None, max_length=128)
     status: str | None = None

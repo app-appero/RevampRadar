@@ -18,7 +18,13 @@ from app.models.entities import (
     Tag,
     Website,
 )
-from app.schemas.crm import ACTIVITY_TYPES, CRM_STATUSES, SCHEDULED_ACTIVITY_TYPES
+from app.schemas.crm import (
+    ACTIVITY_TYPES,
+    CRM_STATUSES,
+    OBSERVED_ISSUE_MAX,
+    SCHEDULED_ACTIVITY_TYPES,
+    normalize_channel,
+)
 from app.services.contactability import is_contactable
 from app.services.instagram import INSTAGRAM_CHANNELS, effective_instagram_handle
 
@@ -148,12 +154,13 @@ def list_opportunities(
     query: str | None = None,
     category: str | None = None,
     city: str | None = None,
-    tag: str | None = None,
+    tag: str | list[str] | None = None,
     min_score: int | None = None,
     priority: str | None = None,
     segment: str | None = None,
     contactable: bool | None = None,
     domain: str | None = None,
+    proposed_channel: str | None = None,
     channel: str | None = None,
     last_post_after: date | None = None,
 ) -> list[Opportunity]:
@@ -192,8 +199,14 @@ def list_opportunities(
         )
     if city:
         q = q.filter(func.lower(Company.city).like(f"%{city.strip().lower()}%"))
-    if tag:
-        q = q.join(Opportunity.tag_links).join(OpportunityTag.tag).filter(Tag.name == _normalize_tag(tag))
+    # Più tag = intersezione: l'opportunità deve averli tutti.
+    for name in {_normalize_tag(item) for item in ([tag] if isinstance(tag, str) else tag or []) if item.strip()}:
+        q = q.filter(Opportunity.tag_links.any(OpportunityTag.tag.has(Tag.name == name)))
+    if proposed_channel is not None and proposed_channel.strip():
+        try:
+            q = q.filter(Opportunity.proposed_channel == normalize_channel(proposed_channel))
+        except ValueError as exc:
+            raise CrmServiceError(str(exc), status_code=422) from exc
     wanted_domain = None
     if domain is not None and domain.strip():
         wanted_domain = normalize_domain(domain)
@@ -358,10 +371,21 @@ def update_opportunity(
     *,
     status: str | None = None,
     is_favorite: bool | None = None,
+    qualification: dict | None = None,
 ) -> Opportunity:
+    """`qualification` contiene solo i campi inviati: proposed_channel e/o observed_issue."""
     opportunity = get_opportunity(session, opportunity_id)
     if opportunity is None:
         raise CrmServiceError("Opportunità non trovata.", status_code=404)
+    qualification = qualification or {}
+    if "proposed_channel" in qualification:
+        try:
+            opportunity.proposed_channel = normalize_channel(qualification["proposed_channel"])
+        except ValueError as exc:
+            raise CrmServiceError(str(exc), status_code=422) from exc
+    if "observed_issue" in qualification:
+        text = (qualification["observed_issue"] or "").strip()
+        opportunity.observed_issue = text[:OBSERVED_ISSUE_MAX] or None
     if status is not None:
         if status not in CRM_STATUSES:
             raise CrmServiceError("Stato CRM non valido.", status_code=422)
