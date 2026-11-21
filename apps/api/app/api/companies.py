@@ -9,6 +9,8 @@ from app.db import get_db
 from app.schemas.company_manual import (
     CompanyImportRequest,
     CompanyImportResponse,
+    InstagramImportRequest,
+    InstagramImportResponse,
     ManualCompanyCreate,
     ManualCompanyResponse,
 )
@@ -18,6 +20,7 @@ from app.services.company_manual import (
     import_companies,
     preview_companies,
 )
+from app.services.instagram_import import import_instagram_handles
 
 router = APIRouter(tags=["companies"])
 
@@ -38,7 +41,33 @@ def post_company_import(payload: CompanyImportRequest, db: Session = Depends(get
     return CompanyImportResponse(create_missing=payload.create_missing, dry_run=False, rows=rows)
 
 
-@router.post("/companies", response_model=ManualCompanyResponse)
+@router.post(
+    "/companies/instagram-import",
+    response_model=InstagramImportResponse,
+    summary="Importa profili Instagram trovati fuori dall'app",
+    description=(
+        "Lista di handle o URL Instagram (stringhe o oggetti con nome, città, data ultimo post). Crea solo "
+        "le schede nuove; segnala come `duplicate` (con l'id esistente) i profili già in CRM e quelli "
+        "ripetuti nella lista, come `invalid` quelli non validi. `dry_run=true` = anteprima. Nessuna "
+        "chiamata esterna."
+    ),
+)
+def post_instagram_import(payload: InstagramImportRequest, db: Session = Depends(get_db)) -> InstagramImportResponse:
+    return import_instagram_handles(db, payload)
+
+
+@router.post(
+    "/companies",
+    response_model=ManualCompanyResponse,
+    responses={
+        409: {
+            "description": (
+                "`outcome: duplicate`: stesso handle Instagram, dominio o email di un'azienda esistente "
+                "(`company_id` è quella esistente). `outcome: conflict`: corrispondenza ambigua."
+            )
+        }
+    },
+)
 def post_company(payload: ManualCompanyCreate, db: Session = Depends(get_db)) -> JSONResponse:
     """Crea un'azienda e la sua Opportunity. Non avvia audit, scanner, AI o altre chiamate esterne."""
     try:
@@ -55,5 +84,5 @@ def post_company(payload: ManualCompanyCreate, db: Session = Depends(get_db)) ->
         candidates=candidates,
         company=_company_detail(company) if company is not None else None,
     )
-    status_code = {"created": 201, "conflict": 409}.get(outcome, 200)
+    status_code = {"created": 201, "conflict": 409, "duplicate": 409}.get(outcome, 200)
     return JSONResponse(status_code=status_code, content=body.model_dump(mode="json"))

@@ -26,7 +26,8 @@ export function AddCompanyPanel() {
       return createManualCompany(MANUAL_COMPANY_PATH, MANUAL_COMPANY_METHOD, body);
     },
     onSuccess: async (result) => {
-      if (result.outcome === "conflict") {
+      if (result.outcome === "conflict" || result.outcome === "duplicate") {
+        // duplicate: stesso Instagram, dominio o email di una scheda già presente (link sotto).
         setError(result.error || "Corrispondenza ambigua: nessuna azienda creata.");
         setCandidates(result.candidates);
         return;

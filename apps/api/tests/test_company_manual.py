@@ -106,11 +106,20 @@ def test_repeat_is_idempotent_and_conflicts_are_not_merged(client, db_session, m
     assert first.status_code == 201
     company_id = first.json()["company_id"]
 
+    # Stesso dominio/email/Instagram: 409 con l'id esistente, nessuna seconda scheda.
     again = client.post("/companies", json=payload)
-    assert again.status_code == 200
-    assert again.json()["outcome"] == "existing"
+    assert again.status_code == 409
+    assert again.json()["outcome"] == "duplicate"
     assert again.json()["company_id"] == company_id
+    assert set(again.json()["candidates"][0]["reasons"]) == {
+        "stesso dominio del sito", "email", "stesso profilo Instagram",
+    }
     assert db_session.query(Company).filter_by(name="Bar Rossi").count() == 1
+    # Con allow_duplicates vale la deduplica normale (ADR-022): la scheda esistente si riapre.
+    reopened = client.post("/companies", json={**payload, "allow_duplicates": True})
+    assert reopened.status_code == 200
+    assert reopened.json()["outcome"] == "existing"
+    assert reopened.json()["company_id"] == company_id
 
     same_name_other_city = client.post(
         "/companies",
@@ -123,11 +132,20 @@ def test_repeat_is_idempotent_and_conflicts_are_not_merged(client, db_session, m
         "/companies",
         json={"name": "Bar Rossi", "city": "Catania", "website_url": "https://barrossi.test/catania"},
     )
-    assert shared_domain.status_code == 201
+    assert shared_domain.status_code == 409
+    assert shared_domain.json()["outcome"] == "duplicate"
+    assert shared_domain.json()["company_id"] == company_id
+    # Sede diversa sullo stesso dominio: va chiesta esplicitamente.
+    branch = client.post(
+        "/companies",
+        json={"name": "Bar Rossi", "city": "Catania", "website_url": "https://barrossi.test/catania",
+              "allow_duplicates": True},
+    )
+    assert branch.status_code == 201
 
     shared_site = client.post(
         "/companies",
-        json={"name": "Bar Rossi", "city": "Messina", "website_url": "https://barrossi.test"},
+        json={"name": "Bar Rossi", "city": "Messina", "website_url": "https://barrossi.test", "allow_duplicates": True},
     )
     assert shared_site.status_code == 409
     assert shared_site.json()["outcome"] == "conflict"
@@ -443,6 +461,7 @@ def test_concurrent_creates_do_not_duplicate(tmp_path) -> None:
                 session,
                 ManualCompanyCreate(name="Bar Rossi", city="Palermo", website_url="https://barrossi.test"),
             )
+            # Chi arriva secondo trova il dominio già presente: 409 con l'id dell'altra.
             assert company is not None
             results.append((outcome, str(company.id)))
         except BaseException as exc:  # noqa: BLE001
@@ -457,7 +476,7 @@ def test_concurrent_creates_do_not_duplicate(tmp_path) -> None:
         thread.join()
     assert errors == []
     assert len({item[1] for item in results}) == 1
-    assert {item[0] for item in results} <= {"created", "existing", "updated"}
+    assert sorted(item[0] for item in results) == ["created", "duplicate"]
     session = factory()
     try:
         assert session.query(Company).count() == 1

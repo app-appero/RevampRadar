@@ -74,32 +74,44 @@ def test_invalid_values_are_rejected(client, field: str, value: str) -> None:
 
 
 def test_existing_company_keeps_newest_post_date(client) -> None:
+    """Aggiornare la data di un'azienda già in CRM passa dall'import per company_id."""
     first = _post(client, name="Pasticceria Dolce", instagram_handle="dolce.tv", instagram_last_post_at="2026-11-05")
     company_id = first.json()["company_id"]
 
-    newer = _post(client, name="Pasticceria Dolce", instagram_handle="dolce.tv", instagram_last_post_at="2026-11-15")
-    assert newer.json()["outcome"] == "updated"
-    assert newer.json()["company_id"] == company_id
-    assert newer.json()["company"]["instagram_last_post_at"] == "2026-11-15"
+    def update(day: str) -> dict:
+        response = client.post("/companies/import", json={"rows": [
+            {"ref": day, "company_id": company_id, "instagram_last_post_at": day}]})
+        assert response.status_code == 200, response.text
+        return response.json()["rows"][0]
 
-    older = _post(client, name="Pasticceria Dolce", instagram_handle="dolce.tv", instagram_last_post_at="2026-11-01")
-    assert older.json()["company"]["instagram_last_post_at"] == "2026-11-15"
-    assert any("più vecchia" in warning for warning in older.json()["warnings"])
+    assert "instagram_last_post_at" in update("2026-11-15")["changes"]
+    assert client.get(f"/companies/{company_id}").json()["instagram_last_post_at"] == "2026-11-15"
+    older = update("2026-11-01")
+    assert client.get(f"/companies/{company_id}").json()["instagram_last_post_at"] == "2026-11-15"
+    assert any("più vecchia" in warning for warning in older["warnings"])
 
 
-def test_same_handle_is_recognised_by_dedup(client) -> None:
-    """Lo stesso profilo IG viene riconosciuto; come per gli altri social (ADR-022) senza località
-    concordante non si fonde da solo: 409 con il candidato, nessuna azienda creata."""
+def test_duplicate_handle_is_rejected_with_existing_id(client) -> None:
+    """Accettazione voce 4: stesso instagram_handle (normalizzato) → 409 con l'id esistente."""
     first = _post(client, name="Bar Centrale", instagram_handle="barcentrale.tv").json()
 
-    same_city = _post(client, name="Bar Centrale", instagram_handle="@BarCentrale.TV").json()
-    assert same_city["outcome"] == "existing"
-    assert same_city["company_id"] == first["company_id"]
+    for body in (
+        {"name": "Bar Centrale", "instagram_handle": "@BarCentrale.TV"},
+        {"name": "Altro nome", "city": "Venezia", "instagram_handle": "https://www.instagram.com/barcentrale.tv/"},
+        {"name": "Solo link", "social_links": [{"label": "Instagram", "url": "instagram.com/BarCentrale.tv"}]},
+    ):
+        response = client.post("/companies", json=body)
+        assert response.status_code == 409, body
+        assert response.json()["outcome"] == "duplicate"
+        assert response.json()["company_id"] == first["company_id"]
+        assert response.json()["candidates"][0]["reasons"] == ["stesso profilo Instagram"]
+    assert len(client.get("/opportunities", params={"q": "barcentrale.tv"}).json()) == 1
 
-    no_city = client.post("/companies", json={"name": "Bar Centrale", "instagram_handle": "@BarCentrale.TV"})
-    assert no_city.status_code == 409
-    assert no_city.json()["candidates"][0]["company_id"] == first["company_id"]
-    assert no_city.json()["candidates"][0]["reasons"] == ["social"]
+    # Con allow_duplicates resta la deduplica per social (ADR-022): senza città concordante non fonde.
+    forced = client.post("/companies", json={"name": "Bar Centrale", "instagram_handle": "barcentrale.tv",
+                                             "allow_duplicates": True})
+    assert forced.status_code == 409
+    assert forced.json()["outcome"] == "conflict"
 
 
 def test_import_rows_update_instagram_fields_by_company_id(client) -> None:
@@ -254,3 +266,55 @@ def test_q_does_not_match_other_osm_tags(client, search_pipeline) -> None:
     assert _names(client.get("/opportunities", params={"search": "2-emme"})) == [
         "Tappezzeria Mazza di Mazza Andrea & C."
     ]
+
+
+# --- import in blocco di profili Instagram ---------------------------------------------
+
+
+def test_instagram_import_creates_only_new_and_reports_duplicates(client) -> None:
+    """Accettazione voce 4: 5 righe con 2 duplicati → 3 create, 2 segnalate."""
+    existing = _post(client, name="Fiori di Lia", instagram_handle="fiori.lia").json()
+
+    response = client.post("/companies/instagram-import", json={
+        "items": [
+            "@Fiori.Lia",  # già in CRM
+            "https://www.instagram.com/panificio.alforno/",
+            "dolce.tv",
+            "@Panificio.AlForno",  # ripetuto nella lista
+            {"instagram": "vivaio.verde", "name": "Vivaio Verde", "city": "Treviso",
+             "instagram_last_post_at": "2026-11-20"},
+        ],
+        "defaults": {"province": "Treviso", "tags": ["ricerca-ig-20261121"]},
+    })
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert (body["created"], body["duplicates"], body["invalid"]) == (3, 2, 0)
+    outcomes = [(row["instagram_handle"], row["outcome"]) for row in body["rows"]]
+    assert outcomes == [
+        ("fiori.lia", "duplicate"),
+        ("panificio.alforno", "created"),
+        ("dolce.tv", "created"),
+        ("panificio.alforno", "duplicate"),
+        ("vivaio.verde", "created"),
+    ]
+    assert body["rows"][0]["company_id"] == existing["company_id"]
+    assert body["rows"][3]["company_id"] == body["rows"][1]["company_id"]
+    assert body["rows"][3]["reasons"] == ["ripetuto nella lista"]
+
+    vivaio = client.get(f"/opportunities/{body['rows'][4]['opportunity_id']}").json()
+    assert vivaio["company_name"] == "Vivaio Verde"
+    assert vivaio["instagram_last_post_at"] == "2026-11-20"
+    assert [tag["name"] for tag in vivaio["tags"]] == ["ricerca-ig-20261121"]
+    assert client.get("/opportunities", params={"channel": "ig"}).headers["x-total-count"] == "4"
+
+
+def test_instagram_import_dry_run_and_invalid_rows(client) -> None:
+    _post(client, name="Fiori di Lia", instagram_handle="fiori.lia")
+    body = client.post("/companies/instagram-import", json={
+        "items": ["fiori.lia", "nuovo.profilo", "non valido!", "https://www.instagram.com/p/C0abc/"],
+        "dry_run": True,
+    }).json()
+    assert [row["outcome"] for row in body["rows"]] == ["duplicate", "would_create", "invalid", "invalid"]
+    assert body["created"] == 0
+    assert client.get("/opportunities", params={"q": "nuovo.profilo"}).json() == []

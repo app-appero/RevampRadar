@@ -49,6 +49,14 @@ class ManualCompanyCreate(BaseModel):
     notes: list[str] = Field(default_factory=list, max_length=50)
     tags: list[str] = Field(default_factory=list, max_length=30)
     events: list[HistoricalEventIn] = Field(default_factory=list, max_length=20)
+    allow_duplicates: bool = Field(
+        default=False,
+        description=(
+            "Solo POST /companies. Con false (default) un'azienda con stesso handle Instagram, dominio del "
+            "sito (o stessa pagina su host condivisi) o email già presente è rifiutata con 409 e l'id "
+            "esistente. true = crea comunque (es. sede diversa con email centrale), con la deduplica normale."
+        ),
+    )
 
 
 class CompanyImportRow(ManualCompanyCreate):
@@ -75,7 +83,7 @@ class CompanyMatchCandidate(BaseModel):
 
 
 class ManualCompanyResponse(BaseModel):
-    outcome: Literal["created", "existing", "updated", "conflict"]
+    outcome: Literal["created", "existing", "updated", "conflict", "duplicate"]
     company_id: UUID | None
     opportunity_id: UUID | None
     status: str | None
@@ -117,3 +125,62 @@ class CompanyImportResponse(BaseModel):
     create_missing: bool
     dry_run: bool
     rows: list[ImportRowResult]
+
+
+class InstagramImportItem(BaseModel):
+    instagram: str = Field(min_length=1, max_length=255, description="«@nome», «nome» o URL del profilo.")
+    name: str | None = Field(default=None, max_length=255, description="Nome attività; assente = l'handle.")
+    city: str | None = Field(default=None, max_length=128)
+    province: str | None = Field(default=None, max_length=128)
+    region: str | None = Field(default=None, max_length=128)
+    category: str | None = Field(default=None, max_length=128)
+    instagram_last_post_at: date | None = None
+    notes: list[str] = Field(default_factory=list, max_length=20)
+    tags: list[str] = Field(default_factory=list, max_length=20)
+
+
+class InstagramImportDefaults(BaseModel):
+    city: str | None = Field(default=None, max_length=128)
+    province: str | None = Field(default=None, max_length=128)
+    region: str | None = Field(default=None, max_length=128)
+    category: str | None = Field(default=None, max_length=128)
+    status: str | None = None
+    source: str = Field(default="instagram_import", max_length=64)
+    tags: list[str] = Field(default_factory=list, max_length=20)
+    notes: list[str] = Field(default_factory=list, max_length=20)
+
+
+class InstagramImportRequest(BaseModel):
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "items": ["@fioridilia", "https://www.instagram.com/panificio.alforno/",
+                              {"instagram": "dolce.tv", "name": "Pasticceria Dolce", "city": "Treviso"}],
+                    "defaults": {"province": "Treviso", "tags": ["ricerca-ig-20261121"]},
+                }
+            ]
+        }
+    }
+
+    items: list[str | InstagramImportItem] = Field(min_length=1, max_length=200)
+    defaults: InstagramImportDefaults = Field(default_factory=InstagramImportDefaults)
+    dry_run: bool = Field(default=False, description="true = solo anteprima, nessuna scheda creata.")
+
+
+class InstagramImportRow(BaseModel):
+    input: str
+    instagram_handle: str | None = None
+    outcome: Literal["created", "would_create", "duplicate", "invalid", "conflict"]
+    company_id: UUID | None = None
+    opportunity_id: UUID | None = None
+    reasons: list[str] = Field(default_factory=list)
+    error: str | None = None
+
+
+class InstagramImportResponse(BaseModel):
+    dry_run: bool
+    created: int
+    duplicates: int
+    invalid: int
+    rows: list[InstagramImportRow]

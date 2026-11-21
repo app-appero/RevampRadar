@@ -228,7 +228,7 @@ export function exportOpportunities(filters: OpportunityFilters = {}): Promise<{
 }
 
 export type ManualCompanyResult = {
-  outcome: "created" | "existing" | "updated" | "conflict";
+  outcome: "created" | "existing" | "updated" | "conflict" | "duplicate";
   company_id: string | null;
   opportunity_id: string | null;
   status: string | null;

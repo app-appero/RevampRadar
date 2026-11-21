@@ -34,6 +34,7 @@ from app.schemas.company_manual import (
     ManualCompanyCreate,
 )
 from app.schemas.crm import CRM_STATUSES
+from app.services.company_identity import describe, find_identity_duplicates
 from app.services.crm_service import _normalize_tag, ensure_opportunity
 from app.services.instagram import (
     handle_from_links,
@@ -87,6 +88,9 @@ _REASON = {
     "name_location": "nome e località",
     "external_id": "identificativo esterno",
     "company_id": "company_id",
+    "instagram_handle": "stesso profilo Instagram",
+    "domain": "stesso dominio del sito",
+    "website_url": "stessa pagina web",
 }
 _RANK = {
     "discovered": 0,
@@ -187,6 +191,27 @@ def create_manual_company(
     with _LOCK:
         _advisory(session)
         try:
+            if not payload.allow_duplicates:
+                duplicates = find_identity_duplicates(
+                    session,
+                    instagram_handle=data.instagram_handle,
+                    website_url=data.website_url,
+                    email=data.email,
+                )
+                if duplicates:
+                    candidates = [
+                        _candidate(session, _Cand(company=item.company, reasons=set(item.reasons)))
+                        for item in duplicates
+                    ]
+                    session.rollback()
+                    return (
+                        "duplicate",
+                        duplicates[0].company,
+                        candidates,
+                        [],
+                        f"Azienda già presente ({describe(duplicates[0].reasons)}): nessuna scheda creata. "
+                        "Per una sede diversa con gli stessi recapiti invia allow_duplicates=true.",
+                    )
             written = _write_company(session, data, create_missing=True, write=True)
             if written.outcome == "ambiguous":
                 candidates = [_candidate(session, item) for item in written.candidates]
