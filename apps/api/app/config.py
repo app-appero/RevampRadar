@@ -50,8 +50,14 @@ class Settings(BaseSettings):
     discovery_timeout_seconds: float = 60.0
     # Timeout Overpass su una provincia: ricerca per gruppi di comuni (admin_level 8).
     overpass_comuni_group_size: int = 12
-    overpass_retry_attempts: int = 2
-    overpass_retry_backoff_seconds: float = 2.0
+    # Tentativi per query (timeout, server sovraccarico, rete), con attesa crescente tra l'uno e l'altro.
+    overpass_retry_attempts: int = 3
+    overpass_retry_backoff_seconds: float = 5.0
+    # Richieste Overpass contemporanee dall'intero processo: i server pubblici ne ammettono ~2 per IP,
+    # oltre rispondono 429. Più discovery lanciate insieme si mettono in fila invece di fallire.
+    overpass_max_concurrency: int = 2
+    # Una discovery "running"/"queued" senza avanzamenti da più minuti di così diventa "failed".
+    discovery_stale_minutes: int = 20
     bulk_scan_concurrency: int = 2
     bulk_scan_max_attempts: int = 2
     basic_auth_user: str = ""

@@ -248,6 +248,10 @@ class DiscoveryRun(Base):
     progress_label: Mapped[str | None] = mapped_column(String(128), nullable=True)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Ultimo avanzamento registrato: una ricerca ferma da troppo tempo è orfana (es. riavvio).
+    heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Resa della ricerca: candidati, scartati per motivo, canali di contatto.
+    stats: Mapped[dict | None] = mapped_column(JsonType, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

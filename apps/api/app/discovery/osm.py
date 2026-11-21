@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import threading
 import time
 from collections import deque
 from collections.abc import Callable
@@ -370,6 +371,24 @@ class OverpassUnavailableError(RuntimeError):
     """Nessun server Overpass raggiungibile: errori di rete (es. Errno 101) su tutti gli endpoint."""
 
 
+class OverpassBusyError(RuntimeError):
+    """Server Overpass sovraccarichi (429/502/503): transitorio, si riprova dopo un'attesa."""
+
+
+_BUSY_STATUSES = frozenset({429, 502, 503})
+_SLOTS_LOCK = threading.Lock()
+_SLOTS: dict[int, threading.BoundedSemaphore] = {}
+
+
+def _overpass_slots(size: int) -> threading.BoundedSemaphore:
+    """Semaforo di processo: limita le richieste Overpass contemporanee di tutte le discovery."""
+    size = max(1, int(size))
+    with _SLOTS_LOCK:
+        if size not in _SLOTS:
+            _SLOTS[size] = threading.BoundedSemaphore(size)
+        return _SLOTS[size]
+
+
 def _host(url: str) -> str:
     return urlparse(url).hostname or url
 
@@ -439,13 +458,18 @@ class OpenStreetMapProvider:
         # nelle province vicine (es. Bergamo → Brescia).
         province_area = bool(scope and area.get("area_id"))
         search_area = {"area_id": area["area_id"]} if province_area else area
+        # Errori transitori (rete, server sovraccarichi; su città e regioni anche il timeout):
+        # stessa query ripetuta con attesa crescente. In provincia il timeout passa invece alla
+        # ricerca per comuni, che ha i suoi tentativi per gruppo.
+        transient: tuple[type[RuntimeError], ...] = (OverpassUnavailableError, OverpassBusyError)
+        if not province_area:
+            transient = (*transient, OverpassTimeoutError)
         try:
-            # Rete giù su tutti i server: si riprova con attesa crescente prima di arrendersi.
             elements = self._with_retry(
                 lambda: self._overpass(search_area, tags, fetch_limit),
-                retry_on=(OverpassUnavailableError,),
+                retry_on=transient,
                 on_retry=lambda attempt, attempts: stage(
-                    f"Overpass non raggiungibile · nuovo tentativo {attempt}/{attempts}"
+                    f"Overpass non disponibile · nuovo tentativo {attempt}/{attempts}"
                 ),
             )
         except OverpassTimeoutError as exc:
@@ -536,6 +560,9 @@ class OpenStreetMapProvider:
         query = _build_overpass_query(area, tags, limit, timeout_s, name_regex=name_regex)
         return self._post_overpass(query, timeout_s)
 
+    def _slot(self):
+        return _overpass_slots(self._settings.overpass_max_concurrency)
+
     def _overpass_timeout(self) -> int:
         return min(55, max(20, int(self._settings.discovery_timeout_seconds)))
 
@@ -554,7 +581,7 @@ class OpenStreetMapProvider:
             if empty_ok and url in self._unreachable_overpass:
                 continue
             try:
-                with httpx.Client(timeout=http_timeout, headers=headers) as client:
+                with self._slot(), httpx.Client(timeout=http_timeout, headers=headers) as client:
                     response = client.post(url, data={"data": query})
             except httpx.ConnectTimeout as exc:
                 unreachable.append(_host(url))
@@ -575,7 +602,8 @@ class OpenStreetMapProvider:
             self._unreachable_overpass.discard(url)
             if response.status_code >= 400:
                 timed_out = timed_out or response.status_code == 504
-                last_error = RuntimeError(overpass_error_message(response.status_code, response.text))
+                error_type = OverpassBusyError if response.status_code in _BUSY_STATUSES else RuntimeError
+                last_error = error_type(overpass_error_message(response.status_code, response.text))
                 continue
             try:
                 payload = response.json()

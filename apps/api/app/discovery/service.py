@@ -9,7 +9,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session, selectinload
 
 from app.config import Settings, get_settings
-from app.discovery.normalize import normalize_candidate
+from app.discovery.normalize import is_shared_host, normalize_candidate
 from app.discovery.provider import get_discovery_provider
 from app.discovery.types import DiscoveryCandidate
 from app.models.entities import Company, DiscoveryResult, DiscoveryRun, Website
@@ -155,8 +155,45 @@ def execute_discovery(run_id: UUID, settings: Settings | None = None) -> None:
 
 
 RETRYABLE_STATUSES = frozenset({"failed", "partial"})
-# Una ricerca "running"/"queued" da così tanto è rimasta orfana (es. API riavviata da un deploy).
-STALE_RUN_AFTER = timedelta(minutes=30)
+ACTIVE_STATUSES = ("queued", "running")
+
+
+def _aware(value: datetime | None) -> datetime | None:
+    if value is None:
+        return None
+    return value.replace(tzinfo=UTC) if value.tzinfo is None else value
+
+
+def fail_stale_runs(session: Session, *, settings: Settings | None = None, now: datetime | None = None) -> int:
+    """Le ricerche "queued"/"running" senza avanzamenti da troppo tempo diventano "failed".
+
+    I job vivono nel processo dell'API: dopo un riavvio (es. deploy) una ricerca in corso non
+    riprende più e prima restava "running" per ore. Si guarda l'ultimo avanzamento registrato,
+    così una ricerca lunga ma viva (es. per comuni) non viene toccata.
+    """
+    minutes = int((settings or get_settings()).discovery_stale_minutes)
+    if minutes <= 0:
+        return 0
+    current = now or datetime.now(UTC)
+    limit = current - timedelta(minutes=minutes)
+    changed = 0
+    for run in session.query(DiscoveryRun).filter(DiscoveryRun.status.in_(ACTIVE_STATUSES)):
+        last = _aware(run.heartbeat_at) or _aware(run.started_at) or _aware(run.created_at)
+        if last is None or last >= limit:
+            continue
+        stage = run.progress_label or run.status
+        run.status = "failed"
+        run.error_message = (
+            f"Ricerca interrotta: nessun avanzamento da oltre {minutes} minuti (ultima fase: «{stage}»), "
+            "probabilmente per un riavvio del server. Rilanciala con «Riprova ricerca» "
+            "(POST /discoveries/{id}/retry)."
+        )
+        run.progress_label = "Fallita · interrotta"[:128]
+        run.completed_at = current
+        changed += 1
+    if changed:
+        session.commit()
+    return changed
 
 
 def reset_discovery_for_retry(session: Session, run_id: UUID, *, now: datetime | None = None) -> DiscoveryRun:
@@ -164,27 +201,23 @@ def reset_discovery_for_retry(session: Session, run_id: UUID, *, now: datetime |
 
     I risultati già trovati restano collegati: il nuovo giro aggiunge solo le aziende mancanti.
     """
+    fail_stale_runs(session, now=now)
     run = session.get(DiscoveryRun, run_id)
     if run is None:
         raise DiscoveryServiceError("Discovery non trovata.", status_code=404)
-    current = now or datetime.now(UTC)
     if run.status not in RETRYABLE_STATUSES:
-        since = run.started_at or run.created_at
-        if since is not None and since.tzinfo is None:
-            since = since.replace(tzinfo=UTC)
-        stale = run.status in {"queued", "running"} and since is not None and current - since > STALE_RUN_AFTER
-        if not stale:
-            if run.status in {"queued", "running"}:
-                raise DiscoveryServiceError("La discovery è ancora in corso.", status_code=409)
-            raise DiscoveryServiceError(
-                "La discovery è già completata: avviane una nuova per ripetere la ricerca.", status_code=409
-            )
+        if run.status in ACTIVE_STATUSES:
+            raise DiscoveryServiceError("La discovery è ancora in corso.", status_code=409)
+        raise DiscoveryServiceError(
+            "La discovery è già completata: avviane una nuova per ripetere la ricerca.", status_code=409
+        )
     run.status = "queued"
     run.error_message = None
     run.started_at = None
     run.completed_at = None
     run.progress_percent = 0
     run.progress_label = "In coda · nuovo tentativo"
+    run.heartbeat_at = datetime.now(UTC)
     session.commit()
     session.refresh(run)
     return run
@@ -331,6 +364,7 @@ def enrich_company_from_places(session: Session, company: Company, settings: Set
 def _set_progress(session: Session, run: DiscoveryRun, percent: int, label: str) -> None:
     run.progress_percent = max(0, min(100, percent))
     run.progress_label = label
+    run.heartbeat_at = datetime.now(UTC)
     session.commit()
 
 
@@ -456,17 +490,29 @@ def _upsert_company(session: Session, candidate: DiscoveryCandidate) -> Company:
     return company
 
 
+def _only_company(session: Session, company_ids: set[UUID]) -> Company | None:
+    """Una chiave condivisa da più aziende è ambigua: non si fonde nulla (es. due "Bar Sport")."""
+    return session.get(Company, next(iter(company_ids))) if len(company_ids) == 1 else None
+
+
 def _find_duplicate(session: Session, candidate: DiscoveryCandidate) -> Company | None:
+    """Azienda già presente per lo stesso candidato, in modo deterministico.
+
+    Prima usava .one_or_none() anche su telefono, dominio e nome+città, che non sono unici:
+    con due righe uguali (sedi con lo stesso numero, omonimi nella stessa città, pagine
+    Facebook) la discovery falliva con "Multiple rows were found".
+    """
     if candidate.source and candidate.external_id:
         match = (
             session.query(Company)
             .filter_by(source=candidate.source, external_id=candidate.external_id)
-            .one_or_none()
+            .one_or_none()  # vincolo unico source+external_id
         )
         if match:
             return match
     if candidate.phone:
-        match = session.query(Company).filter_by(phone=candidate.phone).one_or_none()
+        ids = {row[0] for row in session.query(Company.id).filter(Company.phone == candidate.phone).limit(2)}
+        match = _only_company(session, ids)
         if match:
             return match
     if candidate.website_url:
@@ -478,16 +524,26 @@ def _find_duplicate(session: Session, candidate: DiscoveryCandidate) -> Company 
             website = session.query(Website).filter_by(normalized_url=normalized.normalized).one_or_none()
             if website and website.company_id:
                 return session.get(Company, website.company_id)
-            website = session.query(Website).filter_by(domain=normalized.domain).one_or_none()
-            if website and website.company_id:
-                return session.get(Company, website.company_id)
+            if not is_shared_host(normalized.domain):
+                ids = {
+                    row[0]
+                    for row in session.query(Website.company_id)
+                    .filter(Website.domain == normalized.domain, Website.company_id.isnot(None))
+                    .distinct()
+                    .limit(2)
+                }
+                match = _only_company(session, ids)
+                if match:
+                    return match
     if candidate.name and candidate.city:
-        return (
-            session.query(Company)
+        ids = {
+            row[0]
+            for row in session.query(Company.id)
             .filter(func.lower(Company.name) == candidate.name.lower())
             .filter(func.lower(Company.city) == candidate.city.lower())
-            .one_or_none()
-        )
+            .limit(2)
+        }
+        return _only_company(session, ids)
     return None
 
 
@@ -528,8 +584,11 @@ def _link_website(session: Session, company: Company, website_url: str) -> None:
     except UrlValidationError:
         return
     website = session.query(Website).filter_by(normalized_url=normalized.normalized).one_or_none()
-    if website is None:
-        website = session.query(Website).filter_by(domain=normalized.domain).one_or_none()
+    if website is None and not is_shared_host(normalized.domain):
+        same_domain = session.query(Website).filter_by(domain=normalized.domain).all()
+        if any(item.company_id == company.id for item in same_domain):
+            return  # l'azienda ha già un sito su questo dominio
+        website = next((item for item in same_domain if item.company_id is None), None)
     if website is None:
         website = Website(
             company_id=company.id,

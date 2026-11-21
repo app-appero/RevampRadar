@@ -7,6 +7,23 @@ from app.scanner.url import UrlValidationError, normalize_url
 
 _PHONE = re.compile(r"[^\d+]+")
 
+# Host condivisi da molte attività (pagine social, siti gratuiti, directory): il dominio non
+# identifica l'azienda. Vale solo l'URL completo (es. facebook.com/pagina-di-quella-attivita).
+SHARED_HOSTS = frozenset(
+    {
+        "facebook.com", "m.facebook.com", "fb.com", "business.facebook.com",
+        "instagram.com", "tiktok.com", "youtube.com", "x.com", "twitter.com", "linkedin.com",
+        "linktr.ee", "wa.me", "t.me",
+        "sites.google.com", "google.com", "maps.google.com", "g.page", "business.site",
+        "tripadvisor.it", "tripadvisor.com", "booking.com", "paginegialle.it", "paginebianche.it",
+    }
+)
+
+
+def is_shared_host(domain: str | None) -> bool:
+    host = (domain or "").strip().lower().rstrip(".").removeprefix("www.")
+    return host in SHARED_HOSTS
+
 
 def normalize_phone(raw: str | None) -> str | None:
     if not raw:

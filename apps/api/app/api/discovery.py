@@ -12,6 +12,7 @@ from app.discovery.service import (
     create_discovery_run,
     enrich_company_from_places,
     execute_discovery,
+    fail_stale_runs,
     get_company,
     list_companies,
     list_company_categories,
@@ -82,6 +83,7 @@ def post_discovery(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ) -> DiscoveryRunResponse:
+    fail_stale_runs(db)
     try:
         run = create_discovery_run(
             db,
@@ -105,9 +107,10 @@ def post_discovery(
     response_model=DiscoveryRunResponse,
     summary="Rilancia una discovery fallita",
     description=(
-        "Rimette in coda una discovery `failed` o `partial` (o rimasta `running`/`queued` da oltre "
-        "30 minuti, es. dopo un riavvio dell'API) con gli stessi parametri. I risultati già trovati "
-        "restano; il nuovo giro aggiunge le aziende mancanti. 409 se è completata o ancora in corso."
+        "Rimette in coda una discovery `failed` o `partial` con gli stessi parametri. Una ricerca "
+        "`running`/`queued` senza avanzamenti da oltre DISCOVERY_STALE_MINUTES (default 20) viene "
+        "prima segnata `failed` con il motivo (es. riavvio dell'API). I risultati già trovati restano; "
+        "il nuovo giro aggiunge le aziende mancanti. 409 se è completata o ancora in corso."
     ),
 )
 def post_discovery_retry(
@@ -130,6 +133,7 @@ def list_discoveries(
     limit: int = Query(8, ge=1, le=50),
     db: Session = Depends(get_db),
 ) -> list[DiscoveryRunSummary]:
+    fail_stale_runs(db)
     rows = db.query(DiscoveryRun).order_by(DiscoveryRun.created_at.desc()).limit(limit).all()
     return [
         DiscoveryRunSummary(
@@ -149,6 +153,7 @@ def list_discoveries(
 
 @router.get("/discoveries/{run_id}", response_model=DiscoveryRunResponse)
 def get_discovery(run_id: UUID, db: Session = Depends(get_db)) -> DiscoveryRunResponse:
+    fail_stale_runs(db)
     run = load_discovery_run(db, run_id)
     if run is None:
         raise HTTPException(status_code=404, detail="Discovery non trovata.")
